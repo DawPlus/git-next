@@ -901,7 +901,7 @@ export function renderSidebarHtml(state, notice = null) {
   const statusLabel = (code, untracked = false) => {
     if (untracked) return "신규";
     return ({
-      A: "추가",
+      A: "신규",
       M: "수정",
       D: "삭제",
       R: "이름",
@@ -923,13 +923,19 @@ export function renderSidebarHtml(state, notice = null) {
       node.files.push({ ...item, fileName });
     }
 
-    const renderNode = (node, depth = 0) => {
+    const renderNode = (node, depth = 0, parentPath = "") => {
       const folders = [...node.folders.entries()]
         .sort(([a], [b]) => a.localeCompare(b))
-        .map(([name, child]) => `<details class="scm-folder" open>
-          <summary style="--tree-depth:${depth}"><span class="folder-caret">›</span><span class="folder-name">${escapeHtml(name)}</span></summary>
-          ${renderNode(child, depth + 1)}
-        </details>`)
+        .map(([name, child]) => {
+          const path = parentPath ? `${parentPath}/${name}` : name;
+          const action = area === "staged" ? "sidebarUnstage" : "sidebarStage";
+          const symbol = area === "staged" ? "−" : "+";
+          const title = area === "staged" ? "폴더 전체 Unstage" : "폴더 전체 Stage";
+          return `<details class="scm-folder" open>
+            <summary style="--tree-depth:${depth}"><span class="folder-caret">›</span><svg class="folder-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M1.5 4.5h5l1.5 1.5h6.5v7.5h-13z"></path><path d="M1.5 4.5V3h4.5l1.5 1.5"></path></svg><span class="folder-name">${escapeHtml(name)}</span><button class="folder-action ${area === "staged" ? "unstage-control" : "stage-control"}" type="button" data-action="${action}" data-path="${escapeHtml(path)}" title="${title}">${symbol}</button></summary>
+            ${renderNode(child, depth + 1, path)}
+          </details>`;
+        })
         .join("");
 
       const files = [...node.files]
@@ -942,10 +948,13 @@ export function renderSidebarHtml(state, notice = null) {
           const symbol = area === "staged" ? "−" : "+";
           const title = area === "staged" ? "Staging에서 빼기" : "Staging에 넣기";
           return `<div class="scm-file tree-file" style="--tree-depth:${depth}">
-            <span class="file-spacer"></span>
-            <span class="path" title="${escapeHtml(item.path)}">${escapeHtml(item.fileName)}</span>
-            <span class="status ${untracked ? "new" : ""}">${escapeHtml(statusLabel(code, untracked))}</span>
-            <button class="mini-action" type="button" data-action="${action}" data-path="${escapeHtml(item.path)}" title="${title}">${symbol}</button>
+            <button class="file-open" type="button" data-action="sidebarDiff" data-path="${escapeHtml(item.path)}" title="변경 내용 비교">
+              <svg class="file-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 1.5h5l4 4v9h-9z"></path><path d="M8.5 1.8v4h3.8M5.5 8.5h5M5.5 11h5"></path></svg>
+              <span class="status ${untracked || code === "A" ? "new" : ""}">${escapeHtml(statusLabel(code, untracked))}</span>
+              <span class="path" title="${escapeHtml(item.path)}">${escapeHtml(item.fileName)}</span>
+            </button>
+            <button class="mini-action ${area === "staged" ? "unstage-control" : "stage-control"}" type="button" data-action="${action}" data-path="${escapeHtml(item.path)}" title="${title}">${symbol}</button>
+            <button class="mini-action revert-control" type="button" data-action="sidebarDiscard" data-path="${escapeHtml(item.path)}" data-untracked="${untracked ? "1" : "0"}" title="파일 변경 되돌리기">↶</button>
           </div>`;
         })
         .join("");
@@ -1037,6 +1046,13 @@ export function renderSidebarHtml(state, notice = null) {
       gap: 7px;
       min-width: 0;
     }
+    .repo-actions {
+      display: flex;
+      flex: none;
+      gap: 2px;
+    }
+    .repo-action { width: 24px; height: 24px; }
+    .repo-action:hover { transform: translateY(-1px); }
     .branch-dot {
       width: 7px;
       height: 7px;
@@ -1113,17 +1129,28 @@ export function renderSidebarHtml(state, notice = null) {
     }
     .commit-input {
       width: 100%;
-      min-height: 31px;
+      min-height: 34px;
       border: 1px solid var(--vscode-input-border, var(--vscode-panel-border));
-      border-radius: 5px;
+      border-radius: 7px;
       padding: 6px 8px;
       color: var(--vscode-input-foreground);
       background: var(--vscode-input-background);
       font: inherit;
       font-size: 12px;
       outline: none;
+      transition: border-color 120ms ease, box-shadow 120ms ease;
     }
-    .commit-input:focus { border-color: var(--vscode-focusBorder); }
+    .commit-input:focus {
+      border-color: var(--vscode-focusBorder);
+      box-shadow: 0 0 0 2px color-mix(in srgb, var(--vscode-focusBorder) 22%, transparent);
+    }
+    .commit-compose {
+      display: grid;
+      gap: 8px;
+      margin-top: 12px;
+      padding: 12px 1px 1px;
+      border-top: 1px solid color-mix(in srgb, var(--vscode-panel-border) 84%, transparent);
+    }
     .commit-row-actions {
       display: grid;
       grid-template-columns: 1fr auto;
@@ -1140,19 +1167,26 @@ export function renderSidebarHtml(state, notice = null) {
     }
     .scm-groups {
       display: grid;
-      gap: 7px;
+      gap: 8px;
       margin-top: 8px;
     }
     .scm-group {
       min-width: 0;
     }
+    .scm-card {
+      overflow: hidden;
+      border: 1px solid color-mix(in srgb, var(--vscode-panel-border) 82%, transparent);
+      border-radius: 7px;
+      background: color-mix(in srgb, var(--vscode-sideBar-background) 94%, var(--vscode-foreground));
+    }
     .scm-group-head {
       display: flex;
       align-items: center;
       gap: 7px;
-      min-height: 22px;
-      padding: 0 2px;
-      color: var(--vscode-descriptionForeground);
+      min-height: 27px;
+      padding: 2px 8px;
+      color: var(--vscode-foreground);
+      background: color-mix(in srgb, var(--vscode-list-inactiveSelectionBackground) 60%, transparent);
       font-size: 11px;
       font-weight: 650;
     }
@@ -1177,12 +1211,35 @@ export function renderSidebarHtml(state, notice = null) {
       background: var(--vscode-list-hoverBackground);
       border-radius: 3px;
     }
+    .scm-group-head .group-action:disabled {
+      opacity: .45;
+      cursor: default;
+    }
+    .scm-summary-actions .group-action {
+      border: 0;
+      padding: 1px 4px;
+      color: var(--vscode-descriptionForeground);
+      background: transparent;
+      cursor: pointer;
+      font-size: 11px;
+    }
+    .scm-summary-actions .group-action:hover {
+      color: var(--vscode-foreground);
+      background: var(--vscode-list-hoverBackground);
+      border-radius: 3px;
+    }
     .changes-mini {
       display: grid;
       gap: 0;
       max-height: 150px;
+      padding: 3px;
       overflow-y: auto;
       overflow-x: hidden;
+    }
+    .changes-mini .empty {
+      padding: 4px 2px;
+      color: var(--vscode-descriptionForeground);
+      font-size: 11px;
     }
     .scm-folder {
       min-width: 0;
@@ -1202,6 +1259,26 @@ export function renderSidebarHtml(state, notice = null) {
     }
     .scm-folder > summary::-webkit-details-marker { display: none; }
     .scm-folder > summary:hover { background: var(--vscode-list-hoverBackground); }
+    .folder-action {
+      display: grid;
+      place-items: center;
+      width: 22px;
+      height: 22px;
+      flex: none;
+      margin-left: auto;
+      border: 1px solid transparent;
+      border-radius: 5px;
+      cursor: pointer;
+      font-weight: 700;
+      transition: transform 100ms ease, border-color 120ms ease, background 120ms ease;
+    }
+    .folder-action:hover {
+      border-color: color-mix(in srgb, var(--vscode-focusBorder) 42%, var(--vscode-panel-border));
+      background: var(--vscode-list-hoverBackground);
+      transform: translateY(-1px);
+    }
+    .folder-action:active { transform: scale(.9); }
+    .folder-action:focus-visible { outline: 1px solid var(--vscode-focusBorder); outline-offset: 1px; }
     .folder-caret {
       width: 11px;
       flex: none;
@@ -1220,9 +1297,9 @@ export function renderSidebarHtml(state, notice = null) {
       font-weight: 550;
     }
     .scm-file {
-      min-height: 22px;
-      padding: 1px 2px;
-      border-radius: 3px;
+      min-height: 28px;
+      padding: 2px 4px;
+      border-radius: 5px;
       font-size: 11px;
     }
     .tree-file {
@@ -1233,6 +1310,34 @@ export function renderSidebarHtml(state, notice = null) {
       flex: none;
     }
     .scm-file:hover { background: var(--vscode-list-hoverBackground); }
+    .file-open {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      min-width: 0;
+      flex: 1;
+      border: 0;
+      border-radius: 4px;
+      padding: 1px 2px;
+      color: inherit;
+      background: transparent;
+      text-align: left;
+      font: inherit;
+      cursor: pointer;
+    }
+    .file-open:hover .path { color: var(--vscode-textLink-activeForeground); }
+    .file-open:focus-visible { outline: 1px solid var(--vscode-focusBorder); }
+    .folder-icon,
+    .file-icon {
+      width: 14px;
+      height: 14px;
+      flex: none;
+      fill: color-mix(in srgb, var(--vscode-descriptionForeground) 12%, transparent);
+      stroke: var(--vscode-descriptionForeground);
+      stroke-width: 1.15;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
     .scm-file .status {
       width: 28px;
       flex: none;
@@ -1252,18 +1357,46 @@ export function renderSidebarHtml(state, notice = null) {
       white-space: nowrap;
     }
     .scm-file .mini-action {
-      width: 20px;
-      height: 20px;
-      border: 0;
-      border-radius: 4px;
+      display: grid;
+      place-items: center;
+      width: 24px;
+      height: 24px;
+      flex: none;
+      border: 1px solid transparent;
+      border-radius: 6px;
       color: var(--vscode-descriptionForeground);
       background: transparent;
       cursor: pointer;
       font-weight: 700;
+      transition: transform 100ms ease, border-color 120ms ease, color 120ms ease, background 120ms ease;
     }
     .scm-file .mini-action:hover {
       color: var(--vscode-foreground);
+      border-color: color-mix(in srgb, var(--vscode-focusBorder) 42%, var(--vscode-panel-border));
       background: color-mix(in srgb, var(--vscode-list-hoverBackground) 78%, transparent);
+      transform: translateY(-1px);
+    }
+    .scm-file .mini-action:active {
+      transform: scale(.9);
+      background: var(--vscode-list-activeSelectionBackground);
+    }
+    .scm-file .mini-action:focus-visible {
+      outline: 1px solid var(--vscode-focusBorder);
+      outline-offset: 1px;
+    }
+    .scm-file .stage-control,
+    .folder-action.stage-control {
+      color: var(--vscode-gitDecoration-addedResourceForeground);
+      background: color-mix(in srgb, var(--vscode-gitDecoration-addedResourceForeground) 11%, transparent);
+    }
+    .scm-file .unstage-control,
+    .folder-action.unstage-control {
+      color: var(--vscode-editorWarning-foreground);
+      background: color-mix(in srgb, var(--vscode-editorWarning-foreground) 9%, transparent);
+    }
+    .scm-file .revert-control {
+      color: var(--vscode-editorError-foreground, var(--vscode-errorForeground));
+      background: color-mix(in srgb, var(--vscode-errorForeground) 9%, transparent);
     }
     .more-row {
       display: flex;
@@ -1498,10 +1631,17 @@ export function renderSidebarHtml(state, notice = null) {
       .stack { animation: none; }
       .icon-button,
       .primary,
+      .commit-input,
+      .scm-file .mini-action,
+      .folder-action,
+      .repo-action,
       .sync-button,
       .tool-button { transition: none; }
       .icon-button:hover,
       .primary:hover,
+      .scm-file .mini-action:hover,
+      .folder-action:hover,
+      .repo-action:hover,
       .sync-button:hover,
       .tool-button:hover { transform: none; }
     }
@@ -1520,22 +1660,40 @@ export function renderSidebarHtml(state, notice = null) {
         <span class="branch-dot" aria-hidden="true"></span>
         <div class="value">${escapeHtml(branch)}</div>
         <div class="tracking">${escapeHtml(tracking)}</div>
+        <div class="repo-actions">
+          <button class="icon-button repo-action" type="button" data-action="openGraph" aria-label="그래프" title="그래프">
+            <svg viewBox="0 0 24 24"><circle cx="6" cy="6" r="2.5"></circle><circle cx="18" cy="10" r="2.5"></circle><circle cx="8" cy="18" r="2.5"></circle><path d="M8 7.2 15.7 9M7 8.4l.8 7.1"></path></svg>
+          </button>
+          <button class="icon-button repo-action" type="button" data-action="openCompare" aria-label="Compare" title="Compare">
+            <svg viewBox="0 0 24 24"><path d="M7 4v12"></path><path d="m4 13 3 3 3-3"></path><path d="M17 20V8"></path><path d="m14 11 3-3 3 3"></path></svg>
+          </button>
+        </div>
       </div>
       <div class="sub">${escapeHtml(upstream)}</div>
     </section>
 
     ${nextAction ? `<section class="next-action"><strong>${escapeHtml(nextAction.title)}</strong><span>${escapeHtml(nextAction.detail)}</span></section>` : ""}
 
-    <section class="section">
-      <div class="sync-row">
-        <button class="sync-button" type="button" data-action="openGraph">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="6" r="2.5"></circle><circle cx="18" cy="10" r="2.5"></circle><circle cx="8" cy="18" r="2.5"></circle><path d="M8 7.2 15.7 9M7 8.4l.8 7.1"></path></svg>
-          <span>그래프</span>
-        </button>
-        <button class="sync-button" type="button" data-action="openCompare">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4v12"></path><path d="m4 13 3 3 3-3"></path><path d="M17 20V8"></path><path d="m14 11 3-3 3 3"></path></svg>
-          <span>Compare</span>
-        </button>
+    <section class="section source-control">
+      <div class="scm-head">
+        <div class="eyebrow">변경사항</div>
+        <div class="scm-summary-actions">
+          <span class="scm-count">${changes.length}</span>
+        </div>
+      </div>
+      <div class="scm-groups">
+        <div class="scm-group scm-card">
+          <div class="scm-group-head"><span class="group-title">Staged</span><span class="group-count">${stagedChanges.length}</span><button class="group-action" type="button" data-action="sidebarUnstageAll" title="전체 Unstage" ${stagedChanges.length ? "" : "disabled"}>전체 −</button></div>
+          <div class="changes-mini">${stagedRows || '<div class="empty">Staged 변경 없음</div>'}</div>
+        </div>
+        <div class="scm-group scm-card">
+          <div class="scm-group-head"><span class="group-title">변경사항</span><span class="group-count">${unstagedChanges.length}</span><button class="group-action" type="button" data-action="sidebarStageAll" title="전체 Stage" ${unstagedChanges.length ? "" : "disabled"}>전체 +</button></div>
+          <div class="changes-mini">${unstagedRows || '<div class="empty">미포함 변경 없음</div>'}</div>
+        </div>
+      </div>
+      <div class="commit-compose">
+        <input class="commit-input" id="sidebar-commit-message" type="text" placeholder="Commit message 입력" />
+        <button class="primary" type="button" data-action="sidebarCommit">Commit</button>
       </div>
     </section>
 
@@ -1598,11 +1756,16 @@ export function renderSidebarHtml(state, notice = null) {
   <script>
     const vscode = acquireVsCodeApi();
     for (const button of document.querySelectorAll("[data-action]")) {
-      button.addEventListener("click", () => {
+      button.addEventListener("click", (event) => {
+        if (button.classList.contains("folder-action")) {
+          event.preventDefault();
+          event.stopPropagation();
+        }
         vscode.postMessage({
           type: button.dataset.action,
           guideKey: button.dataset.guideKey ?? null,
           path: button.dataset.path ?? null,
+          untracked: button.dataset.untracked === "1",
           message: document.querySelector("#sidebar-commit-message")?.value ?? "",
         });
       });

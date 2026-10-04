@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
@@ -117,6 +117,19 @@ test("Safe Guard가 dirty working tree와 detached HEAD를 실제 저장소에�
 
   const head = await getHeadSafety(repo);
   assert.equal(head.detached, true);
+});
+
+test("unstaged 경로의 첫 글자와 porcelain 상태 열을 보존한다", async () => {
+  const repo = makeRepo();
+  mkdirSync(join(repo, "src"));
+  writeFileSync(join(repo, "src", "extension.js"), "before\n");
+  git(repo, ["add", "."]);
+  git(repo, ["commit", "-m", "base"]);
+  writeFileSync(join(repo, "src", "extension.js"), "after\n");
+
+  assert.deepEqual(await getWorkingTreeChanges(repo), [
+    { status: " M", path: "src/extension.js" },
+  ]);
 });
 
 test("Safe Guard가 dirty 자체는 허용하고 Remote와 겹치는 변경만 Pull 전에 막는다", async () => {

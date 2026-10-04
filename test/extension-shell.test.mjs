@@ -18,6 +18,10 @@ test("registers a visible Git Next activity-bar webview", () => {
   assert.match(source, /registerCommand\(["']gitNext\.open["']/);
   assert.match(source, /registerWebviewViewProvider/);
   assert.match(source, /gitNext\.sidebar/);
+  assert.match(source, /const serverRef = state\.upstream \?\? "HEAD"/);
+  assert.match(source, /const serverLabel = state\.upstream \? `\[서버\] \$\{serverRef\}`/);
+  assert.match(source, /\$\{serverLabel\} ↔ \[로컬\] \$\{path\}/);
+  assert.match(source, /message\?\.type === "sidebarDiscard"/);
   assert.ok(packageJson.activationEvents.includes("onView:gitNext.sidebar"));
   assert.equal(packageJson.contributes.viewsContainers.activitybar[0].id, "gitNext");
   assert.equal(packageJson.contributes.views.gitNext[0].id, "gitNext.sidebar");

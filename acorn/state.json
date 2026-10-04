@@ -1,0 +1,10 @@
+{
+	"version": 1,
+  "activeTicket": null,
+  "classification": null,
+  "phase": null,
+  "next": null,
+  "agentVerification": "pending",
+	"qa": "pending",
+	"updatedAt": null
+}

@@ -148,7 +148,8 @@ test("renders compact sidebar controls with graph action", () => {
   });
 
   assert.match(html, /data-action="openGraph"/);
-  assert.match(html, />그래프</);
+  assert.match(html, /aria-label="그래프"/);
+  assert.match(html, /aria-label="Compare"/);
   assert.match(html, /받기 · Pull/);
   assert.match(html, /보내기 · Push/);
   assert.match(html, /Safe Guard/);

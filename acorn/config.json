@@ -1,0 +1,45 @@
+{
+	"projectName": "git-next",
+	"coreSkills": [
+		"brain",
+		"caveman",
+		"ponytail"
+	],
+	"transport": {
+		"default": "economy"
+	},
+	"roles": {
+		"coordinator": {
+			"guide": "acorn/agents/coordinator.md"
+		},
+		"worker": {
+			"guide": "acorn/agents/worker.md"
+		},
+		"qa": {
+			"guide": "acorn/agents/qa.md",
+			"executor": "agent"
+		}
+	},
+	"workflow": {
+		"contextBudget": {
+			"relatedFiles": 2
+		},
+		"maxAgentRetries": 1,
+		"phases": [
+			"request",
+			"define",
+			"dispatch",
+			"worker",
+			"verify",
+			"coordinator_review",
+			"qa",
+			"done"
+		]
+	},
+	"validationCommands": [],
+	"docsConsistencyCommand": "node acorn/scripts/check-docs-consistency.cjs",
+	"projectDocsPath": "docs",
+	"codeMapPath": "docs/code_map.md",
+	"ticketBoardPath": "docs/tickets/board.md",
+	"ticketBodyPath": "docs/tickets/active/{ID}.md"
+}

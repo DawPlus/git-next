@@ -369,7 +369,7 @@ h1{font-size:19px}
 .stash-lines path{stroke:var(--vscode-charts-purple,var(--vscode-textLink-foreground));stroke-dasharray:4 3;opacity:.72}
 .term:hover .flow-track::before{background:color-mix(in srgb,var(--vscode-focusBorder) 52%,transparent)}
 .semantic-commit .flow-track::before,.semantic-commit .flow-track::after{display:block}
-.semantic-fetch .flow-track::after{display:none}
+.semantic-fetch .flow-track::after{display:block;right:auto;left:62%;transform:translate(-50%,-50%) rotate(-135deg)}
 .semantic-fetch .semantic-mark{left:62%;opacity:1;width:10px;height:10px;padding:0;border:1.5px solid var(--vscode-textLink-foreground);border-radius:50%;font-size:0}
 .semantic-fetch .flow-track::before{right:38%}
 .semantic-branch .flow-track::before,.semantic-branch .flow-track::after,
@@ -415,7 +415,7 @@ h1{font-size:19px}
 .example span{display:inline-block;margin-right:5px;color:var(--vscode-textLink-foreground);font-weight:700}
 @keyframes semCommit{0%,12%{left:4%;opacity:.2}55%,78%{left:78%;opacity:1;transform:translate(-50%,-50%) scale(1)}100%{left:78%;opacity:.2;transform:translate(-50%,-50%) scale(.72)}}
 @keyframes semPush{0%{left:2%;opacity:.1}18%{opacity:1}82%{left:98%;opacity:1}100%{left:98%;opacity:.1}}
-@keyframes semPull{0%{left:98%;opacity:.1}18%{opacity:1}82%{left:2%;opacity:1}100%{left:2%;opacity:.1}}
+@keyframes semPull{0%{left:2%;opacity:.1}18%{opacity:1}82%{left:98%;opacity:1}100%{left:98%;opacity:.1}}
 @keyframes semFetch{0%{left:96%;opacity:.15}55%{left:62%;opacity:1}75%{left:62%;opacity:1;transform:translate(-50%,-50%) scale(.8)}100%{left:62%;opacity:.2}}
 @keyframes semBranchA{0%,24%{left:10%;top:50%}72%,100%{left:90%;top:10%}}@keyframes semBranchB{0%,24%{left:10%;top:50%;opacity:.15}72%,100%{left:90%;top:90%;opacity:1}}
 @keyframes semHead{0%,20%{left:18%}50%{left:50%}80%,100%{left:82%}}

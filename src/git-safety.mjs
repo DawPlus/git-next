@@ -131,7 +131,12 @@ export async function getHeadSafety(cwd) {
 }
 
 export async function getWorkingTreeChanges(cwd) {
-  const output = await git(cwd, ["status", "--porcelain=v1", "--untracked-files=all"]);
+  const { stdout } = await execFileAsync("git", ["status", "--porcelain=v1", "--untracked-files=all"], {
+    cwd,
+    encoding: "utf8",
+    windowsHide: true,
+  });
+  const output = stdout.replace(/\r?\n$/, "");
   if (!output) {
     return [];
   }

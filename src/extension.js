@@ -27,6 +27,11 @@ function getCwd() {
   return vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? null;
 }
 
+async function getRepositoryRoot(cwd) {
+  const { getRepositoryState } = await import("./git-state.mjs");
+  return (await getRepositoryState(cwd)).root ?? cwd;
+}
+
 async function getState(cwd) {
   const [
     { getRepositoryState },
@@ -1073,6 +1078,33 @@ async function openLocalRemoteDiff(cwd, upstream, path) {
   );
 }
 
+async function openWorkingTreeDiff(cwd, path) {
+  const workflows = await import("./git-workflows.mjs");
+  const state = await (await import("./git-state.mjs")).getRepositoryState(cwd);
+  const root = state.root ?? cwd;
+  const serverRef = state.upstream ?? "HEAD";
+  const serverLabel = state.upstream ? `[서버] ${serverRef}` : "[서버] 원격 연결 없음 · HEAD";
+  const before = state.upstream || state.head
+    ? await workflows.readGitFile(root, serverRef, path)
+    : { ok: false, content: "" };
+  let after;
+  try {
+    after = await vscode.workspace.openTextDocument(vscode.Uri.file(require("node:path").join(root, path)));
+  } catch {
+    after = await vscode.workspace.openTextDocument({ content: "", language: "plaintext" });
+  }
+  const beforeDoc = await vscode.workspace.openTextDocument({
+    content: before.ok ? before.content : "",
+    language: after.languageId,
+  });
+  await vscode.commands.executeCommand(
+    "vscode.diff",
+    beforeDoc.uri,
+    after.uri,
+    `${serverLabel} ↔ [로컬] ${path}`,
+  );
+}
+
 async function openComparePanel(context) {
   const { renderCompareWorkspace } = await import("./workspace-views.mjs");
   const workflows = await import("./git-workflows.mjs");
@@ -1403,10 +1435,35 @@ async function initializeWebviewHost(host, context, mode) {
     if (message?.type === "sidebarStage" || message?.type === "sidebarUnstage") {
       const cwd = getCwd();
       if (!cwd || !message.path) return;
+      const root = await getRepositoryRoot(cwd);
       const workflows = await import("./git-workflows.mjs");
       const result = message.type === "sidebarStage"
-        ? await workflows.stageFile(cwd, message.path)
-        : await workflows.unstageFile(cwd, message.path);
+        ? await workflows.stageFile(root, message.path)
+        : await workflows.unstageFile(root, message.path);
+      await recordActivity(result);
+      await renderPanel(host, result, mode, options);
+      return;
+    }
+    if (message?.type === "sidebarDiff" && message.path) {
+      const cwd = getCwd();
+      if (cwd) await openWorkingTreeDiff(cwd, message.path);
+      return;
+    }
+    if (message?.type === "sidebarDiscard" && message.path) {
+      const cwd = getCwd();
+      if (!cwd) return;
+      const ok = await confirmMutation({
+        action: "파일 변경 되돌리기",
+        target: message.path,
+        effect: "선택한 파일의 Stage 및 로컬 변경을 버립니다.",
+        risk: "버린 변경은 Git Next에서 복구할 수 없을 수 있습니다.",
+        level: "warning",
+        confirmLabel: "변경 버리기",
+      });
+      if (!ok) return;
+      const workflows = await import("./git-workflows.mjs");
+      const root = await getRepositoryRoot(cwd);
+      const result = await workflows.discardFile(root, message.path, { untracked: message.untracked });
       await recordActivity(result);
       await renderPanel(host, result, mode, options);
       return;
@@ -1414,10 +1471,11 @@ async function initializeWebviewHost(host, context, mode) {
     if (message?.type === "sidebarStageAll" || message?.type === "sidebarUnstageAll") {
       const cwd = getCwd();
       if (!cwd) return;
+      const root = await getRepositoryRoot(cwd);
       const workflows = await import("./git-workflows.mjs");
       const result = message.type === "sidebarStageAll"
-        ? await workflows.stageAll(cwd)
-        : await workflows.unstageAll(cwd);
+        ? await workflows.stageAll(root)
+        : await workflows.unstageAll(root);
       await recordActivity(result);
       await renderPanel(host, result, mode, options);
       return;
@@ -1425,8 +1483,9 @@ async function initializeWebviewHost(host, context, mode) {
     if (message?.type === "sidebarCommit") {
       const cwd = getCwd();
       if (!cwd) return;
+      const root = await getRepositoryRoot(cwd);
       const workflows = await import("./git-workflows.mjs");
-      const staged = await workflows.getStagedFiles(cwd);
+      const staged = await workflows.getStagedFiles(root);
       const commitMessage = String(message.message ?? "").trim();
       if (!staged.length) {
         await renderPanel(host, { ok: false, level: "warning", message: "Commit할 Staged 파일이 없습니다." }, mode, options);
@@ -1444,7 +1503,7 @@ async function initializeWebviewHost(host, context, mode) {
         confirmLabel: "Commit",
       });
       if (!ok) return;
-      const result = await workflows.commitWithMessage(cwd, commitMessage);
+      const result = await workflows.commitWithMessage(root, commitMessage);
       await recordActivity(result);
       await renderPanel(host, result, mode, options);
       return;

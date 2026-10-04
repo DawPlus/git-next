@@ -34,7 +34,7 @@ test("renders Korean Git terminology guide", () => {
   assert.match(html, /prefers-reduced-motion/);
 });
 
-test("sidebar exposes terminology and repository tool actions", () => {
+test("sidebar exposes source control, terminology, and repository tool actions", () => {
   const html = renderSidebarHtml({
     kind: "repository",
     root: "/repo",
@@ -49,8 +49,8 @@ test("sidebar exposes terminology and repository tool actions", () => {
 
   assert.match(html, /data-action="openKnowledge"/);
   assert.match(html, /도움말/);
-  assert.doesNotMatch(html, /Source Control/);
-  assert.doesNotMatch(html, /data-action="sidebarCommit"/);
+  assert.match(html, /변경사항/);
+  assert.match(html, /data-action="sidebarCommit"/);
   assert.match(html, /data-toggle-tools/);
   assert.match(html, /data-action="branchMenu"/);
   assert.match(html, /data-action="tagMenu"/);

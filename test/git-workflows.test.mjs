@@ -8,6 +8,7 @@ import test from "node:test";
 
 import {
   compareBranches,
+  discardFile,
   derivePullRequestUrl,
   getChangeWorkspace,
   getCommitDetails,
@@ -121,6 +122,29 @@ test("stages and unstages all changes without touching file contents", async () 
   assert.equal(state.staged.length, 0);
   assert.equal(state.unstaged.some((file) => file.path === "app.txt"), true);
   assert.equal(state.unstaged.some((file) => file.path === "extra.txt"), true);
+});
+
+test("stages and unstages every changed file under a folder", async () => {
+  const cwd = await repo();
+  await exec("sh", ["-c", "mkdir -p src/nested && printf 'one\\n' > src/a.js && printf 'two\\n' > src/nested/b.js"], { cwd });
+
+  assert.equal((await stageFile(cwd, "src")).ok, true);
+  assert.deepEqual((await getStagedFiles(cwd)).map(({ path }) => path), ["src/a.js", "src/nested/b.js"]);
+
+  assert.equal((await unstageFile(cwd, "src")).ok, true);
+  assert.equal((await getStagedFiles(cwd)).length, 0);
+  assert.equal((await getChangeWorkspace(cwd)).unstaged.length, 2);
+});
+
+test("reverts a staged new file", async () => {
+  const cwd = await repo();
+  await exec("sh", ["-c", "mkdir -p src && printf 'new\\n' > src/new.js"], { cwd });
+  await git(cwd, "add", "src/new.js");
+
+  const result = await discardFile(cwd, "src/new.js", { added: true });
+
+  assert.equal(result.ok, true);
+  assert.equal((await getChangeWorkspace(cwd)).files.length, 0);
 });
 
 test("detects and resolves a merge conflict side", async () => {
