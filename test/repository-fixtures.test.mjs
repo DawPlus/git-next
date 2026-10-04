@@ -7,6 +7,7 @@ import test from "node:test";
 
 import { getLinkedWorktrees, getRepositoryState } from "../src/git-state.mjs";
 import { abortGitOperation, continueGitOperation, listConflictedFiles, resolveConflictSide } from "../src/git-workflows.mjs";
+import { pullRepository, pushRepository } from "../src/git-actions.mjs";
 import {
   detectRemoteHistoryRewrite,
   getHeadSafety,
@@ -119,6 +120,35 @@ test("원격 추적 상태의 ahead, behind, diverged를 실제 저장소로 판
   git(local, ["fetch", "origin"]);
   status = await getTrackingStatus(local);
   assert.equal(status.kind, "behind");
+});
+
+test("실제 Remote와 Pull/Push로 커밋을 주고받는다", async () => {
+  const remote = mkdtempSync(join(tmpdir(), "git-next-sync-remote-"));
+  git(remote, ["init", "--bare"]);
+
+  const local = makeRepo();
+  commit(local, "base.txt");
+  git(local, ["remote", "add", "origin", remote]);
+  git(local, ["push", "-u", "origin", "main"]);
+
+  const other = mkdtempSync(join(tmpdir(), "git-next-sync-other-"));
+  git(other, ["clone", "-b", "main", remote, "."]);
+  git(other, ["config", "user.name", "Git Next Test"]);
+  git(other, ["config", "user.email", "git-next@example.test"]);
+  commit(other, "remote.txt");
+  git(other, ["push", "origin", "main"]);
+
+  const beforePull = git(local, ["rev-parse", "HEAD"]);
+  const pull = await pullRepository(local);
+  assert.equal(pull.ok, true);
+  assert.notEqual(git(local, ["rev-parse", "HEAD"]), beforePull);
+  assert.equal(git(local, ["rev-parse", "HEAD"]), git(local, ["rev-parse", "origin/main"]));
+
+  commit(local, "local.txt");
+  const localHead = git(local, ["rev-parse", "HEAD"]);
+  const push = await pushRepository(local);
+  assert.equal(push.ok, true);
+  assert.equal(git(remote, ["rev-parse", "refs/heads/main"]), localHead);
 });
 
 test("Safe Guard가 dirty working tree와 detached HEAD를 실제 저장소에서 감지한다", async () => {

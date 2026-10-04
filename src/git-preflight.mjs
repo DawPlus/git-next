@@ -75,7 +75,7 @@ export async function detectRemoteHistoryRewrite(cwd) {
   }
 }
 
-export async function detectCachedRemoteHistoryRewrite(cwd, runGit = git) {
+export async function detectCachedRemoteHistoryRewrite(cwd, runGit = runGitInspection) {
   try {
     const upstream = await runGit(cwd, ["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"]);
     const after = await runGit(cwd, ["rev-parse", "@{u}"]);

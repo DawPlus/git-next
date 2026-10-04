@@ -314,9 +314,6 @@ async function runSyncAction(host, action, mode = "graph", options = {}) {
     import("./safe-guard.mjs"),
   ]);
   if (action === "pull") {
-    const tracking = await getTrackingStatus(cwd);
-    if (isPullUnnecessary(tracking)) return;
-
     const preflight = await preflightPullSafety(cwd);
     const guard = await evaluateSafeguards({
       action: "pull",
@@ -358,6 +355,19 @@ async function runSyncAction(host, action, mode = "graph", options = {}) {
           detail,
           message: guard.message,
         }),
+      }, mode, options);
+      return;
+    }
+
+    const freshTracking = await getTrackingStatus(cwd);
+    if (isPullUnnecessary(freshTracking)) {
+      await renderPanel(host, {
+        action: "pull",
+        ok: true,
+        level: "safe",
+        message: freshTracking.kind === "ahead"
+          ? "원격에서 받을 새 커밋은 없습니다. 로컬에만 아직 Push하지 않은 커밋이 있습니다."
+          : "이미 원격과 동기화된 상태입니다.",
       }, mode, options);
       return;
     }

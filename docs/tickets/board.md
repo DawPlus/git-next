@@ -47,6 +47,7 @@ This board is the status source of truth.
 | T-261005-10 | Refresh webviews with postMessage instead of full HTML replace | ready | worker | worker | implementation | 1+2 | [ticket](active/T-261005-10.md) | Preserve scroll and commit message draft |
 | T-261005-11 | Split extension.js webview message handler chain | ready | worker | worker | implementation | 1+2 | [ticket](active/T-261005-11.md) | Follow-up to T-261005-01 module refactor |
 | T-261005-12 | Deduplicate escapeHtml into view-shared.mjs | ready | worker | worker | implementation | 1+2 | [ticket](active/T-261005-12.md) | Drop local copies; use view-shared |
+| T-261005-13 | Slim extension.js into focused handlers and panels | ready | worker | worker | implementation | 1+2 | [ticket](active/T-261005-13.md) | Broader follow-up to T-261005-11; preserve behavior while reducing extension.js to activation shell |
 
 Allowed states: `draft`, `ready`, `in_progress`, `review`, `ready_for_qa`, `blocked`, `done`, `superseded`.
 
