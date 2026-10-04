@@ -1,4 +1,4 @@
-import { TERMS } from "./glossary-view.mjs";
+import { TERMS, SCENARIOS, getMatchingScenarios, getLiveTermExample } from "./glossary-view.mjs";
 import { GUIDES } from "./git-guide.mjs";
 
 function esc(value) {
@@ -32,7 +32,7 @@ h1,h2,h3,p{margin:0}h1{font-size:20px}.sub{margin-top:5px;color:var(--vscode-des
 .term,.guide-card{border:1px solid var(--vscode-panel-border);border-radius:8px;padding:14px;background:color-mix(in srgb,var(--vscode-editorWidget-background,var(--vscode-editor-background)) 72%,transparent);transition:transform 140ms ease,border-color 140ms ease,background 140ms ease;animation:knowledgeCardIn 220ms ease-out both}
 .term:nth-child(2),.guide-card:nth-child(2){animation-delay:35ms}.term:nth-child(3),.guide-card:nth-child(3){animation-delay:70ms}.term:nth-child(4),.guide-card:nth-child(4){animation-delay:105ms}.term:nth-child(5),.guide-card:nth-child(5){animation-delay:140ms}.term:nth-child(6),.guide-card:nth-child(6){animation-delay:175ms}
 .term:hover,.guide-card:hover{transform:translateY(-2px);border-color:color-mix(in srgb,var(--vscode-focusBorder) 70%,var(--vscode-panel-border));background:color-mix(in srgb,var(--vscode-list-hoverBackground) 58%,var(--vscode-editor-background))}
-.term-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}.term-ko{color:var(--vscode-descriptionForeground);font-size:13px}.term h2,.guide-card h2{font-size:15px}.term-kind{flex:none;padding:3px 8px;border:1px solid var(--vscode-panel-border);border-radius:999px;color:var(--vscode-descriptionForeground);font-size:12px}.summary{margin-top:9px;font-size:15px;line-height:1.55;font-weight:650}
+.term-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}.term-ko{color:var(--vscode-descriptionForeground);font-size:13px}.term h2,.live-example{margin-top:7px;padding:7px 8px;border-radius:6px;background:color-mix(in srgb,var(--vscode-textLink-foreground) 8%,transparent);font-size:11px;line-height:1.4}.live-example span{display:block;margin-bottom:2px;color:var(--vscode-textLink-foreground);font-size:10px;font-weight:700}.scenario-heading{grid-column:1/-1}.scenario-match{display:inline-block;margin-left:6px;padding:2px 6px;border-radius:10px;background:var(--vscode-testing-iconPassed);color:var(--vscode-editor-background);font-size:10px;vertical-align:middle}.scenario-card.matches-state{border-color:var(--vscode-testing-iconPassed)}.guide-card h2{font-size:15px}.term-kind{flex:none;padding:3px 8px;border:1px solid var(--vscode-panel-border);border-radius:999px;color:var(--vscode-descriptionForeground);font-size:12px}.summary{margin-top:9px;font-size:15px;line-height:1.55;font-weight:650}
 .flow{display:grid;grid-template-columns:minmax(84px,auto) minmax(70px,1fr) minmax(84px,auto);align-items:center;gap:8px;margin-top:13px}.flow-node{display:flex;align-items:center;gap:6px;min-width:0;padding:6px 8px;border:1px solid transparent;border-radius:6px;font-size:12px;font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.flow-icon{display:inline-grid;place-items:center;flex:none;width:20px;height:20px;border-radius:5px}.flow-icon svg{width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
 .flow-node.work{color:var(--vscode-gitDecoration-modifiedResourceForeground);background:color-mix(in srgb,var(--vscode-gitDecoration-modifiedResourceForeground) 10%,transparent);border-color:color-mix(in srgb,var(--vscode-gitDecoration-modifiedResourceForeground) 28%,transparent)}
 .flow-node.local,.flow-node.commit{color:var(--vscode-textLink-foreground);background:color-mix(in srgb,var(--vscode-textLink-foreground) 10%,transparent);border-color:color-mix(in srgb,var(--vscode-textLink-foreground) 28%,transparent)}
@@ -110,9 +110,9 @@ h1,h2,h3,p{margin:0}h1{font-size:20px}.sub{margin-top:5px;color:var(--vscode-des
 .semantic-force-push .actor-a{animation:semForce 1.9s cubic-bezier(.2,.85,.3,1) infinite}.semantic-force-push .actor-b{opacity:1;color:var(--vscode-errorForeground);animation:semRemoteReplace 1.9s ease-in-out infinite}
 .term:hover .actor-a,.term:hover .actor-b,.term:hover .semantic-mark{animation-duration:1.55s}
 .effect{margin-top:11px;padding-top:10px;border-top:1px solid color-mix(in srgb,var(--vscode-panel-border) 70%,transparent);color:var(--vscode-descriptionForeground);font-size:13px;line-height:1.55}.example{margin-top:7px;font-size:13px;line-height:1.55}.example span{margin-right:7px;color:var(--vscode-textLink-foreground);font-weight:700}
-.guide-card p{margin-top:6px;color:var(--vscode-descriptionForeground);font-size:12px;line-height:1.55}.guide-visual{position:relative;height:44px;margin-top:11px;border:1px solid color-mix(in srgb,var(--vscode-panel-border) 72%,transparent);border-radius:7px;background:color-mix(in srgb,var(--vscode-editor-background) 86%,transparent);overflow:hidden}.guide-visual::before{content:"";position:absolute;left:12%;right:12%;top:50%;height:1px;background:color-mix(in srgb,var(--vscode-descriptionForeground) 42%,transparent)}.guide-node,.guide-token,.guide-warning{position:absolute;top:50%;transform:translate(-50%,-50%)}.guide-node{width:10px;height:10px;border:2px solid currentColor;border-radius:50%;background:var(--vscode-editor-background)}.guide-node.a{left:16%;color:var(--vscode-textLink-foreground)}.guide-node.b{left:84%;color:var(--vscode-charts-blue,var(--vscode-textLink-foreground))}.guide-token{left:16%;width:14px;height:14px;border-radius:4px;background:var(--vscode-textLink-foreground);opacity:.9}.guide-warning{left:50%;color:var(--vscode-editorWarning-foreground);font-weight:800;font-size:14px;opacity:0}.guide-visual.incoming .guide-token{animation:guideIncoming 2.2s ease-in-out infinite}.guide-visual.push .guide-token{animation:guidePushReject 2.1s ease-in-out infinite}.guide-visual.push .guide-warning{opacity:1;animation:guideWarn 2.1s ease-in-out infinite}.guide-visual.split::before{left:16%;right:50%}.guide-visual.split::after{content:"";position:absolute;left:48%;top:50%;width:36%;height:24px;border-top:1.5px solid var(--vscode-textLink-foreground);border-bottom:1.5px solid var(--vscode-charts-blue,var(--vscode-textLink-foreground));transform:translateY(-50%) skewY(-10deg);opacity:.8}.guide-visual.detached .guide-token{animation:guideDetach 2.4s ease-in-out infinite}.guide-visual.stash .guide-token{animation:guideStash 2.3s ease-in-out infinite}.guide-visual.stage .guide-token{animation:guideStage 2.1s ease-in-out infinite}.guide-visual.branch .guide-token{animation:guideBranch 2.2s ease-in-out infinite}.guide-visual.history .guide-token{animation:guideHistory 2.2s ease-in-out infinite}.guide-example{margin-top:10px;padding:9px 10px;border-left:3px solid var(--vscode-textLink-foreground);border-radius:5px;background:color-mix(in srgb,var(--vscode-textLink-foreground) 7%,transparent);font-size:12px;line-height:1.55}.guide-example strong{display:block;margin-bottom:3px;color:var(--vscode-foreground);font-size:11px}.guide-steps-title{margin-top:11px;font-size:11px;font-weight:700;color:var(--vscode-foreground)}.guide-card ol{margin:6px 0 0;padding-left:19px}.guide-card li{margin:6px 0;font-size:12px;line-height:1.5}.avoid{margin-top:10px;padding-top:8px;border-top:1px solid var(--vscode-panel-border);font-size:11px;color:var(--vscode-editorWarning-foreground)}
+.guide-card p{margin-top:6px;color:var(--vscode-descriptionForeground);font-size:12px;line-height:1.55}.guide-visual{position:relative;height:52px;margin-top:11px;border:1px solid color-mix(in srgb,var(--vscode-panel-border) 72%,transparent);border-radius:8px;background:color-mix(in srgb,var(--vscode-editor-background) 86%,transparent);overflow:hidden}.guide-line{position:absolute;left:16%;right:16%;top:50%;height:1px;background:color-mix(in srgb,var(--vscode-descriptionForeground) 45%,transparent)}.guide-path{display:none;position:absolute;inset:0;width:100%;height:100%;overflow:visible}.guide-path path{display:none;fill:none;stroke:color-mix(in srgb,var(--vscode-descriptionForeground) 52%,transparent);stroke-width:1.4;vector-effect:non-scaling-stroke;stroke-linecap:round}.guide-path .local{stroke:var(--vscode-textLink-foreground)}.guide-path .remote{stroke:var(--vscode-charts-blue,var(--vscode-textLink-foreground))}.guide-path .stash{stroke:var(--vscode-charts-purple,var(--vscode-textLink-foreground));stroke-dasharray:3 3}.guide-visual.split .split-path,.guide-visual.stash .stash-path,.guide-visual.detached .detached-path{display:block}.guide-node,.guide-token,.guide-warning{position:absolute;top:50%;transform:translate(-50%,-50%);z-index:2}.guide-node{width:10px;height:10px;border:2px solid currentColor;border-radius:50%;background:var(--vscode-editor-background)}.guide-node.a{left:16%;color:var(--vscode-textLink-foreground)}.guide-node.b{left:84%;color:var(--vscode-charts-blue,var(--vscode-textLink-foreground))}.guide-token{left:16%;width:13px;height:13px;border-radius:4px;background:var(--vscode-textLink-foreground);opacity:.9;box-shadow:0 0 0 2px color-mix(in srgb,var(--vscode-textLink-foreground) 14%,transparent)}.guide-token.b{display:none;background:var(--vscode-charts-blue,var(--vscode-textLink-foreground));box-shadow:0 0 0 2px color-mix(in srgb,var(--vscode-charts-blue,var(--vscode-textLink-foreground)) 14%,transparent)}.guide-warning{left:50%;color:var(--vscode-editorWarning-foreground);font-weight:800;font-size:15px;opacity:0}.guide-visual.incoming .guide-token.a{animation:guideIncoming 2.2s ease-in-out infinite}.guide-visual.push .guide-token.a{animation:guidePushReject 2.15s ease-in-out infinite}.guide-visual.push .guide-warning{animation:guideWarn 2.15s ease-in-out infinite}.guide-visual.conflict .guide-token.a{animation:guideConflictA 2s ease-in-out infinite}.guide-visual.conflict .guide-token.b{display:block;animation:guideConflictB 2s ease-in-out infinite}.guide-visual.conflict .guide-warning{animation:guideConflictWarn 2s ease-in-out infinite}.guide-visual.split .guide-line{display:none}.guide-visual.split .guide-path{display:block}.guide-visual.split .guide-node.a{left:84%;top:26%}.guide-visual.split .guide-node.b{top:74%}.guide-visual.split .guide-token.a{left:48%;animation:guideSplitA 2.35s ease-in-out infinite}.guide-visual.split .guide-token.b{display:block;left:48%;animation:guideSplitB 2.35s ease-in-out infinite}.guide-visual.detached .guide-path,.guide-visual.stash .guide-path{display:block}.guide-visual.detached .guide-line,.guide-visual.stash .guide-line{display:none}.guide-visual.detached .guide-token.a{animation:guideDetach 2.35s ease-in-out infinite}.guide-visual.stash .guide-token.a{animation:guideStash 2.3s ease-in-out infinite}.guide-visual.stage .guide-token.a{animation:guideStage 2.1s ease-in-out infinite}.guide-visual.branch .guide-token.a{animation:guideBranch 2.2s ease-in-out infinite}.guide-visual.blocked .guide-token.a{animation:guideBlocked 2.15s ease-in-out infinite}.guide-visual.blocked .guide-warning{animation:guideBlockedWarn 2.15s ease-in-out infinite}.guide-visual.recovery .guide-token.a{left:78%;animation:guideRecovery 2.2s ease-in-out infinite}.guide-visual.operation .guide-token.a{animation:guideOperation 2.2s ease-in-out infinite}.guide-visual.operation .guide-warning{animation:guideOperationWarn 2.2s ease-in-out infinite}.guide-visual.rewrite .guide-token.a{animation:guideRewrite 2.25s ease-in-out infinite}.guide-visual.rewrite .guide-node.b{animation:guideRemotePulse 2.25s ease-in-out infinite}.guide-visual.remote-gone .guide-token.a{animation:guideBranch 2.2s ease-in-out infinite}.guide-visual.remote-gone .guide-node.b{animation:guideRemoteGone 2.2s ease-in-out infinite}.guide-example{margin-top:10px;padding:9px 10px;border-left:3px solid var(--vscode-textLink-foreground);border-radius:5px;background:color-mix(in srgb,var(--vscode-textLink-foreground) 7%,transparent);font-size:12px;line-height:1.55}.guide-example strong{display:block;margin-bottom:3px;color:var(--vscode-foreground);font-size:11px}.guide-steps-title{margin-top:11px;font-size:11px;font-weight:700;color:var(--vscode-foreground)}.guide-card ol{margin:6px 0 0;padding-left:19px}.guide-card li{margin:6px 0;font-size:12px;line-height:1.5}.avoid{margin-top:10px;padding-top:8px;border-top:1px solid var(--vscode-panel-border);font-size:11px;color:var(--vscode-editorWarning-foreground)}
 .guide-card:target{border-color:var(--vscode-focusBorder);box-shadow:0 0 0 1px color-mix(in srgb,var(--vscode-focusBorder) 24%,transparent)}
-@keyframes knowledgeCardIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}@keyframes guideIncoming{0%,18%{left:84%;opacity:.25}72%,100%{left:16%;opacity:1}}@keyframes guidePushReject{0%,18%{left:16%;opacity:.9}58%{left:66%;opacity:1}72%,100%{left:48%;opacity:.35}}@keyframes guideWarn{0%,42%{opacity:0;transform:translate(-50%,-50%) scale(.6)}58%,82%{opacity:1;transform:translate(-50%,-50%) scale(1.05)}100%{opacity:0}}@keyframes guideDetach{0%,28%{left:72%;top:50%}66%,100%{left:48%;top:20%}}@keyframes guideStash{0%,18%{left:22%;top:50%}62%,100%{left:72%;top:20%}}@keyframes guideStage{0%,18%{left:18%;opacity:.35}62%,100%{left:50%;opacity:1}}@keyframes guideBranch{0%,20%{left:22%;top:50%}62%,100%{left:76%;top:24%}}@keyframes guideHistory{0%,18%{left:76%;opacity:1}68%,100%{left:28%;opacity:.55}}@keyframes semCommit{0%,12%{left:4%;opacity:.2}55%,78%{left:78%;opacity:1;transform:translate(-50%,-50%) scale(1)}100%{left:78%;opacity:.2;transform:translate(-50%,-50%) scale(.72)}}
+@keyframes knowledgeCardIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}@keyframes guideIncoming{0%,14%{left:84%;opacity:.25}72%,88%{left:16%;opacity:1}100%{left:16%;opacity:.25}}@keyframes guidePushReject{0%,16%{left:16%;opacity:.9}58%{left:72%;opacity:1}72%{left:61%;opacity:1}88%,100%{left:61%;opacity:.25}}@keyframes guideWarn{0%,46%{opacity:0;transform:translate(-50%,-50%) scale(.6)}58%,76%{opacity:1;transform:translate(-50%,-50%) scale(1.05)}100%{opacity:0}}@keyframes guideConflictA{0%,18%{left:16%}55%,72%{left:46%}100%{left:40%}}@keyframes guideConflictB{0%,18%{left:84%}55%,72%{left:54%}100%{left:60%}}@keyframes guideConflictWarn{0%,42%{opacity:0}55%,80%{opacity:1;transform:translate(-50%,-50%) scale(1.08)}100%{opacity:0}}@keyframes guideSplitA{0%,18%{left:48%;top:50%;opacity:.3}68%,88%{left:82%;top:26%;opacity:1}100%{left:82%;top:26%;opacity:.25}}@keyframes guideSplitB{0%,18%{left:48%;top:50%;opacity:.3}68%,88%{left:82%;top:74%;opacity:1}100%{left:82%;top:74%;opacity:.25}}@keyframes guideDetach{0%,24%{left:78%;top:50%}68%,88%{left:52%;top:20%}100%{left:52%;top:20%;opacity:.3}}@keyframes guideStash{0%,18%{left:20%;top:50%}62%,84%{left:70%;top:22%}100%{left:70%;top:22%;opacity:.3}}@keyframes guideStage{0%,16%{left:18%;opacity:.35}66%,88%{left:50%;opacity:1}100%{left:50%;opacity:.3}}@keyframes guideBranch{0%,18%{left:22%;top:50%}68%,88%{left:78%;top:50%}100%{left:78%;top:50%;opacity:.3}}@keyframes guideBlocked{0%,18%{left:22%;top:50%;opacity:.9}54%{left:58%;top:50%;opacity:1}68%{left:50%;top:50%;opacity:1}86%,100%{left:50%;top:50%;opacity:.3}}@keyframes guideBlockedWarn{0%,44%{opacity:0}54%,78%{opacity:1;transform:translate(-50%,-50%) scale(1.05)}100%{opacity:0}}@keyframes guideRecovery{0%,16%{left:78%;opacity:1}70%,88%{left:26%;opacity:1}100%{left:26%;opacity:.3}}@keyframes guideOperation{0%,18%{left:20%}42%{left:44%}58%,78%{left:50%}100%{left:50%;opacity:.3}}@keyframes guideOperationWarn{0%,45%{opacity:0}58%,82%{opacity:1}100%{opacity:0}}@keyframes guideRewrite{0%,16%{left:18%;opacity:.4}58%,76%{left:82%;opacity:1}84%{left:70%;opacity:.5}100%{left:82%;opacity:.25}}@keyframes guideRemotePulse{0%,42%,100%{transform:translate(-50%,-50%) scale(1);opacity:1}62%{transform:translate(-50%,-50%) scale(1.45);opacity:.35}}@keyframes guideRemoteGone{0%,42%{opacity:1;transform:translate(-50%,-50%) scale(1)}72%,100%{opacity:.08;transform:translate(-50%,-50%) scale(.45)}}@keyframes semCommit{0%,12%{left:4%;opacity:.2}55%,78%{left:78%;opacity:1;transform:translate(-50%,-50%) scale(1)}100%{left:78%;opacity:.2;transform:translate(-50%,-50%) scale(.72)}}
 @keyframes semPush{0%{left:2%;opacity:.1}18%{opacity:1}82%{left:98%;opacity:1}100%{left:98%;opacity:.1}}
 @keyframes semPull{0%{left:2%;opacity:.1}18%{opacity:1}82%{left:98%;opacity:1}100%{left:98%;opacity:.1}}
 @keyframes semFetch{0%{left:96%;opacity:.15}55%{left:62%;opacity:1}75%{left:62%;opacity:1;transform:translate(-50%,-50%) scale(.8)}100%{left:62%;opacity:.2}}
@@ -279,8 +279,9 @@ function renderKnowledgeFlow(flow, tone, animation = "push") {
 }
 
 export function renderCommitDetailsWorkspace(details) {
+  const script = `const vscode=acquireVsCodeApi();for(const b of document.querySelectorAll("[data-action]"))b.addEventListener("click",()=>vscode.postMessage({type:b.dataset.action,path:b.dataset.path,oldPath:b.dataset.oldPath||null}));`;
   if (!details?.ok) {
-    return shell("Git Next · Commit", `<header><div><h1>Commit 상세</h1><div class="sub">${esc(details?.message ?? "커밋 정보를 읽지 못했습니다.")}</div></div></header><div class="empty">${esc(details?.detail ?? "")}</div>`);
+    return shell("Git Next · Commit", `<header><div><h1>Commit 상세</h1><div class="sub">${esc(details?.message ?? "커밋 정보를 읽지 못했습니다.")}</div></div><div class="toolbar"><button class="btn" type="button" data-action="back-to-graph">← 그래프로 돌아가기</button></div></header><div class="empty">${esc(details?.detail ?? "")}</div>`, script);
   }
 
   const files = details.files.map((file) => `<button class="file commit-file" type="button" data-action="open-commit-diff" data-path="${esc(file.path)}" data-old-path="${esc(file.oldPath ?? "")}">
@@ -293,7 +294,7 @@ export function renderCommitDetailsWorkspace(details) {
     ? details.parents.map((parent) => `<code>${esc(parent.slice(0, 10))}</code>`).join(" · ")
     : "Root commit";
 
-  const body = `<header><div><h1>Commit 상세</h1><div class="sub">그래프에서 선택한 Commit이 실제로 바꾼 파일을 확인합니다.</div></div></header>
+  const body = `<header><div><h1>Commit 상세</h1><div class="sub">그래프에서 선택한 Commit이 실제로 바꾼 파일을 확인합니다.</div></div><div class="toolbar"><button class="btn" type="button" data-action="back-to-graph">← 그래프로 돌아가기</button></div></header>
   <section class="card">
     <h2>${esc(details.message.split("\n")[0] || "(메시지 없음)")}</h2>
     <div class="meta" style="margin-top:8px">${esc(details.id)} · ${esc(details.author)} &lt;${esc(details.email)}&gt;</div>
@@ -305,32 +306,46 @@ export function renderCommitDetailsWorkspace(details) {
     <div class="card list">${files || '<div class="empty">변경 파일이 없습니다.</div>'}</div>
   </section>`;
 
-  const script = `const vscode=acquireVsCodeApi();for(const b of document.querySelectorAll("[data-action]"))b.addEventListener("click",()=>vscode.postMessage({type:b.dataset.action,path:b.dataset.path,oldPath:b.dataset.oldPath||null}));`;
   return shell("Git Next · Commit 상세", body, script);
 }
 
 function guideVisualKind(key) {
-  if (/dirty-pull|pull-conflict|fetch-vs-pull/.test(key)) return "incoming";
+  if (/dirty-pull|fetch-vs-pull/.test(key)) return "incoming";
+  if (/pull-conflict|merge-in-progress/.test(key)) return "conflict";
   if (/push-rejected/.test(key)) return "push";
   if (/diverged|merge-vs-rebase/.test(key)) return "split";
   if (/detached-head/.test(key)) return "detached";
-  if (/stash-before-risk|stash-apply-vs-pop|switch-with-changes/.test(key)) return "stash";
+  if (/stash-before-risk|stash-apply-vs-pop/.test(key)) return "stash";
+  if (/switch-with-changes/.test(key)) return "blocked";
   if (/wrong-staged-file/.test(key)) return "stage";
-  if (/no-upstream|worked-on-wrong-branch|remote-branch-gone/.test(key)) return "branch";
-  return "history";
+  if (/operation-in-progress/.test(key)) return "operation";
+  if (/undo-local-commit|pushed-recovery|reset-mistake/.test(key)) return "recovery";
+  if (/remote-rewritten/.test(key)) return "rewrite";
+  if (/remote-branch-gone/.test(key)) return "remote-gone";
+  if (/no-upstream|worked-on-wrong-branch/.test(key)) return "branch";
+  return "incoming";
 }
 
 function renderGuideVisual(key) {
   const kind = guideVisualKind(key);
   return `<div class="guide-visual ${kind}" aria-hidden="true">
+    <span class="guide-line"></span>
+    <svg class="guide-path" viewBox="0 0 100 52" preserveAspectRatio="none">
+      <path class="split-path" d="M16 26 H48"></path>
+      <path class="split-path local" d="M48 26 L84 13.5"></path>
+      <path class="split-path remote" d="M48 26 L84 38.5"></path>
+      <path class="stash-path stash" d="M20 26 L70 11.5"></path>
+      <path class="detached-path local" d="M78 26 L52 10.5"></path>
+    </svg>
     <span class="guide-node a"></span>
     <span class="guide-node b"></span>
-    <span class="guide-token"></span>
+    <span class="guide-token a"></span>
+    <span class="guide-token b"></span>
     <span class="guide-warning">×</span>
   </div>`;
 }
 
-export function renderKnowledgeCenter({ tab = "terms", selected = null } = {}) {
+export function renderKnowledgeCenter({ tab = "terms", selected = null, state = null } = {}) {
   const termCards = TERMS.map((t) => `<article class="term knowledge ${esc(t.tone)}" data-search="${esc([t.term,t.ko,t.summary,t.effect,t.example,...t.flow].join(" ").toLowerCase())}">
     <div class="term-head">
       <div><div class="term-ko">${esc(t.ko)}</div><h2>${esc(t.term)}</h2></div>
@@ -340,6 +355,7 @@ export function renderKnowledgeCenter({ tab = "terms", selected = null } = {}) {
     ${renderKnowledgeFlow(t.flow, t.tone, t.animation)}
     <div class="effect">${esc(t.effect)}</div>
     <div class="example"><span>예시</span>${esc(t.example)}</div>
+    ${getLiveTermExample(t.term, state) ? `<div class="live-example"><span>현재 저장소</span>${esc(getLiveTermExample(t.term, state))}</div>` : ""}
   </article>`).join("");
 
   const guideCards = Object.entries(GUIDES).map(([key, g]) => `<article class="guide-card knowledge" id="${esc(key)}" data-search="${esc([g.title,g.summary,g.example,...g.steps,g.avoid].join(" ").toLowerCase())}">
@@ -352,13 +368,20 @@ export function renderKnowledgeCenter({ tab = "terms", selected = null } = {}) {
     <div class="avoid"><strong>피할 것</strong> ${esc(g.avoid)}</div>
   </article>`).join("");
 
+  const matchedScenarios = getMatchingScenarios(state);
+  const scenarioCards = SCENARIOS.map((scenario) => `<article class="guide-card knowledge scenario-card ${matchedScenarios.has(scenario.id) ? "matches-state" : ""}" id="scenario-${esc(scenario.id)}" data-search="${esc(Object.values(scenario).filter((value) => typeof value === "string").join(" ").toLowerCase())}">
+    <h2>${esc(scenario.title)}${matchedScenarios.has(scenario.id) ? ` <span class="scenario-match">현재 저장소와 비슷해요</span>` : ""}</h2>
+    <p><strong>상태</strong> ${esc(scenario.state)}</p>
+    <p><strong>위험</strong> ${esc(scenario.risk)}</p>
+    <p><strong>다음 행동</strong> ${esc(scenario.next)}</p>
+  </article>`).join("");
   const activeTab = selected ? "guides" : tab;
   const body = `<input class="tab-radio" id="knowledge-tab-terms" name="knowledge-tab" type="radio" ${activeTab==="terms"?"checked":""} />
   <input class="tab-radio" id="knowledge-tab-guides" name="knowledge-tab" type="radio" ${activeTab==="guides"?"checked":""} />
   <header><div><h1>Git 도움말</h1><div class="sub">용어의 흐름과 실제 상황 해결법을 한곳에서 봅니다.</div></div><div class="tabs"><label class="tab" for="knowledge-tab-terms">용어</label><label class="tab" for="knowledge-tab-guides">상황별 가이드</label></div></header>
   <input id="q" class="input" type="search" placeholder="용어 또는 상황 검색" />
   <section id="terms" class="section knowledge-grid">${termCards}</section>
-  <section id="guides" class="section knowledge-grid">${guideCards}</section>`;
+  <section id="guides" class="section knowledge-grid"><h2 class="scenario-heading">상황별 시나리오</h2>${scenarioCards}${guideCards}</section>`;
 
   const script = `const selected=${JSON.stringify(selected)};const q=document.querySelector("#q");function filter(){const s=q.value.trim().toLowerCase();for(const el of document.querySelectorAll(".knowledge"))el.hidden=Boolean(s)&&!el.dataset.search.includes(s);}q?.addEventListener("input",filter);if(selected){requestAnimationFrame(()=>document.getElementById(selected)?.scrollIntoView({block:"start"}));}`;
   return shell("Git Next · 도움말", body, script);

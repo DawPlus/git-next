@@ -5,13 +5,15 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 
-import { getRepositoryState } from "../src/git-state.mjs";
+import { getLinkedWorktrees, getRepositoryState } from "../src/git-state.mjs";
+import { abortGitOperation, continueGitOperation, listConflictedFiles, resolveConflictSide } from "../src/git-workflows.mjs";
 import {
   detectRemoteHistoryRewrite,
   getHeadSafety,
   getInProgressOperation,
   getTrackingStatus,
   getWorkingTreeChanges,
+  inspectCurrentUpstream,
   preflightPullSafety,
 } from "../src/git-safety.mjs";
 
@@ -66,6 +68,22 @@ test("브랜치 분기, 병합, detached HEAD를 실제 Git 출력에서 읽는�
   const detached = await getRepositoryState(repo);
   assert.equal(detached.branch, null);
   assert.ok(detached.head);
+});
+
+test("distinguishes a deleted remote branch from a missing local tracking ref", async () => {
+  const remote = mkdtempSync(join(tmpdir(), "git-next-upstream-remote-"));
+  git(remote, ["init", "--bare"]);
+  const local = makeRepo();
+  commit(local, "main.txt");
+  git(local, ["remote", "add", "origin", remote]);
+  git(local, ["push", "-u", "origin", "main"]);
+
+  git(local, ["update-ref", "-d", "refs/remotes/origin/main"]);
+  assert.equal((await inspectCurrentUpstream(local)).kind, "tracking-ref-missing");
+  git(local, ["fetch", "origin"]);
+
+  git(remote, ["update-ref", "-d", "refs/heads/main"]);
+  assert.equal((await inspectCurrentUpstream(local)).kind, "remote-branch-missing");
 });
 
 test("원격 추적 상태의 ahead, behind, diverged를 실제 저장소로 판별한다", async () => {
@@ -209,4 +227,47 @@ test("Safe Guard가 원격 force-push 히스토리 재작성을 감지한다", a
   assert.equal(result.rewritten, true);
   assert.equal(result.before, oldRemoteTip);
   assert.notEqual(result.after, oldRemoteTip);
+});
+
+test("continues a resolved merge and safely aborts merge and rebase", async () => {
+  const mergeRepo = makeRepo();
+  commit(mergeRepo, "conflict.txt", "base\n");
+  git(mergeRepo, ["switch", "-c", "feature"]);
+  commit(mergeRepo, "conflict.txt", "feature\n");
+  git(mergeRepo, ["switch", "main"]);
+  commit(mergeRepo, "conflict.txt", "main\n");
+  const mergeHead = git(mergeRepo, ["rev-parse", "HEAD"]);
+  assert.throws(() => git(mergeRepo, ["merge", "feature"]));
+  assert.deepEqual(await listConflictedFiles(mergeRepo), ["conflict.txt"]);
+  assert.equal((await resolveConflictSide(mergeRepo, "conflict.txt", "mine")).ok, true);
+  assert.equal((await continueGitOperation(mergeRepo, "merge")).ok, true);
+  assert.equal(await getInProgressOperation(mergeRepo), null);
+
+  const abortRepo = makeRepo();
+  commit(abortRepo, "conflict.txt", "base\n");
+  git(abortRepo, ["switch", "-c", "feature"]);
+  commit(abortRepo, "conflict.txt", "feature\n");
+  const featureHead = git(abortRepo, ["rev-parse", "HEAD"]);
+  git(abortRepo, ["switch", "main"]);
+  commit(abortRepo, "conflict.txt", "main\n");
+  git(abortRepo, ["switch", "feature"]);
+  assert.throws(() => git(abortRepo, ["rebase", "main"]));
+  assert.equal((await abortGitOperation(abortRepo, "rebase")).ok, true);
+  assert.equal(git(abortRepo, ["rev-parse", "HEAD"]), featureHead);
+  assert.equal(await getInProgressOperation(abortRepo), null);
+});
+
+
+test("detects linked worktrees from a nested folder in the current worktree", async () => {
+  const repo = makeRepo();
+  commit(repo, "base.txt");
+  const linked = join(tmpdir(), `git-next-linked-${Date.now()}`);
+  git(repo, ["worktree", "add", "-b", "feature", linked]);
+  mkdirSync(join(repo, "nested"));
+  const worktrees = await getLinkedWorktrees(join(repo, "nested"));
+  assert.equal(worktrees.length, 2);
+  assert.deepEqual(worktrees.map(({ branch, isCurrent }) => ({ branch, isCurrent })), [
+    { branch: "main", isCurrent: true },
+    { branch: "feature", isCurrent: false },
+  ]);
 });

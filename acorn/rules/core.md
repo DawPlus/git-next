@@ -7,6 +7,7 @@ These rules apply across the Acorn harness.
 - Do not claim a command, test, Verify, or QA result that did not run.
 - Do not commit, publish, deploy, or perform destructive actions unless explicitly authorized.
 - Project knowledge and artifacts belong outside `acorn/`.
+- External specs, plans, or planning/execution skills may support managed work, but they never replace the Acorn ticket/Board as source of truth or authorize dispatch, role-boundary bypass, QA bypass, or scope expansion. Treat them as references unless the selected ticket links them.
 - Load only the Harness and project context needed for the current action.
 - Reuse still-valid context; reload changed sources or lost context, not every handoff. New workers need their own minimal bootstrap.
 - Search exact paths/symbols before bounded excerpts. Keep tool output to decisions, failures, IDs, and evidence needed next; retain errors/recovery actions and expand truncated output when correctness needs it.

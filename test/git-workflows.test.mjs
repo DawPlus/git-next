@@ -13,12 +13,23 @@ import {
   discardFile,
   derivePullRequestUrl,
   getChangeWorkspace,
+  getBranchesContainingCommit,
+  getCommitContainment,
+  getFileHistory,
+  getForceWithLeasePreview,
+  getCommitMessageHints,
+  getRetryCheck,
   getCommitDetails,
   getCommitSuggestion,
+  getPullRequestReadiness,
+  createPullRequestDraft,
   getGitDoctorFindings,
+  getUndoRecommendation,
   getStashDetails,
   getStagedFiles,
   formatImpactPreview,
+  formatOperationActionPreview,
+  formatStashPreview,
   formatGitStateDelta,
   runWithGitStateDelta,
   listConflictedFiles,
@@ -118,9 +129,91 @@ test("Git Doctor distinguishes detached HEAD, missing upstream, and a healthy re
   })[0].id, "healthy");
 });
 
+test("Git Doctor explains a confirmed gone upstream and offers local branch review", () => {
+  const [finding] = getGitDoctorFindings({
+    head: { detached: false, branch: "feature" },
+    tracking: { kind: "no-upstream" },
+    upstreamState: { kind: "remote-branch-missing", upstream: "origin/feature" },
+  });
+
+  assert.equal(finding.id, "upstream-gone");
+  assert.equal(finding.action, "branch");
+  assert.match(finding.recommendation, /자동 삭제하지 않았습니다/);
+});
+
 test("derives GitHub and GitLab PR URLs", () => {
   assert.match(derivePullRequestUrl("git@github.com:owner/repo.git", "feature/a", "main"), /github\.com\/owner\/repo\/compare\/main\.\.\.feature%2Fa/);
   assert.match(derivePullRequestUrl("https://gitlab.com/team/repo.git", "feature/a", "main"), /merge_requests\/new/);
+});
+
+test("PR readiness reports tracking, local changes, and next actions", () => {
+  const readiness = getPullRequestReadiness({
+    branch: "feature",
+    upstream: "origin/feature",
+    tracking: { kind: "diverged", ahead: 2, behind: 1 },
+    changes: [{ status: " M", path: "app.js" }, { status: "??", path: "notes.txt" }],
+  });
+
+  assert.equal(readiness.ready, false);
+  assert.equal(readiness.ahead, 2);
+  assert.equal(readiness.behind, 1);
+  assert.equal(readiness.dirtyCount, 2);
+  assert.equal(readiness.untrackedCount, 1);
+  assert.match(readiness.blockers.join(" "), /기록이 갈라졌습니다/);
+  assert.match(readiness.nextActions.join(" "), /Branch 비교/);
+  assert.match(readiness.warnings.join(" "), /PR에는 포함되지 않습니다/);
+  assert.equal(getPullRequestReadiness({
+    branch: "feature",
+    upstream: "origin/feature",
+    tracking: { kind: "ahead", ahead: 1, behind: 0 },
+    changes: [],
+  }).ready, true);
+});
+
+test("PR draft uses the latest outgoing commit as title and commit list as body", () => {
+  assert.deepEqual(createPullRequestDraft("feature", [
+    { subject: "Add widget" },
+    { subject: "Test widget" },
+  ]), { title: "Add widget", body: "- Add widget\n- Test widget" });
+  assert.equal(createPullRequestDraft("feature", []), null);
+});
+
+test("undo recommendations choose a safe path for recent successful actions", () => {
+  assert.equal(getUndoRecommendation({ action: "push", ok: true }).id, "pushed");
+  assert.equal(getUndoRecommendation({ action: "commit", ok: true }).id, "commit");
+  assert.equal(getUndoRecommendation({ action: "delete-branch", ok: true }).id, "reflog");
+  assert.equal(getUndoRecommendation({ action: "discard-file", ok: true, recoveryPoint: "git-next-recovery/test" }).id, "recovery");
+  assert.equal(getUndoRecommendation({ action: "push", ok: false }), null);
+});
+
+test("finds local branches that keep a detached commit reachable", async () => {
+  const cwd = await repo();
+  const head = await git(cwd, "rev-parse", "HEAD");
+
+  assert.deepEqual(await getBranchesContainingCommit(cwd, head), ["main"]);
+  await git(cwd, "switch", "--detach", head);
+  assert.deepEqual(await getBranchesContainingCommit(cwd, head), ["main"]);
+});
+
+test("operation previews explain continue and abort outcomes before confirmation", () => {
+  assert.match(formatOperationActionPreview("rebase", "continue", ["app.js"]), /Rebase.*충돌 파일 1개.*반영/s);
+  assert.match(formatOperationActionPreview("merge", "abort", ["app.js"]), /Merge.*충돌 파일 1개.*해결 내용은 반영되지 않고 시작 전 위치/s);
+});
+
+test("reports whether a commit is reachable from a selected ref", async () => {
+  const cwd = await repo();
+  const head = await git(cwd, "rev-parse", "HEAD");
+  const result = await getCommitContainment(cwd, head, "main");
+
+  assert.equal(result.ok, true);
+  assert.equal(result.contained, true);
+  assert.equal(result.ref, "main");
+
+  await git(cwd, "switch", "-qc", "feature");
+  await exec("sh", ["-c", "printf 'feature\\n' >> app.txt"], { cwd });
+  await git(cwd, "commit", "-qam", "feature change");
+  const feature = await git(cwd, "rev-parse", "HEAD");
+  assert.equal((await getCommitContainment(cwd, feature, "main")).contained, false);
 });
 
 test("compares branches, reads reflog, and suggests commit message", async () => {
@@ -292,4 +385,60 @@ test("previews file-level Stash overlap without claiming a certain conflict", as
 
   assert.deepEqual(details.overlap, ["app.txt"]);
   assert.deepEqual(details.files.map(({ path }) => path), ["app.txt"]);
+});
+
+
+test("file history returns a bounded list of matching commits and handles empty history", async () => {
+  const cwd = await repo();
+  await exec("sh", ["-c", "printf 'first\n' > 'file with spaces.txt'"], { cwd });
+  await git(cwd, "add", "--", "file with spaces.txt");
+  await git(cwd, "commit", "-qm", "add spaced file");
+  await exec("sh", ["-c", "printf 'second\n' >> 'file with spaces.txt'"], { cwd });
+  await git(cwd, "add", "--", "file with spaces.txt");
+  await git(cwd, "commit", "-qm", "update spaced file");
+  const history = await getFileHistory(cwd, "file with spaces.txt", 1);
+  assert.deepEqual(history.map(({ message }) => message), ["update spaced file"]);
+  assert.deepEqual(await getFileHistory(cwd, "missing.txt"), []);
+});
+
+
+test("stash preview names its message and summarizes included files", () => {
+  const preview = formatStashPreview([
+    { status: "M", path: "src/app.js" },
+    { status: "A", path: "notes.md" },
+  ], "fix login flow");
+  assert.match(preview, /fix login flow/);
+  assert.match(preview, /포함 파일 2개/);
+  assert.match(preview, /src\/app\.js/);
+});
+
+
+test("commit message hints flag vague, long, and bodyless drafts without blocking", () => {
+  const hints = getCommitMessageHints("update: change things");
+  assert.match(hints.join(" "), /무엇을 바꿨는지/);
+  assert.match(hints.join(" "), /본문이 비어/);
+  assert.match(getCommitMessageHints(`${"x".repeat(73)}\n\nReason`)[0], /제목이 길어요/);
+  assert.deepEqual(getCommitMessageHints("Refresh tokens on expiry\n\nPrevents expired sessions"), []);
+  assert.deepEqual(getCommitMessageHints(""), []);
+});
+
+
+test("failed-action retry guidance identifies the condition to recheck", () => {
+  assert.match(getRetryCheck({ action: "pull", code: "dirty-working-tree" }), /Commit 또는 Stash/);
+  assert.match(getRetryCheck({ action: "push", code: "diverged" }), /Remote/);
+  assert.match(getRetryCheck({ action: "stage-file" }), /저장소 상태/);
+});
+
+
+test("force-with-lease preview names the exact current upstream tip", async () => {
+  const cwd = await repo();
+  const remote = await mkdtemp(join(tmpdir(), "git-next-lease-remote-"));
+  await git(remote, "init", "--bare");
+  await git(cwd, "remote", "add", "origin", remote);
+  await git(cwd, "push", "-u", "origin", "main");
+  const preview = await getForceWithLeasePreview(cwd);
+  assert.equal(preview.ok, true);
+  assert.equal(preview.remote, "origin");
+  assert.equal(preview.remoteRef, "refs/heads/main");
+  assert.equal(preview.expected, await git(remote, "rev-parse", "refs/heads/main"));
 });

@@ -1,5 +1,6 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
+import { resolve } from "node:path";
 
 const execFileAsync = promisify(execFile);
 const FIELD = "\x1f";
@@ -68,6 +69,33 @@ async function gitOr(cwd, args, fallback = "") {
     return await git(cwd, args);
   } catch {
     return fallback;
+  }
+}
+
+export function parseWorktrees(raw, currentPath) {
+  return raw.trim().split(/\n\s*\n/).filter(Boolean).map((block) => {
+    const fields = Object.fromEntries(block.split("\n").map((line) => {
+      const index = line.indexOf(" ");
+      return index === -1 ? [line, ""] : [line.slice(0, index), line.slice(index + 1)];
+    }));
+    return {
+      path: fields.worktree,
+      branch: fields.branch?.replace(/^refs\/heads\//, "") ?? null,
+      detached: "detached" in fields,
+      isCurrent: resolve(fields.worktree) === resolve(currentPath),
+    };
+  });
+}
+
+export async function getLinkedWorktrees(cwd) {
+  try {
+    const [raw, root] = await Promise.all([
+      git(cwd, ["worktree", "list", "--porcelain"]),
+      git(cwd, ["rev-parse", "--show-toplevel"]),
+    ]);
+    return parseWorktrees(raw, root);
+  } catch {
+    return [];
   }
 }
 

@@ -56,6 +56,7 @@ test("commit detail workspace lists changed files and opens before-after diff", 
   });
 
   assert.match(html, /update app/);
+  assert.match(html, /data-action="back-to-graph"/);
   assert.match(html, /app\.js/);
   assert.match(html, /old\.js → new\.js/);
   assert.match(html, /data-action="open-commit-diff"/);
@@ -112,4 +113,23 @@ test("knowledge center merges terms and situation guides with top toggle", () =>
   assert.match(html, /class="guide-visual incoming"/);
   assert.match(html, /class="guide-visual push"/);
   assert.match(html, /class="guide-visual split"/);
+});
+
+
+test("knowledge center shows scenario state, risk, next action, and matching hint", () => {
+  const html = renderKnowledgeCenter({ tab: "guides", state: { tracking: { kind: "diverged" }, changes: [] } });
+  assert.match(html, /상황별 시나리오/);
+  assert.match(html, /현재 저장소와 비슷해요/);
+  assert.match(html, /양쪽에 서로 다른 새 커밋/);
+  assert.match(html, /위험/);
+  assert.match(html, /다음 행동/);
+  assert.match(html, /원격 브랜치가 사라짐/);
+});
+
+
+test("knowledge terms show live repository examples and keep generic examples", () => {
+  const html = renderKnowledgeCenter({ tab: "terms", state: { kind: "repository", branch: "feature", head: "abcdef1234567890", upstream: "origin/feature", tracking: { kind: "ahead", ahead: 2, behind: 0 }, changes: [] } });
+  assert.match(html, /현재 저장소/);
+  assert.match(html, /origin\/feature로 보낼 커밋 2개/);
+  assert.match(html, /main ↔ origin\/main/);
 });

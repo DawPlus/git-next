@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { renderGlossaryHtml } from "../src/glossary-view.mjs";
+import { getLiveTermExample, getMatchingScenarios, renderGlossaryHtml } from "../src/glossary-view.mjs";
 import { renderSafeGuardDetailsHtml, renderSidebarHtml } from "../src/sidebar-view.mjs";
 
 test("renders Korean Git terminology guide", () => {
@@ -58,7 +58,7 @@ test("sidebar exposes source control, terminology, and repository tool actions",
   assert.match(html, /data-action="openKnowledge"/);
   assert.match(html, /class="tool-grid"/);
   assert.match(html, /class="tool-icon"/);
-  for (const label of ["그래프 보기", "동기화 도움말", "Git 도구", "도움말"]) {
+  for (const label of ["그래프 보기", "동기화", "Git 도구", "도움말"]) {
     assert.match(html, new RegExp(`aria-label="${label}"`));
   }
   assert.match(html, /\[origin\/main\]/);
@@ -94,4 +94,21 @@ test("sidebar links Safe Guard result to separate details view", () => {
   const details = renderSafeGuardDetailsHtml({ message: "Pull하면 충돌할 수 있습니다.", detail: "영향 파일: src/a.js" });
   assert.match(details, /Git 상세 정보/);
   assert.match(details, /영향 파일: src\/a\.js/);
+});
+
+
+test("matches scenario cards to tracked repository states", () => {
+  assert.deepEqual([...getMatchingScenarios({ tracking: { kind: "diverged", behind: 2 }, changes: [{ path: "a" }] })], ["diverged", "push-rejected", "dirty-pull"]);
+  assert.ok(getMatchingScenarios({ upstreamState: { kind: "remote-branch-missing" } }).has("gone-upstream"));
+});
+
+
+test("maps glossary terms to current refs and ahead/behind counts", () => {
+  const state = { kind: "repository", branch: "feature", head: "1234567890abcdef", upstream: "origin/feature", tracking: { kind: "diverged", ahead: 2, behind: 3 } };
+  assert.match(getLiveTermExample("HEAD", state), /12345678.*feature/);
+  assert.match(getLiveTermExample("Push", state), /origin\/feature로 보낼 커밋 2개/);
+  assert.match(getLiveTermExample("Pull", state), /origin\/feature에서 받을 커밋 3개/);
+  assert.match(getLiveTermExample("Diverged", state), /로컬 2개 \/ 원격 3개/);
+  assert.equal(getLiveTermExample("Push", null), null);
+  assert.equal(getLiveTermExample("Push", { kind: "no-repository" }), null);
 });

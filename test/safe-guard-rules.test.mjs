@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   getDestructiveActionGuard,
   getDirtyTreeGuard,
+  getActionRisk,
 } from "../src/git-safety.mjs";
 import { renderGraphHtml } from "../src/graph-view.mjs";
 
@@ -33,6 +34,15 @@ test("dirty working tree blocks risky future actions", () => {
   assert.equal(getDirtyTreeGuard("rebase", changes).level, "blocked");
   assert.equal(getDirtyTreeGuard("reset", changes).level, "blocked");
   assert.equal(getDirtyTreeGuard("push", changes).level, "warning");
+});
+
+test("action risk follows tracking, working tree, and operation safeguards", () => {
+  assert.equal(getActionRisk("push", { tracking: { kind: "ahead", ahead: 2 } }).level, "low");
+  assert.equal(getActionRisk("push", { tracking: { kind: "diverged", ahead: 2, behind: 1 } }).level, "high");
+  assert.equal(getActionRisk("push", { tracking: { kind: "no-upstream" } }).level, "medium");
+  assert.equal(getActionRisk("pull", { changes: [{ status: " M" }] }).level, "medium");
+  assert.equal(getActionRisk("pull", { operation: { operation: "merge" } }).level, "high");
+  assert.equal(getActionRisk("force-push").level, "high");
 });
 
 test("renders unified Korean Safe Guard labels", () => {

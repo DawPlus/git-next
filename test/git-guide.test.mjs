@@ -23,3 +23,12 @@ test("renders human-readable merge conflict marker guide", () => {
   assert.match(html, /HEAD.*서버 이름이 아니라/s);
   assert.match(html, /이유를 모른 채 Force Push/);
 });
+
+
+test("explains partial-file commits through VS Code Source Control", () => {
+  const html = renderGuideHtml("partial-stage");
+  assert.match(html, /파일 일부만 Commit/);
+  assert.match(html, /VS Code Source Control/);
+  assert.match(html, /Staged Changes/);
+  assert.match(html, /선택하지 않은 변경은 작업 폴더에 남아요/);
+});

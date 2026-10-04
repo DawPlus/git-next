@@ -74,6 +74,48 @@ export async function pushRepository(cwd) {
   };
 }
 
+export async function pushWithForceWithLease(cwd, remote, remoteRef, expected) {
+  if (!/^refs\/heads\//.test(remoteRef) || !/^[0-9a-f]{40,64}$/i.test(expected)) {
+    return { ok: false, action: "force-push", code: "invalid-lease", message: "Remote 기준점을 확인할 수 없어 Push를 중단했습니다." };
+  }
+  const result = await run(cwd, ["push", `--force-with-lease=${remoteRef}:${expected}`, remote, `HEAD:${remoteRef}`]);
+  const stale = /stale info|remote ref updated since checkout/i.test(result.detail);
+  return {
+    ...result,
+    action: "force-push",
+    code: stale ? "lease-mismatch" : result.ok ? null : "push-failed",
+    message: result.ok
+      ? `확인한 원격 기준점(${expected.slice(0, 8)})에 Force-with-lease Push를 완료했습니다.`
+      : stale
+        ? "원격 기준점이 바뀌어 Push를 취소했습니다. 최신 상태를 확인한 뒤 다시 비교하세요."
+        : explainGitError("push", result.detail),
+  };
+}
+
+export async function pushWithUpstream(cwd, remote, branch) {
+  const result = await run(cwd, ["push", "--set-upstream", remote, branch]);
+  return {
+    ...result,
+    action: "push",
+    message: result.ok
+      ? `첫 Push를 완료했습니다. 이후에는 ${remote}/${branch}를 기본 Remote로 사용합니다.`
+      : /no tracking information|no upstream branch|set-upstream/i.test(result.detail)
+        ? "첫 Push에 실패했습니다. 선택한 Remote와 브랜치 이름을 확인한 뒤 다시 시도하세요."
+        : explainGitError("push", result.detail),
+  };
+}
+
+export async function fetchPruneRemote(cwd, remote) {
+  const result = await run(cwd, ["fetch", "--prune", remote]);
+  return {
+    ...result,
+    action: "fetch-prune",
+    message: result.ok
+      ? `Remote '${remote}'의 추적 정보를 갱신하고 사라진 참조를 정리했습니다.`
+      : "Remote 추적 정보를 갱신하지 못했습니다. Remote 연결과 네트워크를 확인한 뒤 다시 시도하세요.",
+  };
+}
+
 export async function validateBranchName(cwd, name) {
   if (!name?.trim()) {
     return { ok: false, message: "브랜치 이름을 입력하세요." };

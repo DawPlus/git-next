@@ -48,3 +48,12 @@ test("blocked outranks warning and cannot be overridden", async () => {
   assert.equal(result.canOverride, false);
   assert.deepEqual(result.reasons, ["주의", "차단"]);
 });
+
+test("exposes only explained noncritical rules as session-relaxable", async () => {
+  const { listSafeGuardRules } = await import("../src/safe-guard.mjs");
+  const rules = listSafeGuardRules(["dirty-incoming-overlap"]);
+  assert.equal(rules.find(({ id }) => id === "dirty-incoming-overlap").relaxed, true);
+  assert.equal(rules.find(({ id }) => id === "dirty-incoming-overlap").relaxable, true);
+  assert.equal(rules.find(({ id }) => id === "remote-history-rewritten").relaxable, false);
+  assert.match(rules.find(({ id }) => id === "remote-history-rewritten").risk, /완화할 수 없어요/);
+});

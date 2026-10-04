@@ -2,7 +2,7 @@
   "name": "git-next",
   "displayName": "Git Next",
   "description": "Git 그래프와 기본 Pull/Push를 한눈에 보여주는 개인용 VS Code 확장입니다.",
-  "version": "0.1.7",
+  "version": "0.2.0",
   "publisher": "doh-local",
   "license": "MIT",
   "private": true,
@@ -15,6 +15,7 @@
   ],
   "activationEvents": [
     "onCommand:gitNext.open",
+    "onCommand:gitNext.fileHistory",
     "onView:gitNext.sidebar"
   ],
   "main": "./dist/extension.js",
@@ -23,8 +24,21 @@
       {
         "command": "gitNext.open",
         "title": "Git Next: 그래프 열기"
+      },
+      {
+        "command": "gitNext.fileHistory",
+        "title": "Git Next: 파일 커밋 이력 그래프에서 보기"
       }
     ],
+    "menus": {
+      "explorer/context": [
+        {
+          "command": "gitNext.fileHistory",
+          "when": "resourceScheme == file",
+          "group": "navigation"
+        }
+      ]
+    },
     "viewsContainers": {
       "activitybar": [
         {
@@ -57,7 +71,7 @@
   "scripts": {
     "build": "node scripts/build.mjs",
     "test": "node --test test/*.test.mjs",
-    "package": "npx --yes @vscode/vsce package --allow-missing-repository --out git-next-0.1.7.vsix",
+    "package": "npx --yes @vscode/vsce package --allow-missing-repository --out git-next-0.2.0.vsix",
     "setup": "npm test && npm run build && npm run package"
   }
 }

@@ -45,6 +45,20 @@ test("renders branch, refs, commits, and refresh action", () => {
   assert.match(html, /<svg/);
 });
 
+test("renders each graph commit as one metadata line with refs before the action", () => {
+  const html = renderGraphHtml({
+    kind: "repository", root: "/repo", branch: "main", upstream: "origin/main", head: "m",
+    refs: [{ name: "main", fullName: "refs/heads/main", kind: "local", target: "m" }], commits,
+  });
+
+  assert.match(html, /class="commit-line"/);
+  assert.match(html, /class="message"[^>]*>merge<\/span>/);
+  assert.match(html, /<code class="commit-hash">m<\/code>/);
+  assert.match(html, /class="commit-author"[^>]*>Min<\/span>/);
+  assert.match(html, /class="commit-date"[^>]*>2026-10-04 10:00:00<\/time>/);
+  assert.ok(html.indexOf("class=\"refs\"") < html.indexOf("class=\"commit-action\""));
+});
+
 test("renders multi-lane graph with curved colored merge paths", () => {
   const dense = [
     { id: "h", parents: ["m", "f"], author: "Min", authoredAt: "2026-10-04T12:00:00+09:00", message: "merge feature" },
@@ -121,6 +135,16 @@ test("graph focus marks only outgoing, incoming, or both divergent commit ranges
   assert.equal(filterGraphState(state, { focus: "diverged" }).commits.length, state.commits.length);
 });
 
+test("graph focus highlights a selected commit in its history context", () => {
+  const html = renderGraphHtml({
+    kind: "repository", root: "/repo", branch: "main", upstream: "origin/main", head: "m",
+    refs: [], commits,
+  }, null, { focus: "selected-commit", focusCommitId: "a" });
+
+  assert.match(html, /class="commit-row is-focused" data-commit-id="a"/);
+  assert.match(html, /선택 커밋 대상 커밋 1개 강조/);
+});
+
 test("renders focus controls while retaining a full graph option", () => {
   const html = renderGraphHtml({
     kind: "repository",
@@ -191,9 +215,10 @@ test("renders compact sidebar controls with graph action", () => {
 
   assert.match(html, /data-action="openGraph"/);
   assert.match(html, /aria-label="그래프 보기"/);
-  assert.match(html, /aria-label="동기화 도움말"/);
+  assert.match(html, /data-action="refresh" aria-label="동기화"/);
   assert.match(html, /받기 · Pull/);
   assert.match(html, /보내기 · Push/);
+  assert.match(html, /class="action-risk low"[^>]*aria-label="위험도 낮음:/);
   assert.match(html, /Safe Guard/);
   assert.doesNotMatch(html, /aria-label="커밋 그래프"/);
 });
@@ -237,7 +262,46 @@ test("keeps the status hint and Safe Guard compact above collapsible change grou
   assert.match(html, /\.scm-group\[open\]::details-content\s*\{[^}]*display:\s*flex[^}]*min-height:\s*0/s);
   assert.match(html, /\.scm-group:not\(\[open\]\)\s*\{[^}]*flex:\s*0 0 auto/s);
   assert.match(html, /\.changes-mini\s*\{[^}]*flex:\s*1 1 0[^}]*min-height:\s*0[^}]*height:\s*0[^}]*overflow-y:\s*auto/s);
+  assert.match(html, /\.changes-mini\s*\{[^}]*align-content:\s*start/s);
   assert.match(html, /class="revert-icon"/);
   assert.match(html, /\.guard-message-button svg,[\s\S]*\.hint-mark svg\s*\{[^}]*stroke:\s*currentColor/s);
   assert.match(html, /\.repo-action:hover\s*\{\s*transform:\s*none/);
+  assert.match(html, /\.repo-actions \.tool-toggle\s*\{[^}]*place-items:\s*center[^}]*padding:\s*0/s);
+  assert.match(html, /class="action-risk medium"[^>]*title="작업 폴더에 커밋하지 않은 변경이 있습니다\./);
+});
+
+test("tag focus highlights release points while keeping branch refs visible", () => {
+  const state = {
+    kind: "repository", root: "/repo", branch: "main", head: "m",
+    refs: [
+      { name: "main", fullName: "refs/heads/main", target: "m", kind: "local" },
+      { name: "v1.0.0", fullName: "refs/tags/v1.0.0", target: "a", kind: "tag" },
+    ], commits,
+  };
+  const focused = filterGraphState(state, { focus: "tags", limit: 100 });
+  assert.deepEqual(focused.refs.map(({ name }) => name), ["main", "v1.0.0"]);
+  assert.deepEqual(focused.commits.filter(({ isFocused }) => isFocused).map(({ id }) => id), ["a"]);
+  const html = renderGraphHtml(state, null, { focus: "tags" });
+  assert.match(html, /value="tags"[^>]*selected/);
+  assert.match(html, /태그 · 릴리스/);
+});
+
+
+test("shows linked worktree context only when sibling worktrees exist", () => {
+  const state = {
+    kind: "repository", root: "/repo", branch: "main", head: "m", refs: [], commits,
+    worktrees: [
+      { path: "/repo", branch: "main", isCurrent: true },
+      { path: "/repo-feature", branch: "feature", isCurrent: false },
+    ],
+  };
+  assert.match(renderGraphHtml(state), /다른 작업 폴더 1개.*feature.*\/repo-feature/);
+  assert.match(renderSidebarHtml(state), /다른 작업 폴더 1개.*feature.*\/repo-feature/);
+  assert.doesNotMatch(renderGraphHtml({ ...state, worktrees: state.worktrees.slice(0, 1) }), /다른 작업 폴더/);
+});
+
+test("keeps relaxed Safe Guard rules visible in graph and sidebar", () => {
+  const state = { kind: "repository", root: "/repo", branch: "main", refs: [], commits, relaxedRules: ["Pull 전 겹치는 로컬 변경 차단"] };
+  assert.match(renderGraphHtml(state), /세션 동안 완화된 보호.*Pull 전 겹치는 로컬 변경 차단/);
+  assert.match(renderSidebarHtml(state), /세션 동안 완화된 보호.*Pull 전 겹치는 로컬 변경 차단/);
 });

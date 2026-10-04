@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { parseCommits, parseRefs } from "../src/git-state.mjs";
+import { parseCommits, parseRefs, parseWorktrees } from "../src/git-state.mjs";
 
 test("parses commit graph records", () => {
   const raw = [
@@ -49,5 +49,14 @@ test("parses local and remote refs", () => {
       target: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
       kind: "remote",
     },
+  ]);
+});
+
+
+test("parses linked worktrees, their branches, and the current path", () => {
+  const raw = "worktree /repo/main\nHEAD abc\nbranch refs/heads/main\n\nworktree /repo/feature\nHEAD def\nbranch refs/heads/feature\n";
+  assert.deepEqual(parseWorktrees(raw, "/repo/feature"), [
+    { path: "/repo/main", branch: "main", detached: false, isCurrent: false },
+    { path: "/repo/feature", branch: "feature", detached: false, isCurrent: true },
   ]);
 });

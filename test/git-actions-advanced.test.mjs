@@ -13,9 +13,12 @@ import {
   createTrackingBranch,
   deleteBranch,
   deleteTag,
+  fetchPruneRemote,
   getBranchDeleteInfo,
   getBranchCleanupCandidates,
   listStashes,
+  pushWithUpstream,
+  pushWithForceWithLease,
   renameBranch,
   revertCommit,
   stashApply,
@@ -110,6 +113,45 @@ test("creates a local tracking branch from a remote-only ref", async () => {
   assert.equal(git(repo, ["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"]), "origin/feature");
 });
 
+test("first push creates the remote branch and configures its upstream", async () => {
+  const remote = mkdtempSync(join(tmpdir(), "git-next-first-push-"));
+  git(remote, ["init", "--bare"]);
+
+  const repo = makeRepo();
+  git(repo, ["remote", "add", "origin", remote]);
+
+  const result = await pushWithUpstream(repo, "origin", "main");
+
+  assert.equal(result.ok, true);
+  assert.equal(git(repo, ["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"]), "origin/main");
+  assert.equal(git(remote, ["rev-parse", "refs/heads/main"]), git(repo, ["rev-parse", "HEAD"]));
+});
+
+test("failed first push keeps Git detail and suggests the next check", async () => {
+  const repo = makeRepo();
+
+  const result = await pushWithUpstream(repo, "missing", "main");
+
+  assert.equal(result.ok, false);
+  assert.match(result.detail, /missing/);
+  assert.match(result.message, /Remote와 브랜치 이름을 확인/);
+});
+
+test("fetch prune removes stale remote refs without deleting local branches", async () => {
+  const remote = mkdtempSync(join(tmpdir(), "git-next-prune-remote-"));
+  git(remote, ["init", "--bare"]);
+  const repo = makeRepo();
+  git(repo, ["remote", "add", "origin", remote]);
+  git(repo, ["push", "-u", "origin", "main"]);
+  git(remote, ["update-ref", "-d", "refs/heads/main"]);
+
+  const result = await fetchPruneRemote(repo, "origin");
+
+  assert.equal(result.ok, true);
+  assert.equal(git(repo, ["branch", "--list", "--format=%(refname:short)", "main"]), "main");
+  assert.throws(() => git(repo, ["show-ref", "--verify", "refs/remotes/origin/main"]));
+});
+
 test("creates and deletes lightweight tags", async () => {
   const repo = makeRepo();
 
@@ -153,4 +195,45 @@ test("cherry-picks and reverts a selected commit", async () => {
   const reverted = await revertCommit(repo, picked);
   assert.equal(reverted.ok, true);
   assert.match(git(repo, ["log", "-1", "--pretty=%s"]), /Revert/);
+});
+
+
+test("force-with-lease updates only the reviewed remote tip and rejects a changed tip", async () => {
+  const remote = mkdtempSync(join(tmpdir(), "git-next-lease-remote-"));
+  git(remote, ["init", "--bare"]);
+  const repo = makeRepo();
+  git(repo, ["remote", "add", "origin", remote]);
+  git(repo, ["push", "-u", "origin", "main"]);
+  const expected = git(remote, ["rev-parse", "refs/heads/main"]);
+  writeFileSync(join(repo, "local.txt"), "local\n");
+  git(repo, ["add", "."]);
+  git(repo, ["commit", "-m", "local update"]);
+  const other = mkdtempSync(join(tmpdir(), "git-next-lease-other-"));
+  git(other, ["clone", "-b", "main", remote, "."]);
+  git(other, ["config", "user.name", "Git Next Test"]);
+  git(other, ["config", "user.email", "git-next@example.test"]);
+  writeFileSync(join(other, "remote.txt"), "remote\n");
+  git(other, ["add", "."]);
+  git(other, ["commit", "-m", "remote update"]);
+  git(other, ["push", "origin", "main"]);
+  const remoteBefore = git(remote, ["rev-parse", "refs/heads/main"]);
+  const rejected = await pushWithForceWithLease(repo, "origin", "refs/heads/main", expected);
+  assert.equal(rejected.ok, false);
+  assert.match(rejected.message, /원격 기준점이 바뀌어 Push를 취소/);
+  assert.equal(git(remote, ["rev-parse", "refs/heads/main"]), remoteBefore);
+});
+
+test("force-with-lease sends the reviewed local history when the remote tip still matches", async () => {
+  const remote = mkdtempSync(join(tmpdir(), "git-next-lease-success-"));
+  git(remote, ["init", "--bare"]);
+  const repo = makeRepo();
+  git(repo, ["remote", "add", "origin", remote]);
+  git(repo, ["push", "-u", "origin", "main"]);
+  const expected = git(remote, ["rev-parse", "refs/heads/main"]);
+  writeFileSync(join(repo, "local.txt"), "local\n");
+  git(repo, ["add", "."]);
+  git(repo, ["commit", "-m", "local update"]);
+  const result = await pushWithForceWithLease(repo, "origin", "refs/heads/main", expected);
+  assert.equal(result.ok, true);
+  assert.equal(git(remote, ["rev-parse", "refs/heads/main"]), git(repo, ["rev-parse", "HEAD"]));
 });

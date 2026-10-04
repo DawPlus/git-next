@@ -129,6 +129,18 @@ export const GUIDES = {
     steps: ["공유 브랜치인지 먼저 확인해요.", "기록 보존이 중요하면 Merge를 우선 고려해요.", "내 로컬 작업 정리가 목적이고 공유 전이라면 Rebase를 고려해요."],
     avoid: "이미 여러 사람이 공유한 Commit을 이유 없이 Rebase하지 마세요.",
   },
+  "partial-stage": {
+    title: "파일 일부만 Commit하고 싶어요",
+    summary: "필요한 줄만 다음 Commit에 넣고 나머지는 작업 폴더에 남겨둘 수 있어요.",
+    example: "한 파일에서 로그인 수정과 임시 로그가 함께 바뀌었어요. 로그인 수정만 먼저 Commit하고 싶어요.",
+    steps: [
+      "VS Code Source Control을 열어요.",
+      "변경 파일을 열어 diff에서 Commit할 줄만 선택해 Stage해요.",
+      "Staged Changes에 원하는 줄만 들어갔는지 확인해요.",
+      "VS Code Source Control에서 Commit해요. 선택하지 않은 변경은 작업 폴더에 남아요.",
+    ],
+    avoid: "Git Next에서 파일 전체를 Stage하지 말고, 줄 단위 선택은 VS Code Source Control에서 진행하세요.",
+  },
   "wrong-staged-file": {
     title: "잘못된 파일을 Stage했어요",
     summary: "Stage는 파일 내용을 지우는 작업이 아니라 다음 Commit에 포함할 변경을 고르는 작업이에요.",

@@ -12,29 +12,41 @@ This board is the status source of truth.
 | T-261004-06 | Show merge base in graph compare | done | - | worker | implementation | 1+2 | [ticket](archive/2026-10/T-261004-06.md) | Highlight common ancestor for compared refs |
 | T-261004-07 | Add branch cleanup assistant | done | - | worker | implementation | 1+2 | [ticket](archive/2026-10/T-261004-07.md) | Review merged, gone-remote, and stale branch candidates |
 | T-261004-08 | Strengthen push and pull impact preview | done | - | worker | implementation | 1+2 | [ticket](archive/2026-10/T-261004-08.md) | Show affected commits/files and graph emphasis before sync |
-| T-261004-09 | Show Git state before and after actions | in_progress | worker | worker | implementation | 1+2 | [ticket](active/T-261004-09.md) | Explain meaningful repository-state deltas after actions |
-| T-261004-10 | Add first-push wizard for branches without upstream | draft | coordinator | worker | implementation | 1+2 | [ticket](active/T-261004-10.md) | Guided first Push when upstream is missing |
-| T-261004-11 | Explain force-with-lease before overwrite-style push | draft | coordinator | worker | implementation | 1+2 | [ticket](active/T-261004-11.md) | Depends on T-261004-08 |
-| T-261004-12 | Strengthen PR readiness checklist | draft | coordinator | worker | implementation | 1+2 | [ticket](active/T-261004-12.md) | Readiness summary plus host handoff |
-| T-261004-13 | Explain why a remote-tracking branch is gone | draft | coordinator | worker | implementation | 1+2 | [ticket](active/T-261004-13.md) | Depends on T-261004-07 |
-| T-261004-14 | Add undo recommendation engine | draft | coordinator | worker | implementation | 1+2 | [ticket](active/T-261004-14.md) | Depends on T-261004-03 |
-| T-261004-15 | Add detached HEAD escape guide | draft | coordinator | worker | implementation | 1+2 | [ticket](active/T-261004-15.md) | Keep-or-discard paths from detached HEAD |
-| T-261004-16 | Add in-progress Git operation dashboard | draft | coordinator | worker | implementation | 1+2 | [ticket](active/T-261004-16.md) | Depends on T-261004-02 |
-| T-261004-17 | Add action risk badges | draft | coordinator | worker | implementation | 1+2 | [ticket](active/T-261004-17.md) | Depends on T-261004-02 |
-| T-261004-18 | Show whether a commit is contained in the current branch | draft | coordinator | worker | implementation | 1+2 | [ticket](active/T-261004-18.md) | Containment check with graph highlight |
-| T-261004-19 | Add tag and release lane focus | draft | coordinator | worker | implementation | 1+2 | [ticket](active/T-261004-19.md) | Depends on T-261004-05 |
-| T-261004-20 | Jump from file history to graph commits | draft | coordinator | worker | implementation | 1+2 | [ticket](active/T-261004-20.md) | File path to highlighted graph commits |
-| T-261004-21 | Add Push/Pull preview animation | draft | coordinator | worker | implementation | 1+2 | [ticket](active/T-261004-21.md) | Depends on T-261004-08 |
-| T-261004-22 | Require meaningful stash messages with preview | draft | coordinator | worker | implementation | 1+2 | [ticket](active/T-261004-22.md) | Message prompt plus pre-save preview |
-| T-261004-23 | Recognize linked Git worktrees | draft | coordinator | worker | implementation | 1+2 | [ticket](active/T-261004-23.md) | Multi-worktree summary and warnings |
-| T-261004-24 | Add partial-stage guidance without owning SCM | draft | coordinator | worker | implementation | 1+2 | [ticket](active/T-261004-24.md) | Guide only; SCM keeps stage/commit |
-| T-261004-25 | Add situational scenario card library | draft | coordinator | worker | implementation | 1+2 | [ticket](active/T-261004-25.md) | Depends on T-261004-02 |
-| T-261004-26 | Link glossary terms to live repository state | draft | coordinator | worker | implementation | 1+2 | [ticket](active/T-261004-26.md) | Glossary examples mapped to live repo |
-| T-261004-27 | Add lightweight commit message quality hints | draft | coordinator | worker | implementation | 1+2 | [ticket](active/T-261004-27.md) | Advisory hints on Git Next drafts |
-| T-261004-28 | Add failed-action timeline with retry checks | draft | coordinator | worker | implementation | 1+2 | [ticket](active/T-261004-28.md) | Depends on T-261004-09 |
-| T-261004-29 | Add Safe Guard rule toggles with explanations | draft | coordinator | worker | implementation | 1+2 | [ticket](active/T-261004-29.md) | Session-scoped rule relax with visibility |
+| T-261004-09 | Show Git state before and after actions | done | - | worker | implementation | 1+2 | [ticket](archive/2026-10/T-261004-09.md) | Explain meaningful repository-state deltas after actions |
+| T-261004-10 | Add first-push wizard for branches without upstream | done | - | worker | implementation | 1+2 | [ticket](archive/2026-10/T-261004-10.md) | Guided first Push when upstream is missing |
+| T-261004-11 | Explain force-with-lease before overwrite-style push | done | - | worker | implementation | 1+2 | [ticket](archive/2026-10/T-261004-11.md) | Offer after rejected Push |
+| T-261004-12 | Strengthen PR readiness checklist | done | - | worker | implementation | 1+2 | [ticket](archive/2026-10/T-261004-12.md) | Readiness summary plus host handoff |
+| T-261004-13 | Explain why a remote-tracking branch is gone | done | - | worker | implementation | 1+2 | [ticket](archive/2026-10/T-261004-13.md) | Depends on T-261004-07 |
+| T-261004-14 | Add undo recommendation engine | done | - | worker | implementation | 1+2 | [ticket](archive/2026-10/T-261004-14.md) | Depends on T-261004-03 |
+| T-261004-15 | Add detached HEAD escape guide | done | - | worker | implementation | 1+2 | [ticket](archive/2026-10/T-261004-15.md) | Keep-or-discard paths from detached HEAD |
+| T-261004-16 | Add in-progress Git operation dashboard | done | - | worker | implementation | 1+2 | [ticket](archive/2026-10/T-261004-16.md) | Depends on T-261004-02 |
+| T-261004-17 | Add action risk badges | done | - | worker | implementation | 1+2 | [ticket](archive/2026-10/T-261004-17.md) | Depends on T-261004-02 |
+| T-261004-18 | Show whether a commit is contained in the current branch | done | - | worker | implementation | 1+2 | [ticket](archive/2026-10/T-261004-18.md) | Containment check with graph highlight |
+| T-261004-19 | Add tag and release lane focus | done | - | worker | implementation | 1+2 | [ticket](archive/2026-10/T-261004-19.md) | Depends on T-261004-05 |
+| T-261004-20 | Jump from file history to graph commits | done | - | worker | implementation | 1+2 | [ticket](archive/2026-10/T-261004-20.md) | File path to highlighted graph commits |
+| T-261004-21 | Add Push/Pull preview animation | done | - | worker | implementation | 1+2 | [ticket](archive/2026-10/T-261004-21.md) | Depends on T-261004-08 |
+| T-261004-22 | Require meaningful stash messages with preview | done | - | worker | implementation | 1+2 | [ticket](archive/2026-10/T-261004-22.md) | Message prompt plus pre-save preview |
+| T-261004-23 | Recognize linked Git worktrees | done | - | worker | implementation | 1+2 | [ticket](archive/2026-10/T-261004-23.md) | Multi-worktree summary and warnings |
+| T-261004-24 | Add partial-stage guidance without owning SCM | done | - | worker | implementation | 1+2 | [ticket](archive/2026-10/T-261004-24.md) | Guide only; SCM keeps stage/commit |
+| T-261004-25 | Add situational scenario card library | done | - | worker | implementation | 1+2 | [ticket](archive/2026-10/T-261004-25.md) | Depends on T-261004-02 |
+| T-261004-26 | Link glossary terms to live repository state | done | - | worker | implementation | 1+2 | [ticket](archive/2026-10/T-261004-26.md) | Glossary examples mapped to live repo |
+| T-261004-27 | Add lightweight commit message quality hints | done | - | worker | implementation | 1+2 | [ticket](archive/2026-10/T-261004-27.md) | Advisory hints on Git Next drafts |
+| T-261004-28 | Add failed-action timeline with retry checks | done | - | worker | implementation | 1+2 | [ticket](archive/2026-10/T-261004-28.md) | Depends on T-261004-09 |
+| T-261004-29 | Add Safe Guard rule toggles with explanations | done | - | worker | implementation | 1+2 | [ticket](archive/2026-10/T-261004-29.md) | Session-scoped rule relax with visibility |
 | T-261004-30 | Improve Source Control workflow | done | - | worker | implementation | 1+2 | [ticket](archive/2026-10/T-261004-30.md) | Follow-up to T-261004-01 |
 | T-261004-31 | Clarify Source Control actions and sync previews | done | - | worker | implementation | 1+2 | [ticket](archive/2026-10/T-261004-31.md) | Follow-up to T-261004-30 |
+| T-261005-01 | Source module refactor | done | - | worker | implementation | 1+2 | [ticket](archive/2026-10/T-261005-01.md) | Existing spec/plan are implementation references; Acorn ticket remains source of truth |
+| T-261005-02 | Resolve diverged history with Merge or Rebase | ready | worker | worker | implementation | 1+2 | [ticket](active/T-261005-02.md) | Biggest beginner dead-end after Push reject / ff-only Pull fail |
+| T-261005-03 | Merge selected branch into current branch | ready | worker | worker | implementation | 1+2 | [ticket](active/T-261005-03.md) | Completes create → work → merge flow in Branches UI |
+| T-261005-04 | Align README with Source Control features | ready | worker | worker | implementation | 1+2 | [ticket](active/T-261005-04.md) | Docs only; keep Stage/Commit, update README to match |
+| T-261005-05 | Support multi-root workspaces and multiple repositories | ready | worker | worker | implementation | 1+2 | [ticket](active/T-261005-05.md) | Stop using only workspace folder[0] |
+| T-261005-06 | Show progress for network Git operations | ready | worker | worker | implementation | 1+2 | [ticket](active/T-261005-06.md) | withProgress for Fetch/Pull/Push |
+| T-261005-07 | Auto-refresh graph and sidebar on external Git changes | ready | worker | worker | implementation | 1+2 | [ticket](active/T-261005-07.md) | Prefer vscode.git API; debounced; manual refresh fallback |
+| T-261005-08 | Add nonce-based CSP to webview panels | ready | worker | worker | implementation | 1+2 | [ticket](active/T-261005-08.md) | enableScripts panels need CSP meta/nonce |
+| T-261005-09 | Harden Git args with `--` and ref validation | ready | worker | worker | implementation | 1+2 | [ticket](active/T-261005-09.md) | cherry-pick/revert/branch/stash targets from webview |
+| T-261005-10 | Refresh webviews with postMessage instead of full HTML replace | ready | worker | worker | implementation | 1+2 | [ticket](active/T-261005-10.md) | Preserve scroll and commit message draft |
+| T-261005-11 | Split extension.js webview message handler chain | ready | worker | worker | implementation | 1+2 | [ticket](active/T-261005-11.md) | Follow-up to T-261005-01 module refactor |
+| T-261005-12 | Deduplicate escapeHtml into view-shared.mjs | ready | worker | worker | implementation | 1+2 | [ticket](active/T-261005-12.md) | Drop local copies; use view-shared |
 
 Allowed states: `draft`, `ready`, `in_progress`, `review`, `ready_for_qa`, `blocked`, `done`, `superseded`.
 

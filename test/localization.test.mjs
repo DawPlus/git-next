@@ -77,6 +77,8 @@ test("사이드바에서 변경 파일을 보고 diff, stage, unstage, commit �
   assert.match(html, /\.scm-file \.mini-action:active/);
   assert.match(html, /class="status-hints"/);
   assert.ok(html.indexOf('data-action="openGraph"') < html.indexOf("source-control\">"));
+  assert.match(html, /data-action="refresh" aria-label="동기화"/);
+  assert.doesNotMatch(html, /data-action="openKnowledge" aria-label="동기화 도움말"/);
   assert.ok(html.indexOf('data-action="openCompare"') < html.indexOf("source-control\">"));
 });
 
