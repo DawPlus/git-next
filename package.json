@@ -1,0 +1,63 @@
+{
+  "name": "git-next",
+  "displayName": "Git Next",
+  "description": "Git 그래프와 기본 Pull/Push를 한눈에 보여주는 개인용 VS Code 확장입니다.",
+  "version": "0.1.7",
+  "publisher": "doh-local",
+  "license": "MIT",
+  "private": true,
+  "engines": {
+    "vscode": "^1.100.0"
+  },
+  "categories": [
+    "SCM Providers",
+    "Education"
+  ],
+  "activationEvents": [
+    "onCommand:gitNext.open",
+    "onView:gitNext.sidebar"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "gitNext.open",
+        "title": "Git Next: 그래프 열기"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "gitNext",
+          "title": "Git Next",
+          "icon": "assets/git-next.svg"
+        }
+      ]
+    },
+    "views": {
+      "gitNext": [
+        {
+          "type": "webview",
+          "id": "gitNext.sidebar",
+          "name": "Git Next"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Git Next",
+      "properties": {
+        "gitNext.pullBeforePush": {
+          "type": "boolean",
+          "default": false,
+          "description": "Push 전에 안전한 Pull을 먼저 실행합니다. 안전하게 업데이트할 수 없으면 Push를 중단합니다."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "test": "node --test test/*.test.mjs",
+    "package": "npx --yes @vscode/vsce package --allow-missing-repository --out git-next-0.1.7.vsix",
+    "setup": "npm test && npm run build && npm run package"
+  }
+}
