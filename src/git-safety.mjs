@@ -21,6 +21,10 @@ export function classifyTrackingStatus(ahead, behind) {
   return { kind: "up-to-date", ahead, behind };
 }
 
+export function isPullUnnecessary(tracking) {
+  return ["ahead", "up-to-date"].includes(tracking?.kind);
+}
+
 export function getPushGuidance(status) {
   if (status.kind === "no-upstream") {
     return {
@@ -254,6 +258,26 @@ export async function detectRemoteHistoryRewrite(cwd) {
     return { rewritten: false, upstream, before, after };
   } catch {
     return { rewritten: true, upstream, before, after };
+  }
+}
+
+export async function detectCachedRemoteHistoryRewrite(cwd, runGit = git) {
+  try {
+    const upstream = await runGit(cwd, ["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"]);
+    const after = await runGit(cwd, ["rev-parse", "@{u}"]);
+    const history = await runGit(cwd, ["reflog", "show", "--format=%H", "-n", "2", "@{u}"]);
+    const [latest, before] = history.split("\n");
+    if (!before || latest !== after) return { rewritten: false, available: false, upstream };
+
+    try {
+      await runGit(cwd, ["merge-base", "--is-ancestor", before, after]);
+      return { rewritten: false, available: true, upstream, before, after };
+    } catch (error) {
+      if (error?.code !== 1) return { rewritten: false, available: false, upstream };
+      return { rewritten: true, available: true, upstream, before, after };
+    }
+  } catch {
+    return { rewritten: false, available: false, upstream: null };
   }
 }
 

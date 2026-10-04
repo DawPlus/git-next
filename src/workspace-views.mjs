@@ -110,9 +110,9 @@ h1,h2,h3,p{margin:0}h1{font-size:20px}.sub{margin-top:5px;color:var(--vscode-des
 .semantic-force-push .actor-a{animation:semForce 1.9s cubic-bezier(.2,.85,.3,1) infinite}.semantic-force-push .actor-b{opacity:1;color:var(--vscode-errorForeground);animation:semRemoteReplace 1.9s ease-in-out infinite}
 .term:hover .actor-a,.term:hover .actor-b,.term:hover .semantic-mark{animation-duration:1.55s}
 .effect{margin-top:11px;padding-top:10px;border-top:1px solid color-mix(in srgb,var(--vscode-panel-border) 70%,transparent);color:var(--vscode-descriptionForeground);font-size:13px;line-height:1.55}.example{margin-top:7px;font-size:13px;line-height:1.55}.example span{margin-right:7px;color:var(--vscode-textLink-foreground);font-weight:700}
-.guide-card p{margin-top:6px;color:var(--vscode-descriptionForeground);font-size:12px;line-height:1.55}.guide-card ol{margin:10px 0 0;padding-left:18px}.guide-card li{margin:6px 0;font-size:12px;line-height:1.5}.avoid{margin-top:10px;padding-top:8px;border-top:1px solid var(--vscode-panel-border);font-size:11px;color:var(--vscode-editorWarning-foreground)}
+.guide-card p{margin-top:6px;color:var(--vscode-descriptionForeground);font-size:12px;line-height:1.55}.guide-visual{position:relative;height:44px;margin-top:11px;border:1px solid color-mix(in srgb,var(--vscode-panel-border) 72%,transparent);border-radius:7px;background:color-mix(in srgb,var(--vscode-editor-background) 86%,transparent);overflow:hidden}.guide-visual::before{content:"";position:absolute;left:12%;right:12%;top:50%;height:1px;background:color-mix(in srgb,var(--vscode-descriptionForeground) 42%,transparent)}.guide-node,.guide-token,.guide-warning{position:absolute;top:50%;transform:translate(-50%,-50%)}.guide-node{width:10px;height:10px;border:2px solid currentColor;border-radius:50%;background:var(--vscode-editor-background)}.guide-node.a{left:16%;color:var(--vscode-textLink-foreground)}.guide-node.b{left:84%;color:var(--vscode-charts-blue,var(--vscode-textLink-foreground))}.guide-token{left:16%;width:14px;height:14px;border-radius:4px;background:var(--vscode-textLink-foreground);opacity:.9}.guide-warning{left:50%;color:var(--vscode-editorWarning-foreground);font-weight:800;font-size:14px;opacity:0}.guide-visual.incoming .guide-token{animation:guideIncoming 2.2s ease-in-out infinite}.guide-visual.push .guide-token{animation:guidePushReject 2.1s ease-in-out infinite}.guide-visual.push .guide-warning{opacity:1;animation:guideWarn 2.1s ease-in-out infinite}.guide-visual.split::before{left:16%;right:50%}.guide-visual.split::after{content:"";position:absolute;left:48%;top:50%;width:36%;height:24px;border-top:1.5px solid var(--vscode-textLink-foreground);border-bottom:1.5px solid var(--vscode-charts-blue,var(--vscode-textLink-foreground));transform:translateY(-50%) skewY(-10deg);opacity:.8}.guide-visual.detached .guide-token{animation:guideDetach 2.4s ease-in-out infinite}.guide-visual.stash .guide-token{animation:guideStash 2.3s ease-in-out infinite}.guide-visual.stage .guide-token{animation:guideStage 2.1s ease-in-out infinite}.guide-visual.branch .guide-token{animation:guideBranch 2.2s ease-in-out infinite}.guide-visual.history .guide-token{animation:guideHistory 2.2s ease-in-out infinite}.guide-example{margin-top:10px;padding:9px 10px;border-left:3px solid var(--vscode-textLink-foreground);border-radius:5px;background:color-mix(in srgb,var(--vscode-textLink-foreground) 7%,transparent);font-size:12px;line-height:1.55}.guide-example strong{display:block;margin-bottom:3px;color:var(--vscode-foreground);font-size:11px}.guide-steps-title{margin-top:11px;font-size:11px;font-weight:700;color:var(--vscode-foreground)}.guide-card ol{margin:6px 0 0;padding-left:19px}.guide-card li{margin:6px 0;font-size:12px;line-height:1.5}.avoid{margin-top:10px;padding-top:8px;border-top:1px solid var(--vscode-panel-border);font-size:11px;color:var(--vscode-editorWarning-foreground)}
 .guide-card:target{border-color:var(--vscode-focusBorder);box-shadow:0 0 0 1px color-mix(in srgb,var(--vscode-focusBorder) 24%,transparent)}
-@keyframes knowledgeCardIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}@keyframes semCommit{0%,12%{left:4%;opacity:.2}55%,78%{left:78%;opacity:1;transform:translate(-50%,-50%) scale(1)}100%{left:78%;opacity:.2;transform:translate(-50%,-50%) scale(.72)}}
+@keyframes knowledgeCardIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}@keyframes guideIncoming{0%,18%{left:84%;opacity:.25}72%,100%{left:16%;opacity:1}}@keyframes guidePushReject{0%,18%{left:16%;opacity:.9}58%{left:66%;opacity:1}72%,100%{left:48%;opacity:.35}}@keyframes guideWarn{0%,42%{opacity:0;transform:translate(-50%,-50%) scale(.6)}58%,82%{opacity:1;transform:translate(-50%,-50%) scale(1.05)}100%{opacity:0}}@keyframes guideDetach{0%,28%{left:72%;top:50%}66%,100%{left:48%;top:20%}}@keyframes guideStash{0%,18%{left:22%;top:50%}62%,100%{left:72%;top:20%}}@keyframes guideStage{0%,18%{left:18%;opacity:.35}62%,100%{left:50%;opacity:1}}@keyframes guideBranch{0%,20%{left:22%;top:50%}62%,100%{left:76%;top:24%}}@keyframes guideHistory{0%,18%{left:76%;opacity:1}68%,100%{left:28%;opacity:.55}}@keyframes semCommit{0%,12%{left:4%;opacity:.2}55%,78%{left:78%;opacity:1;transform:translate(-50%,-50%) scale(1)}100%{left:78%;opacity:.2;transform:translate(-50%,-50%) scale(.72)}}
 @keyframes semPush{0%{left:2%;opacity:.1}18%{opacity:1}82%{left:98%;opacity:1}100%{left:98%;opacity:.1}}
 @keyframes semPull{0%{left:2%;opacity:.1}18%{opacity:1}82%{left:98%;opacity:1}100%{left:98%;opacity:.1}}
 @keyframes semFetch{0%{left:96%;opacity:.15}55%{left:62%;opacity:1}75%{left:62%;opacity:1;transform:translate(-50%,-50%) scale(.8)}100%{left:62%;opacity:.2}}
@@ -132,7 +132,7 @@ h1,h2,h3,p{margin:0}h1{font-size:20px}.sub{margin-top:5px;color:var(--vscode-des
 @keyframes semDivergeLocal{0%,22%{left:34%;top:50%;opacity:.4}72%,100%{left:88%;top:10%;opacity:1}}@keyframes semDivergeRemote{0%,22%{left:34%;top:50%;opacity:.4}72%,100%{left:88%;top:90%;opacity:1}}
 @keyframes semForce{0%,8%{left:4%;opacity:.2}58%,88%{left:96%;opacity:1;transform:translate(-50%,-50%) scale(1.18)}100%{left:96%;opacity:.1}}@keyframes semRemoteReplace{0%,35%{left:88%;opacity:1}65%,100%{left:100%;opacity:0;transform:translate(-50%,-50%) scale(.35)}}
 @keyframes termIn{from{opacity:0;transform:translateY(7px)}to{opacity:1;transform:translateY(0)}}
-@media (prefers-reduced-motion:reduce){.flow-actor,.flow-peer,.flow-copy,.semantic-mark{animation:none!important}.flow-actor{left:42%;top:50%;opacity:.9}.flow-peer{left:62%;top:50%;opacity:.8}.semantic-conflict .flow-actor{left:43%}.semantic-conflict .flow-peer{left:57%;opacity:1}.semantic-conflict .semantic-mark{opacity:1}.semantic-diverged .flow-actor{left:38%;top:30%}.semantic-diverged .flow-peer{left:62%;top:70%;opacity:1}.semantic-branch .branch-lines{display:block}.term{animation:none;transition:none}.term:hover,.term:focus-within{transform:none}}
+@media (prefers-reduced-motion:reduce){.flow-actor,.flow-peer,.flow-copy,.semantic-mark,.guide-token,.guide-warning{animation:none!important}.flow-actor{left:42%;top:50%;opacity:.9}.flow-peer{left:62%;top:50%;opacity:.8}.semantic-conflict .flow-actor{left:43%}.semantic-conflict .flow-peer{left:57%;opacity:1}.semantic-conflict .semantic-mark{opacity:1}.semantic-diverged .flow-actor{left:38%;top:30%}.semantic-diverged .flow-peer{left:62%;top:70%;opacity:1}.semantic-branch .branch-lines{display:block}.guide-token{left:50%;top:50%;opacity:.9}.guide-warning{opacity:.8}.term,.guide-card{animation:none;transition:none}.term:hover,.term:focus-within,.guide-card:hover{transform:none}}
 @media(max-width:720px){main{padding:16px 14px 40px}.grid,.knowledge-grid{grid-template-columns:1fr}.flow{grid-template-columns:minmax(74px,auto) minmax(52px,1fr) minmax(74px,auto)}}
 </style>
 </head>
@@ -203,7 +203,8 @@ for(const b of document.querySelectorAll("[data-action]"))b.addEventListener("cl
 
 export function renderStashWorkspace(stashes, selectedDetails = null) {
   const cards=stashes.map((s)=>`<button class="card stash-card ${selectedDetails?.ref===s.ref?"selected":""}" data-ref="${esc(s.ref)}" style="text-align:left;color:inherit;cursor:pointer"><div class="row"><div class="grow"><h2>${esc(s.ref)}</h2><div class="meta">${esc(s.message)}${s.relative ? ` · ${esc(s.relative)}` : ""}</div></div></div></button>`).join("");
-  const detail=selectedDetails?`<section class="section card"><h2>${esc(selectedDetails.ref)}</h2><div class="meta">${esc(selectedDetails.stat||"")}</div><div class="list" style="margin-top:10px">${selectedDetails.files.map((f)=>`<div class="file"><span class="badge">${esc(f.status)}</span><span class="path">${esc(f.path)}</span></div>`).join("")||'<div class="empty">표시할 파일이 없습니다.</div>'}</div><div class="toolbar" style="margin-top:10px"><button class="btn" data-action="apply" data-ref="${esc(selectedDetails.ref)}">Apply</button><button class="btn primary" data-action="pop" data-ref="${esc(selectedDetails.ref)}">Pop</button><button class="btn danger" data-action="drop" data-ref="${esc(selectedDetails.ref)}">Drop</button></div></section>`:"";
+  const overlap=selectedDetails?.overlap?.length?`<div class="notice warning">현재 변경과 겹치는 파일 ${selectedDetails.overlap.length}개: ${selectedDetails.overlap.map(esc).join(", ")}<br>파일 단위 겹침이며 실제 충돌이 확정된 것은 아닙니다.</div>`:`<div class="notice">현재 변경과 파일 경로가 겹치지 않습니다. Apply/Pop 전 확인창에서 다시 확인합니다.</div>`;
+  const detail=selectedDetails?`<section class="section card"><h2>${esc(selectedDetails.ref)}</h2><div class="meta">${esc(selectedDetails.stat||"")}</div>${overlap}<div class="list" style="margin-top:10px">${selectedDetails.files.map((f)=>`<div class="file"><span class="badge">${esc(f.status)}</span><span class="path">${esc(f.path)}</span></div>`).join("")||'<div class="empty">표시할 파일이 없습니다.</div>'}</div><div class="toolbar" style="margin-top:10px"><button class="btn" data-action="apply" data-ref="${esc(selectedDetails.ref)}">Apply</button><button class="btn primary" data-action="pop" data-ref="${esc(selectedDetails.ref)}">Pop</button><button class="btn danger" data-action="drop" data-ref="${esc(selectedDetails.ref)}">Drop</button></div></section>`:"";
   const body=`<header><div><h1>Stash</h1><div class="sub">Stash 내용을 먼저 확인하고 Apply / Pop / Drop을 선택합니다.</div></div><button class="btn" data-action="push">현재 변경 Stash</button></header><div class="grid">${cards||'<div class="empty">저장된 Stash가 없습니다.</div>'}</div>${detail}`;
   const script=`const vscode=acquireVsCodeApi();for(const c of document.querySelectorAll(".stash-card"))c.addEventListener("click",()=>vscode.postMessage({type:"select",ref:c.dataset.ref}));for(const b of document.querySelectorAll("[data-action]"))b.addEventListener("click",()=>vscode.postMessage({type:b.dataset.action,ref:b.dataset.ref}));`;
   return shell("Git Next · Stash",body,script);
@@ -308,6 +309,27 @@ export function renderCommitDetailsWorkspace(details) {
   return shell("Git Next · Commit 상세", body, script);
 }
 
+function guideVisualKind(key) {
+  if (/dirty-pull|pull-conflict|fetch-vs-pull/.test(key)) return "incoming";
+  if (/push-rejected/.test(key)) return "push";
+  if (/diverged|merge-vs-rebase/.test(key)) return "split";
+  if (/detached-head/.test(key)) return "detached";
+  if (/stash-before-risk|stash-apply-vs-pop|switch-with-changes/.test(key)) return "stash";
+  if (/wrong-staged-file/.test(key)) return "stage";
+  if (/no-upstream|worked-on-wrong-branch|remote-branch-gone/.test(key)) return "branch";
+  return "history";
+}
+
+function renderGuideVisual(key) {
+  const kind = guideVisualKind(key);
+  return `<div class="guide-visual ${kind}" aria-hidden="true">
+    <span class="guide-node a"></span>
+    <span class="guide-node b"></span>
+    <span class="guide-token"></span>
+    <span class="guide-warning">×</span>
+  </div>`;
+}
+
 export function renderKnowledgeCenter({ tab = "terms", selected = null } = {}) {
   const termCards = TERMS.map((t) => `<article class="term knowledge ${esc(t.tone)}" data-search="${esc([t.term,t.ko,t.summary,t.effect,t.example,...t.flow].join(" ").toLowerCase())}">
     <div class="term-head">
@@ -320,9 +342,12 @@ export function renderKnowledgeCenter({ tab = "terms", selected = null } = {}) {
     <div class="example"><span>예시</span>${esc(t.example)}</div>
   </article>`).join("");
 
-  const guideCards = Object.entries(GUIDES).map(([key, g]) => `<article class="guide-card knowledge" id="${esc(key)}" data-search="${esc([g.title,g.summary,...g.steps,g.avoid].join(" ").toLowerCase())}">
+  const guideCards = Object.entries(GUIDES).map(([key, g]) => `<article class="guide-card knowledge" id="${esc(key)}" data-search="${esc([g.title,g.summary,g.example,...g.steps,g.avoid].join(" ").toLowerCase())}">
     <h2>${esc(g.title)}</h2>
     <p>${esc(g.summary)}</p>
+    ${renderGuideVisual(key)}
+    ${g.example ? `<div class="guide-example"><strong>이럴 때</strong>${esc(g.example)}</div>` : ""}
+    <div class="guide-steps-title">이렇게 해보세요</div>
     <ol>${g.steps.map((s)=>`<li>${esc(s)}</li>`).join("")}</ol>
     <div class="avoid"><strong>피할 것</strong> ${esc(g.avoid)}</div>
   </article>`).join("");

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { classifyTrackingStatus, getPushGuidance } from "../src/git-safety.mjs";
+import { classifyTrackingStatus, getPushGuidance, isPullUnnecessary } from "../src/git-safety.mjs";
 import { renderGraphHtml } from "../src/graph-view.mjs";
 
 test("classifies ahead, behind, and diverged tracking states", () => {
@@ -9,6 +9,14 @@ test("classifies ahead, behind, and diverged tracking states", () => {
   assert.deepEqual(classifyTrackingStatus(0, 3), { kind: "behind", ahead: 0, behind: 3 });
   assert.deepEqual(classifyTrackingStatus(2, 3), { kind: "diverged", ahead: 2, behind: 3 });
   assert.deepEqual(classifyTrackingStatus(0, 0), { kind: "up-to-date", ahead: 0, behind: 0 });
+});
+
+test("skips Pull only when the tracking ref has no incoming commits", () => {
+  assert.equal(isPullUnnecessary({ kind: "ahead", ahead: 2, behind: 0 }), true);
+  assert.equal(isPullUnnecessary({ kind: "up-to-date", ahead: 0, behind: 0 }), true);
+  assert.equal(isPullUnnecessary({ kind: "behind", ahead: 0, behind: 2 }), false);
+  assert.equal(isPullUnnecessary({ kind: "diverged", ahead: 1, behind: 1 }), false);
+  assert.equal(isPullUnnecessary({ kind: "no-upstream", ahead: 0, behind: 0 }), false);
 });
 
 test("blocks push when remote tracking history is ahead", () => {

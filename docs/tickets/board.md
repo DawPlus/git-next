@@ -5,14 +5,14 @@ This board is the status source of truth.
 | Ticket | Title | State | Next | Role | Mode | Read Budget | Links | Notes |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | T-261004-01 | Add Source Control features | done | - | worker | implementation | 1+2 | [ticket](archive/2026-10/T-261004-01.md) | - |
-| T-261004-02 | Add Git Doctor | ready | worker | worker | implementation | 1+2 | [ticket](active/T-261004-02.md) | Repository health diagnosis and next action guidance |
-| T-261004-03 | Add recovery points before risky actions | ready | worker | worker | implementation | 1+2 | [ticket](active/T-261004-03.md) | Local recovery ref before selected history-changing actions |
-| T-261004-04 | Preview stash conflicts | ready | worker | worker | implementation | 1+2 | [ticket](active/T-261004-04.md) | Warn about stash/current-work overlap before Apply or Pop |
-| T-261004-05 | Add graph timeline focus modes | ready | worker | worker | implementation | 1+2 | [ticket](active/T-261004-05.md) | Focus graph on Push, Pull, or diverged commit ranges |
-| T-261004-06 | Show merge base in graph compare | ready | worker | worker | implementation | 1+2 | [ticket](active/T-261004-06.md) | Highlight common ancestor for compared refs |
-| T-261004-07 | Add branch cleanup assistant | ready | worker | worker | implementation | 1+2 | [ticket](active/T-261004-07.md) | Review merged, gone-remote, and stale branch candidates |
-| T-261004-08 | Strengthen push and pull impact preview | ready | worker | worker | implementation | 1+2 | [ticket](active/T-261004-08.md) | Show affected commits/files and graph emphasis before sync |
-| T-261004-09 | Show Git state before and after actions | ready | worker | worker | implementation | 1+2 | [ticket](active/T-261004-09.md) | Explain meaningful repository-state deltas after actions |
+| T-261004-02 | Add Git Doctor | done | - | worker | implementation | 1+2 | [ticket](archive/2026-10/T-261004-02.md) | Repository health diagnosis and next action guidance |
+| T-261004-03 | Add recovery points before risky actions | done | - | worker | implementation | 1+2 | [ticket](archive/2026-10/T-261004-03.md) | Local recovery ref before selected history-changing actions |
+| T-261004-04 | Preview stash conflicts | done | - | worker | implementation | 1+2 | [ticket](archive/2026-10/T-261004-04.md) | Warn about stash/current-work overlap before Apply or Pop |
+| T-261004-05 | Add graph timeline focus modes | done | - | worker | implementation | 1+2 | [ticket](archive/2026-10/T-261004-05.md) | Focus graph on Push, Pull, or diverged commit ranges |
+| T-261004-06 | Show merge base in graph compare | done | - | worker | implementation | 1+2 | [ticket](archive/2026-10/T-261004-06.md) | Highlight common ancestor for compared refs |
+| T-261004-07 | Add branch cleanup assistant | done | - | worker | implementation | 1+2 | [ticket](archive/2026-10/T-261004-07.md) | Review merged, gone-remote, and stale branch candidates |
+| T-261004-08 | Strengthen push and pull impact preview | done | - | worker | implementation | 1+2 | [ticket](archive/2026-10/T-261004-08.md) | Show affected commits/files and graph emphasis before sync |
+| T-261004-09 | Show Git state before and after actions | in_progress | worker | worker | implementation | 1+2 | [ticket](active/T-261004-09.md) | Explain meaningful repository-state deltas after actions |
 | T-261004-10 | Add first-push wizard for branches without upstream | draft | coordinator | worker | implementation | 1+2 | [ticket](active/T-261004-10.md) | Guided first Push when upstream is missing |
 | T-261004-11 | Explain force-with-lease before overwrite-style push | draft | coordinator | worker | implementation | 1+2 | [ticket](active/T-261004-11.md) | Depends on T-261004-08 |
 | T-261004-12 | Strengthen PR readiness checklist | draft | coordinator | worker | implementation | 1+2 | [ticket](active/T-261004-12.md) | Readiness summary plus host handoff |
@@ -34,6 +34,7 @@ This board is the status source of truth.
 | T-261004-28 | Add failed-action timeline with retry checks | draft | coordinator | worker | implementation | 1+2 | [ticket](active/T-261004-28.md) | Depends on T-261004-09 |
 | T-261004-29 | Add Safe Guard rule toggles with explanations | draft | coordinator | worker | implementation | 1+2 | [ticket](active/T-261004-29.md) | Session-scoped rule relax with visibility |
 | T-261004-30 | Improve Source Control workflow | done | - | worker | implementation | 1+2 | [ticket](archive/2026-10/T-261004-30.md) | Follow-up to T-261004-01 |
+| T-261004-31 | Clarify Source Control actions and sync previews | done | - | worker | implementation | 1+2 | [ticket](archive/2026-10/T-261004-31.md) | Follow-up to T-261004-30 |
 
 Allowed states: `draft`, `ready`, `in_progress`, `review`, `ready_for_qa`, `blocked`, `done`, `superseded`.
 

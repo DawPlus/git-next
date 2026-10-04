@@ -14,6 +14,7 @@ import {
   deleteBranch,
   deleteTag,
   getBranchDeleteInfo,
+  getBranchCleanupCandidates,
   listStashes,
   renameBranch,
   revertCommit,
@@ -54,6 +55,36 @@ test("creates, switches, renames, and deletes local branches", async () => {
   const info = await getBranchDeleteInfo(repo, "feature/renamed");
   assert.equal(info.merged, true);
   assert.equal((await deleteBranch(repo, "feature/renamed")).ok, true);
+});
+
+test("reviews merged, gone-upstream, and stale branches without marking uncertain branches safe", async () => {
+  const repo = makeRepo();
+  git(repo, ["branch", "merged"]);
+  git(repo, ["switch", "-c", "gone"]);
+  writeFileSync(join(repo, "gone.txt"), "gone\n");
+  git(repo, ["add", "."]);
+  git(repo, ["commit", "-m", "gone upstream branch"]);
+  const remote = mkdtempSync(join(tmpdir(), "git-next-gone-remote-"));
+  git(remote, ["init", "--bare"]);
+  git(repo, ["remote", "add", "origin", remote]);
+  git(repo, ["config", "branch.gone.remote", "origin"]);
+  git(repo, ["config", "branch.gone.merge", "refs/heads/gone"]);
+  git(repo, ["switch", "-c", "stale"]);
+  writeFileSync(join(repo, "stale.txt"), "stale\n");
+  git(repo, ["add", "."]);
+  git(repo, ["commit", "-m", "stale branch commit"]);
+  git(repo, ["switch", "main"]);
+
+  const result = await getBranchCleanupCandidates(repo, { now: Date.now() + 100 * 86400000 });
+  assert.equal(result.ok, true);
+  const byName = Object.fromEntries(result.candidates.map((candidate) => [candidate.name, candidate]));
+  assert.equal(byName.main, undefined);
+  assert.equal(byName.merged.safe, true);
+  assert.match(byName.merged.reasons.join(" "), /병합/);
+  assert.equal(byName.gone.safe, false);
+  assert.match(byName.gone.reasons.join(" "), /원격 추적/);
+  assert.equal(byName.stale.safe, false);
+  assert.match(byName.stale.reasons.join(" "), /90일/);
 });
 
 test("creates a local tracking branch from a remote-only ref", async () => {

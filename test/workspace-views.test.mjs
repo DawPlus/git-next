@@ -83,6 +83,18 @@ test("branch and stash workspaces use visual selection instead of raw picker-onl
   assert.match(stash, /data-action="drop"/);
 });
 
+test("Stash preview distinguishes overlapping file paths from confirmed conflicts", () => {
+  const html = renderStashWorkspace([], {
+    ref: "stash@{0}",
+    stat: "app.txt | 1 +",
+    files: [{ status: "M", path: "app.txt" }],
+    overlap: ["app.txt"],
+  });
+
+  assert.match(html, /겹치는 파일 1개: app\.txt/);
+  assert.match(html, /실제 충돌이 확정된 것은 아닙니다/);
+});
+
 test("knowledge center merges terms and situation guides with top toggle", () => {
   const html = renderKnowledgeCenter({ tab: "guides", selected: "fetch-vs-pull" });
   assert.match(html, /id="knowledge-tab-terms"/);
@@ -91,4 +103,13 @@ test("knowledge center merges terms and situation guides with top toggle", () =>
   assert.match(html, /for="knowledge-tab-guides"/);
   assert.match(html, /Fetch와 Pull/);
   assert.match(html, /Merge와 Rebase/);
+  assert.match(html, /잘못된 파일을 Stage했어요/);
+  assert.match(html, /다른 브랜치로 이동이 안 돼요/);
+  assert.match(html, /Reset을 잘못해서 Commit이 사라진 것 같아요/);
+  assert.match(html, /이럴 때/);
+  assert.match(html, /이렇게 해보세요/);
+  assert.match(html, /팀원이 Push했다고 하는데/);
+  assert.match(html, /class="guide-visual incoming"/);
+  assert.match(html, /class="guide-visual push"/);
+  assert.match(html, /class="guide-visual split"/);
 });

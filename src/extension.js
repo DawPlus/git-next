@@ -1,6 +1,8 @@
 const vscode = require("vscode");
 
 let activeContext = null;
+const diffDocumentContents = new Map();
+let diffDocumentId = 0;
 
 async function recordActivity(entry) {
   if (!activeContext) return;
@@ -65,7 +67,10 @@ async function getState(cwd) {
 }
 
 async function renderPanel(panel, notice = null, mode = "graph", options = {}) {
-  const { renderGraphHtml, renderSidebarHtml } = await import("./graph-view.mjs");
+  const [{ renderGraphHtml }, { renderSidebarHtml }] = await Promise.all([
+    import("./graph-view.mjs"),
+    import("./sidebar-view.mjs"),
+  ]);
   const cwd = getCwd();
   const state = cwd
     ? await getState(cwd)
@@ -106,6 +111,11 @@ async function showResult(host, mode, options, result, level = null) {
     detail: result.detail || null,
     guideKey: result.ok ? null : await getGuideKey(result.action, result),
   }, mode, options);
+}
+
+async function showStatefulResult(host, mode, options, cwd, action) {
+  const { runWithGitStateDelta } = await import("./git-workflows.mjs");
+  await showResult(host, mode, options, await runWithGitStateDelta(cwd, action));
 }
 
 async function guardWorkingState(cwd, action) {
@@ -178,15 +188,17 @@ async function runSyncAction(host, action, mode = "graph", options = {}) {
 
   const [
     { pullRepository, pushRepository },
-    { getTrackingStatus, preflightPullSafety, preflightPushSafety },
+    { getTrackingStatus, isPullUnnecessary, preflightPullSafety, preflightPushSafety },
     { createGuardDecision, evaluateSafeguards },
   ] = await Promise.all([
     import("./git-actions.mjs"),
     import("./git-safety.mjs"),
     import("./safe-guard.mjs"),
   ]);
-
   if (action === "pull") {
+    const tracking = await getTrackingStatus(cwd);
+    if (isPullUnnecessary(tracking)) return;
+
     const preflight = await preflightPullSafety(cwd);
     const guard = await evaluateSafeguards({
       action: "pull",
@@ -220,7 +232,7 @@ async function runSyncAction(host, action, mode = "graph", options = {}) {
     }
 
     if (!await confirmImpactPreview(cwd, "pull")) return;
-    await showResult(host, mode, options, await pullRepository(cwd));
+    await showStatefulResult(host, mode, options, cwd, () => pullRepository(cwd));
     return;
   }
 
@@ -267,7 +279,7 @@ async function runSyncAction(host, action, mode = "graph", options = {}) {
   }
 
   if (!await confirmImpactPreview(cwd, "push")) return;
-  await showResult(host, mode, options, await pushRepository(cwd));
+  await showStatefulResult(host, mode, options, cwd, () => pushRepository(cwd));
 }
 
 async function askName(prompt, validateInput) {
@@ -290,9 +302,46 @@ async function branchMenu(host, mode, options) {
     { label: "브랜치 전환", id: "switch", description: "작업 위치를 다른 로컬 브랜치로 바꿉니다." },
     { label: "브랜치 이름 변경", id: "rename", description: "로컬 브랜치 이름만 바꿉니다. 원격 이름은 바뀌지 않습니다." },
     { label: "브랜치 삭제", id: "delete", description: "삭제 전 병합 여부와 잃을 수 있는 커밋을 확인합니다." },
+    { label: "정리 후보 검토", id: "cleanup", description: "병합·원격 추적 끊김·90일 이상 커밋이 없는 브랜치를 검토합니다." },
   ], { placeHolder: "브랜치 작업을 선택하세요." });
 
   if (!action) return;
+
+  if (action.id === "cleanup") {
+    const review = await actions.getBranchCleanupCandidates(cwd);
+    if (!review.ok) {
+      vscode.window.showWarningMessage(review.message);
+      return;
+    }
+    if (!review.candidates.length) {
+      vscode.window.showInformationMessage("검토할 브랜치 정리 후보가 없습니다.");
+      return;
+    }
+    const candidate = await vscode.window.showQuickPick(review.candidates.map((item) => ({
+      label: item.name,
+      description: `${item.safe ? "안전 후보" : "확인 필요"} · ${item.reasons.join(" · ")}`,
+      detail: item.lastCommitAt ? `마지막 커밋: ${item.lastCommitAt}` : "마지막 커밋 날짜를 확인할 수 없음",
+      item,
+    })), { placeHolder: "삭제 후보를 검토하세요. 현재 브랜치는 표시되지 않습니다." });
+    if (!candidate) return;
+    const freshState = await getState(cwd);
+    if (candidate.item.name === freshState.branch) {
+      vscode.window.showWarningMessage("현재 브랜치는 삭제할 수 없습니다.");
+      return;
+    }
+    const info = await actions.getBranchDeleteInfo(cwd, candidate.item.name);
+    const warning = info.merged
+      ? "현재 HEAD에 병합되어 있습니다."
+      : `병합되지 않은 커밋이 ${info.uniqueCommitCount ?? "확인되지 않은 수만큼"} 남아 있을 수 있습니다.`;
+    const choice = await vscode.window.showWarningMessage(
+      `'${candidate.item.name}' 로컬 브랜치를 삭제할까요? ${candidate.item.reasons.join(" · ")} ${warning}`,
+      { modal: true },
+      info.merged ? "삭제" : "강제 삭제",
+    );
+    if (!choice) return;
+    await showStatefulResult(host, mode, options, cwd, () => actions.deleteBranch(cwd, candidate.item.name, !info.merged));
+    return;
+  }
 
   if (action.id === "create") {
     const name = await askName("새 브랜치 이름을 입력하세요. 생성 후에도 현재 브랜치는 그대로 유지됩니다.", async (value) => {
@@ -302,7 +351,7 @@ async function branchMenu(host, mode, options) {
       return null;
     });
     if (!name) return;
-    await showResult(host, mode, options, await actions.createBranch(cwd, name, "HEAD"));
+    await showStatefulResult(host, mode, options, cwd, () => actions.createBranch(cwd, name, "HEAD"));
     return;
   }
 
@@ -354,7 +403,7 @@ async function branchMenu(host, mode, options) {
       return;
     }
 
-    await showResult(host, mode, options, await actions.checkoutBranch(cwd, selected.ref.name));
+    await showStatefulResult(host, mode, options, cwd, () => actions.checkoutBranch(cwd, selected.ref.name));
     return;
   }
 
@@ -369,7 +418,7 @@ async function branchMenu(host, mode, options) {
       },
     );
     if (!newName) return;
-    await showResult(host, mode, options, await actions.renameBranch(cwd, selected.ref.name, newName));
+    await showStatefulResult(host, mode, options, cwd, () => actions.renameBranch(cwd, selected.ref.name, newName));
     return;
   }
 
@@ -388,7 +437,7 @@ async function branchMenu(host, mode, options) {
     info.merged ? "삭제" : "강제 삭제",
   );
   if (!choice) return;
-  await showResult(host, mode, options, await actions.deleteBranch(cwd, selected.ref.name, !info.merged));
+  await showStatefulResult(host, mode, options, cwd, () => actions.deleteBranch(cwd, selected.ref.name, !info.merged));
 }
 
 async function tagMenu(host, mode, options) {
@@ -440,6 +489,7 @@ async function stashMenu(host, mode, options) {
   const cwd = getCwd();
   if (!cwd) return;
   const actions = await import("./git-actions.mjs");
+  const workflows = await import("./git-workflows.mjs");
   const { getWorkingTreeChanges, getInProgressOperation } = await import("./git-safety.mjs");
 
   const action = await vscode.window.showQuickPick([
@@ -461,7 +511,7 @@ async function stashMenu(host, mode, options) {
       value: "Git Next 임시 저장",
     });
     if (message === undefined) return;
-    await showResult(host, mode, options, await actions.stashPush(cwd, message || "Git Next 임시 저장"));
+    await showStatefulResult(host, mode, options, cwd, () => actions.stashPush(cwd, message || "Git Next 임시 저장"));
     return;
   }
 
@@ -488,23 +538,36 @@ async function stashMenu(host, mode, options) {
   }
 
   const operation = await getInProgressOperation(cwd);
-  const changes = await getWorkingTreeChanges(cwd);
-  if (operation || changes.length) {
+  if (operation) {
     await renderPanel(host, {
       ok: false,
       level: "blocked",
-      message: operation
-        ? `현재 ${operation.operation} 작업이 끝나지 않아 Stash를 복원하지 않습니다.`
-        : "현재 작업 폴더에 커밋하지 않은 변경이 있어 Stash 복원을 중단했습니다.",
-      detail: changes.length ? `현재 변경 파일: ${changes.map((item) => item.path).join(", ")}` : operation?.path,
+      message: `현재 ${operation.operation} 작업이 끝나지 않아 Stash를 복원하지 않습니다.`,
+      detail: operation.path,
     }, mode, options);
     return;
   }
 
-  const result = action.id === "apply"
-    ? await actions.stashApply(cwd, selected.stash.ref)
-    : await actions.stashPop(cwd, selected.stash.ref);
-  await showResult(host, mode, options, result);
+  const preview = await workflows.getStashDetails(cwd, selected.stash.ref);
+  if (!await confirmMutation(stashActionConfirmation(preview, action.id))) return;
+  await showStatefulResult(host, mode, options, cwd, () => action.id === "apply"
+    ? actions.stashApply(cwd, selected.stash.ref)
+    : actions.stashPop(cwd, selected.stash.ref));
+}
+
+function stashActionConfirmation(preview, action) {
+  const isPop = action === "pop";
+  const overlap = preview.overlap ?? [];
+  return {
+    action: isPop ? "Stash Pop" : "Stash Apply",
+    target: preview.ref,
+    effect: isPop ? "Stash 변경을 적용하고 성공하면 항목을 제거합니다." : "Stash 변경을 적용하고 항목은 유지합니다.",
+    risk: overlap.length
+      ? `현재 변경과 같은 파일 ${overlap.length}개가 있습니다. 파일 단위 겹침이며 실제 충돌 여부는 적용 후 Git이 판단합니다.\n${overlap.join(", ")}`
+      : "현재 로컬 변경과 겹치는 파일 경로가 없습니다. 실제 충돌 여부는 Git이 판단합니다.",
+    level: overlap.length ? "warning" : "safe",
+    confirmLabel: isPop ? "Pop" : "Apply",
+  };
 }
 
 async function commitMenu(host, mode, options, commit) {
@@ -533,7 +596,7 @@ async function commitMenu(host, mode, options, commit) {
       effect: `커밋 ${commit.slice(0, 7)}에서 새 로컬 브랜치를 만듭니다.`,
       confirmLabel: "브랜치 만들기",
     })) return;
-    await showResult(host, mode, options, await actions.createBranch(cwd, name, commit));
+    await showStatefulResult(host, mode, options, cwd, () => actions.createBranch(cwd, name, commit));
     return;
   }
 
@@ -576,7 +639,7 @@ async function commitMenu(host, mode, options, commit) {
     "Revert 실행",
   );
   if (!confirm) return;
-  await showResult(host, mode, options, await actions.revertCommit(cwd, commit));
+  await showStatefulResult(host, mode, options, cwd, () => actions.revertCommit(cwd, commit));
 }
 
 
@@ -673,10 +736,16 @@ async function compareBranchesMenu() {
   const baseCommits = comparison.baseOnly.slice(0, 20).map((c) => `- \`${c.id}\` ${c.subject}`).join("\n") || "- 없음";
   const otherCommits = comparison.otherOnly.slice(0, 20).map((c) => `- \`${c.id}\` ${c.subject}`).join("\n") || "- 없음";
   const files = comparison.files.slice(0, 50).map((f) => `- \`${f.status}\` ${f.path}`).join("\n") || "- 없음";
+  const mergeBase = comparison.mergeBase
+    ? `\`${comparison.mergeBase.slice(0, 7)}\` ${comparison.mergeBaseSubject} — 두 브랜치가 갈라지기 전 함께 가진 기준 커밋입니다.`
+    : "공통 조상 커밋을 찾지 못했습니다. 두 브랜치의 기록이 서로 다른 시작점일 수 있습니다.";
 
   await openMarkdown(
     `브랜치 비교 · ${current} ↔ ${selected.ref.name}`,
     [
+      "## 공통 기준점 (Merge Base)",
+      mergeBase,
+      "",
       `**${current}에만 있는 커밋:** ${comparison.baseCount}개`,
       `**${selected.ref.name}에만 있는 커밋:** ${comparison.otherCount}개`,
       "",
@@ -694,6 +763,13 @@ async function compareBranchesMenu() {
         : "비교 브랜치에서 새로 들어올 커밋은 없습니다.",
     ].join("\n"),
   );
+  if (comparison.mergeBase) {
+    const openGraph = await vscode.window.showInformationMessage(
+      `공통 기준점 ${comparison.mergeBase.slice(0, 7)}은 두 브랜치가 갈라지기 전 함께 가진 커밋입니다. 그래프에서 강조할까요?`,
+      "그래프에서 강조",
+    );
+    if (openGraph) await openGraphPanel(activeContext, { focus: "merge-base", focusCommitId: comparison.mergeBase });
+  }
 }
 
 async function undoMenu(host, mode, options) {
@@ -704,6 +780,7 @@ async function undoMenu(host, mode, options) {
   const actions = await import("./git-actions.mjs");
   const choice = await vscode.window.showQuickPick([
     { label: "마지막 로컬 Commit 취소", id: "commit", description: "Push 전 커밋을 취소하고 파일 변경은 남깁니다." },
+    { label: "복구 지점에서 브랜치 만들기", id: "recovery", description: "Reset 전에 저장된 로컬 커밋 위치를 새 브랜치로 보존합니다." },
     { label: "파일 하나 변경 되돌리기", id: "file", description: "선택 파일의 커밋하지 않은 변경을 버립니다." },
     { label: "이미 Push한 Commit 되돌리기", id: "pushed", description: "기록을 지우지 않고 Revert 커밋을 만듭니다." },
     { label: "추적 중인 모든 변경 버리기", id: "discard", description: "새 untracked 파일은 남기고 tracked 변경만 버립니다." },
@@ -722,7 +799,41 @@ async function undoMenu(host, mode, options) {
       "Commit 취소",
     );
     if (!confirm) return;
-    await showResult(host, mode, options, await workflows.undoLastLocalCommit(cwd));
+    const point = await workflows.createRecoveryPoint(cwd, "undo-local-commit");
+    if (!point.ok) {
+      await showResult(host, mode, options, point);
+      return;
+    }
+    const result = await workflows.undoLastLocalCommit(cwd);
+    await showResult(host, mode, options, {
+      ...result,
+      message: result.ok ? `${result.message} ${point.message}` : result.message,
+      detail: [point.commit, point.name, result.detail].filter(Boolean).join("\n"),
+    });
+    return;
+  }
+
+  if (choice.id === "recovery") {
+    const points = await workflows.listRecoveryPoints(cwd);
+    const selected = await vscode.window.showQuickPick(points.map((point) => ({
+      label: point.name,
+      description: point.subject,
+      detail: point.commit,
+      point,
+    })), { placeHolder: "복구할 커밋 위치 선택" });
+    if (!selected) return;
+    const name = await askName("복구 지점에서 만들 새 브랜치 이름", async (value) => {
+      const result = await actions.validateBranchName(cwd, value);
+      return result.ok ? null : result.message;
+    });
+    if (!name) return;
+    if (!await confirmMutation({
+      action: "복구 브랜치 만들기",
+      target: selected.point.name,
+      effect: `복구 커밋 ${selected.point.commit.slice(0, 7)}에서 로컬 브랜치 '${name}'를 만듭니다. 현재 파일과 브랜치는 바뀌지 않습니다.`,
+      confirmLabel: "브랜치 만들기",
+    })) return;
+    await showResult(host, mode, options, await actions.createBranch(cwd, name, selected.point.commit));
     return;
   }
 
@@ -738,7 +849,7 @@ async function undoMenu(host, mode, options) {
       "변경 버리기",
     );
     if (!confirm) return;
-    await showResult(host, mode, options, await workflows.restoreFile(cwd, selected.item.path));
+    await showStatefulResult(host, mode, options, cwd, () => workflows.restoreFile(cwd, selected.item.path));
     return;
   }
 
@@ -749,7 +860,7 @@ async function undoMenu(host, mode, options) {
       "HEAD Revert",
     );
     if (!confirm) return;
-    await showResult(host, mode, options, await actions.revertCommit(cwd, "HEAD"));
+    await showStatefulResult(host, mode, options, cwd, () => actions.revertCommit(cwd, "HEAD"));
     return;
   }
 
@@ -759,7 +870,7 @@ async function undoMenu(host, mode, options) {
     "모든 tracked 변경 버리기",
   );
   if (!confirm) return;
-  await showResult(host, mode, options, await workflows.discardTrackedChanges(cwd));
+  await showStatefulResult(host, mode, options, cwd, () => workflows.discardTrackedChanges(cwd));
 }
 
 async function timelineView() {
@@ -880,7 +991,7 @@ async function commitHelper(host, mode, options) {
     "Commit",
   );
   if (!confirm) return;
-  await showResult(host, mode, options, await workflows.commitWithMessage(cwd, message));
+  await showStatefulResult(host, mode, options, cwd, () => workflows.commitWithMessage(cwd, message));
 }
 
 async function pullRequestHandoff() {
@@ -914,8 +1025,43 @@ async function pullRequestHandoff() {
   if (open) await vscode.env.openExternal(vscode.Uri.parse(url));
 }
 
-async function toolsMenu(host, mode, options) {
+async function gitDoctor(host, context, mode, options) {
+  const cwd = getCwd();
+  if (!cwd) return;
+  const [workflows, safety] = await Promise.all([
+    import("./git-workflows.mjs"),
+    import("./git-safety.mjs"),
+  ]);
+  const [head, tracking, changes, operation, remoteRewrite] = await Promise.all([
+    safety.getHeadSafety(cwd),
+    safety.getTrackingStatus(cwd),
+    safety.getWorkingTreeChanges(cwd),
+    safety.getInProgressOperation(cwd),
+    safety.detectCachedRemoteHistoryRewrite(cwd),
+  ]);
+  const findings = workflows.getGitDoctorFindings({ head, tracking, changes, operation, remoteRewrite });
+  const selected = await vscode.window.showQuickPick(findings.map((finding) => ({
+    label: finding.state,
+    description: finding.risk,
+    detail: `다음: ${finding.recommendation}`,
+    finding,
+  })), { placeHolder: "Git Doctor · 저장소 상태와 다음 작업" });
+  if (!selected) return;
+
+  const action = selected.finding.action;
+  if (action === "pull" || action === "push") return runSyncAction(host, action, mode, options);
+  if (action === "compare") return openComparePanel(context);
+  if (action === "branch") return branchMenu(host, mode, options);
+  if (action === "remote") return remoteMenu(host, mode, options);
+  if (action === "conflict") return conflictHelper(host, mode, options);
+  if (action === "scm") return vscode.commands.executeCommand("workbench.view.scm");
+  if (selected.finding.guideKey) return openGuidePanel(context, selected.finding.guideKey);
+  await renderPanel(host, null, mode, options);
+}
+
+async function toolsMenu(host, mode, options, context) {
   const selected = await vscode.window.showQuickPick([
+    { label: "Git Doctor", id: "doctor", description: "현재 상태와 위험, 권장 다음 작업 확인" },
     { label: "Conflict Helper", id: "conflict", description: "충돌 파일을 내 변경/들어온 변경 기준으로 정리" },
     { label: "Branch 비교", id: "compare", description: "두 브랜치의 커밋과 파일 차이 확인" },
     { label: "Undo 가이드", id: "undo", description: "Reset/Restore/Revert 중 안전한 방법 선택" },
@@ -927,6 +1073,7 @@ async function toolsMenu(host, mode, options) {
   ], { placeHolder: "Git Next 도구" });
   if (!selected) return;
 
+  if (selected.id === "doctor") return gitDoctor(host, context, mode, options);
   if (selected.id === "conflict") return conflictHelper(host, mode, options);
   if (selected.id === "compare") return compareBranchesMenu();
   if (selected.id === "undo") return undoMenu(host, mode, options);
@@ -1019,13 +1166,12 @@ async function openChangesPanel(context) {
       }
       const ok = await confirmMutation({
         action: "Commit",
-        target: staged.map((file) => file.path).join(", "),
-        effect: `Staged 파일 ${staged.length}개를 로컬 Commit으로 기록합니다. 메시지: ${commitMessage}`,
-        risk: "Remote에는 아직 Push되지 않습니다.",
+        effect: `Staged 변경사항 ${staged.length}개를 Commit할까요?`,
+        risk: "로컬에 기록되며 Push 전까지 원격에는 공유되지 않습니다.",
         confirmLabel: "Commit",
       });
       if (!ok) return;
-      const result = await workflows.commitWithMessage(cwd, commitMessage);
+      const result = await workflows.runWithGitStateDelta(cwd, () => workflows.commitWithMessage(cwd, commitMessage));
       notice = result;
       await recordActivity(result);
       return refresh();
@@ -1045,7 +1191,7 @@ async function openChangesPanel(context) {
         confirmLabel: "Commit 취소",
       });
       if (!ok) return;
-      const result = await workflows.undoLastLocalCommit(cwd);
+      const result = await workflows.runWithGitStateDelta(cwd, () => workflows.undoLastLocalCommit(cwd));
       notice = result;
       await recordActivity(result);
       return refresh();
@@ -1083,7 +1229,6 @@ async function openWorkingTreeDiff(cwd, path) {
   const state = await (await import("./git-state.mjs")).getRepositoryState(cwd);
   const root = state.root ?? cwd;
   const serverRef = state.upstream ?? "HEAD";
-  const serverLabel = state.upstream ? `[서버] ${serverRef}` : "[서버] 원격 연결 없음 · HEAD";
   const before = state.upstream || state.head
     ? await workflows.readGitFile(root, serverRef, path)
     : { ok: false, content: "" };
@@ -1093,16 +1238,26 @@ async function openWorkingTreeDiff(cwd, path) {
   } catch {
     after = await vscode.workspace.openTextDocument({ content: "", language: "plaintext" });
   }
-  const beforeDoc = await vscode.workspace.openTextDocument({
-    content: before.ok ? before.content : "",
-    language: after.languageId,
-  });
+  const sourceLabel = state.upstream
+    ? `[서버 · ${serverRef} · 변경 전]`
+    : `[기준 커밋 · ${String(state.head ?? "HEAD").slice(0, 7)} · 변경 전]`;
+  const remoteUri = createDiffDocumentUri(sourceLabel, path, before.ok ? before.content : "");
+  const localUri = createDiffDocumentUri("[로컬 · 현재 파일 · 변경 후]", path, after.getText());
   await vscode.commands.executeCommand(
     "vscode.diff",
-    beforeDoc.uri,
-    after.uri,
-    `${serverLabel} ↔ [로컬] ${path}`,
+    remoteUri,
+    localUri,
+    `${path} · ${state.upstream ? `서버 ${serverRef}` : "기준 커밋"} 변경 전 → 로컬 현재 파일`,
   );
+}
+
+function createDiffDocumentUri(label, path, content) {
+  const id = String(++diffDocumentId);
+  diffDocumentContents.set(id, content);
+  if (diffDocumentContents.size > 80) {
+    diffDocumentContents.delete(diffDocumentContents.keys().next().value);
+  }
+  return vscode.Uri.from({ scheme: "git-next-diff", path: `/${label}/${path}`, query: id });
 }
 
 async function openComparePanel(context) {
@@ -1196,11 +1351,13 @@ async function openBranchWorkspace(context) {
         if (!name) return;
         const ok = await confirmMutation({ action: "Remote 브랜치 전환", target: `${message.branch} → ${name}`, effect: "추적 로컬 브랜치를 만들고 전환합니다.", confirmLabel: "전환" });
         if (!ok) return;
-        await actions.createTrackingBranch(cwd, name, message.branch);
+        const result = await workflows.runWithGitStateDelta(cwd, () => actions.createTrackingBranch(cwd, name, message.branch));
+        vscode.window.showInformationMessage(result.message);
       } else {
         const ok = await confirmMutation({ action: "브랜치 전환", target: message.branch, effect: "작업 위치를 선택한 브랜치로 변경합니다.", confirmLabel: "전환" });
         if (!ok) return;
-        await actions.checkoutBranch(cwd, message.branch);
+        const result = await workflows.runWithGitStateDelta(cwd, () => actions.checkoutBranch(cwd, message.branch));
+        vscode.window.showInformationMessage(result.message);
       }
       return refresh();
     }
@@ -1275,14 +1432,8 @@ async function openStashWorkspace(context) {
         vscode.window.showWarningMessage(guard.message);
         return;
       }
-      const ok = await confirmMutation({
-        action: message.type === "apply" ? "Stash Apply" : "Stash Pop",
-        target: message.ref,
-        effect: message.type === "apply" ? "변경을 복원하고 Stash는 남깁니다." : "변경을 복원하고 성공 시 Stash를 제거합니다.",
-        risk: "현재 파일과 겹치면 충돌할 수 있습니다.",
-        level: "warning",
-        confirmLabel: message.type === "apply" ? "Apply" : "Pop",
-      });
+      const preview = await workflows.getStashDetails(cwd, message.ref);
+      const ok = await confirmMutation(stashActionConfirmation(preview, message.type));
       if (!ok) return;
       await (message.type === "apply" ? actions.stashApply(cwd, message.ref) : actions.stashPop(cwd, message.ref));
       return refresh();
@@ -1396,11 +1547,11 @@ async function openGuidePanel(context, selected = null) {
   context.subscriptions.push(panel);
 }
 
-async function initializeWebviewHost(host, context, mode) {
+async function initializeWebviewHost(host, context, mode, initialOptions = {}) {
   host.webview.options = { enableScripts: true };
   host.webview.html = "<p>Git 정보를 불러오는 중입니다...</p>";
   let options = mode === "graph"
-    ? { density: "compact", query: "", ref: "", scope: "all", limit: 50 }
+    ? { density: "compact", query: "", ref: "", scope: "all", focus: "all", limit: 50, ...initialOptions }
     : {};
 
   const messages = host.webview.onDidReceiveMessage(async (message) => {
@@ -1418,6 +1569,18 @@ async function initializeWebviewHost(host, context, mode) {
     }
     if (message?.type === "openGuide") {
       await openKnowledgePanel(context, message.guideKey ?? null, "guides");
+      return;
+    }
+    if (message?.type === "openSafeGuard") {
+      const { renderSafeGuardDetailsHtml } = await import("./sidebar-view.mjs");
+      const panel = vscode.window.createWebviewPanel(
+        "gitNext.safeGuard",
+        "Git Next · Safe Guard",
+        vscode.ViewColumn.One,
+        { enableScripts: false, retainContextWhenHidden: true },
+      );
+      panel.webview.html = renderSafeGuardDetailsHtml({ message: message.noticeMessage, detail: message.noticeDetail });
+      context.subscriptions.push(panel);
       return;
     }
     if (message?.type === "openChanges") {
@@ -1497,13 +1660,12 @@ async function initializeWebviewHost(host, context, mode) {
       }
       const ok = await confirmMutation({
         action: "Commit",
-        target: staged.map((file) => file.path).join(", "),
-        effect: `Staged 파일 ${staged.length}개를 로컬 Commit으로 기록합니다. 메시지: ${commitMessage}`,
-        risk: "Remote에는 아직 Push되지 않습니다.",
+        effect: `Staged 변경사항 ${staged.length}개를 Commit할까요?`,
+        risk: "로컬에 기록되며 Push 전까지 원격에는 공유되지 않습니다.",
         confirmLabel: "Commit",
       });
       if (!ok) return;
-      const result = await workflows.commitWithMessage(root, commitMessage);
+      const result = await workflows.runWithGitStateDelta(root, () => workflows.commitWithMessage(root, commitMessage));
       await recordActivity(result);
       await renderPanel(host, result, mode, options);
       return;
@@ -1526,7 +1688,7 @@ async function initializeWebviewHost(host, context, mode) {
       return;
     }
     if (message?.type === "toolsMenu") {
-      await toolsMenu(host, mode, options);
+      await toolsMenu(host, mode, options, context);
       return;
     }
     if (message?.type === "commitMenu") {
@@ -1547,18 +1709,21 @@ async function initializeWebviewHost(host, context, mode) {
   }
 }
 
-async function openGraphPanel(context) {
+async function openGraphPanel(context, initialOptions = {}) {
   const panel = vscode.window.createWebviewPanel(
     "gitNext.graph",
     "Git Next · 그래프",
     vscode.ViewColumn.One,
     { enableScripts: true, retainContextWhenHidden: true },
   );
-  await initializeWebviewHost(panel, context, "graph");
+  await initializeWebviewHost(panel, context, "graph", initialOptions);
 }
 
 function activate(context) {
   activeContext = context;
+  context.subscriptions.push(vscode.workspace.registerTextDocumentContentProvider("git-next-diff", {
+    provideTextDocumentContent: (uri) => diffDocumentContents.get(uri.query) ?? "",
+  }));
   const sidebarProvider = {
     resolveWebviewView: async (view) => {
       await initializeWebviewHost(view, context, "sidebar");

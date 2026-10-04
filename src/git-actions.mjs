@@ -173,6 +173,37 @@ export async function getBranchDeleteInfo(cwd, name) {
   };
 }
 
+export async function getBranchCleanupCandidates(cwd, { now = Date.now(), staleAfterDays = 90 } = {}) {
+  const [current, refs, merged] = await Promise.all([
+    run(cwd, ["symbolic-ref", "--quiet", "--short", "HEAD"]),
+    run(cwd, ["for-each-ref", "--format=%(refname:short)%09%(upstream:track)%09%(upstream:short)%09%(committerdate:unix)", "refs/heads"]),
+    run(cwd, ["branch", "--merged", "HEAD", "--format=%(refname:short)"]),
+  ]);
+  if (!current.ok || !refs.ok || !merged.ok) {
+    return { ok: false, candidates: [], message: "브랜치 상태를 확인하지 못해 정리 후보를 표시하지 않았습니다." };
+  }
+
+  const currentName = current.detail.trim();
+  const mergedNames = new Set(merged.detail.split("\n").filter(Boolean));
+  const cutoff = Math.floor(now / 1000) - staleAfterDays * 86400;
+  const candidates = [];
+  for (const line of refs.detail.split("\n").filter(Boolean)) {
+    const [name, tracking = "", upstream = "", committed = ""] = line.split("\t");
+    if (!name || name === currentName) continue;
+    const isMerged = mergedNames.has(name);
+    const isGone = tracking.includes("[gone]");
+    const timestamp = Number(committed);
+    const isStale = Number.isFinite(timestamp) && timestamp > 0 && timestamp < cutoff;
+    if (!isMerged && !isGone && !isStale) continue;
+    const reasons = [];
+    if (isMerged) reasons.push("현재 브랜치에 병합됨");
+    if (isGone) reasons.push(`원격 추적 브랜치가 사라짐${upstream ? ` (${upstream})` : ""}`);
+    if (isStale) reasons.push(`${staleAfterDays}일 동안 커밋이 없음`);
+    candidates.push({ name, safe: isMerged, reasons, upstream: upstream || null, lastCommitAt: timestamp ? new Date(timestamp * 1000).toISOString() : null });
+  }
+  return { ok: true, currentBranch: currentName, candidates };
+}
+
 export async function deleteBranch(cwd, name, force = false) {
   const result = await run(cwd, ["branch", force ? "-D" : "-d", name]);
   return {

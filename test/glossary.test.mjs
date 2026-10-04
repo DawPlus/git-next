@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { renderGlossaryHtml } from "../src/glossary-view.mjs";
-import { renderSidebarHtml } from "../src/graph-view.mjs";
+import { renderSafeGuardDetailsHtml, renderSidebarHtml } from "../src/sidebar-view.mjs";
 
 test("renders Korean Git terminology guide", () => {
   const html = renderGlossaryHtml();
@@ -58,13 +58,16 @@ test("sidebar exposes source control, terminology, and repository tool actions",
   assert.match(html, /data-action="openKnowledge"/);
   assert.match(html, /class="tool-grid"/);
   assert.match(html, /class="tool-icon"/);
-  assert.match(html, /aria-label="새로고침"/);
+  for (const label of ["그래프 보기", "동기화 도움말", "Git 도구", "도움말"]) {
+    assert.match(html, new RegExp(`aria-label="${label}"`));
+  }
+  assert.match(html, /\[origin\/main\]/);
   assert.match(html, /받기 · Pull/);
   assert.match(html, /보내기 · Push/);
   assert.match(html, /<svg viewBox="0 0 24 24">/);
 });
 
-test("sidebar shows Git detail directly and links contextual recovery guide", () => {
+test("sidebar links Safe Guard result to separate details view", () => {
   const html = renderSidebarHtml({
     kind: "repository",
     root: "/repo",
@@ -83,9 +86,12 @@ test("sidebar shows Git detail directly and links contextual recovery guide", ()
     guideKey: "pull-conflict",
   });
 
-  assert.match(html, /Git 상세 정보/);
-  assert.match(html, /영향 파일: src\/a\.js/);
+  assert.match(html, /data-action="openSafeGuard"/);
+  assert.match(html, /class="guard-message-button has-notice"/);
   assert.doesNotMatch(html, /<details>/);
-  assert.match(html, /이 상황 해결 방법/);
-  assert.match(html, /data-guide-key="pull-conflict"/);
+  assert.doesNotMatch(html, /이 상황 해결 방법/);
+
+  const details = renderSafeGuardDetailsHtml({ message: "Pull하면 충돌할 수 있습니다.", detail: "영향 파일: src/a.js" });
+  assert.match(details, /Git 상세 정보/);
+  assert.match(details, /영향 파일: src\/a\.js/);
 });

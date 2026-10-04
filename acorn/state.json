@@ -1,10 +1,10 @@
 {
 	"version": 1,
-  "activeTicket": null,
-  "classification": null,
-  "phase": null,
-  "next": null,
+  "activeTicket": "T-261004-09",
+  "classification": "feature",
+  "phase": "worker",
+  "next": "worker",
   "agentVerification": "pending",
 	"qa": "pending",
-	"updatedAt": null
+	"updatedAt": "2026-10-04T20:12:00+09:00"
 }

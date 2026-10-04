@@ -1,5 +1,7 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
+import { getTrackingStatus, getWorkingTreeChanges } from "./git-safety.mjs";
+import { getRepositoryState } from "./git-state.mjs";
 
 const execFileAsync = promisify(execFile);
 
@@ -88,14 +90,16 @@ function parseSubjects(raw) {
 
 export async function getActionImpactPreview(cwd, action) {
   if (action === "push") {
-    const [commits, files] = await Promise.all([
+    const [upstream, commits, files] = await Promise.all([
+      run(cwd, ["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"]),
       run(cwd, ["log", "--oneline", "@{u}..HEAD"]),
       run(cwd, ["diff", "--name-status", "@{u}..HEAD"]),
     ]);
     const parsedCommits = commits.ok ? parseSubjects(commits.detail) : [];
-    const parsedFiles = files.ok ? parseNameStatus(files.detail) : [];
+    const parsedFiles = commits.ok && parsedCommits.length && files.ok ? parseNameStatus(files.detail) : [];
     return {
       action,
+      upstream: upstream.ok ? upstream.detail : null,
       commits: parsedCommits,
       files: parsedFiles,
       summary: parsedCommits.length
@@ -110,12 +114,13 @@ export async function getActionImpactPreview(cwd, action) {
   ]);
   const parsedCommits = commits.ok ? parseSubjects(commits.detail) : [];
   let parsedFiles = [];
-  if (upstream.ok) {
+  if (upstream.ok && commits.ok && parsedCommits.length) {
     const files = await run(cwd, ["diff", "--name-status", `HEAD..${upstream.detail}`]);
     parsedFiles = files.ok ? parseNameStatus(files.detail) : [];
   }
   return {
     action,
+    upstream: upstream.ok ? upstream.detail : null,
     commits: parsedCommits,
     files: parsedFiles,
     summary: parsedCommits.length
@@ -125,28 +130,69 @@ export async function getActionImpactPreview(cwd, action) {
 }
 
 export function formatImpactPreview(preview) {
-  const changed = preview.files.filter((file) => !file.status.startsWith("D")).length;
+  const added = preview.files.filter((file) => file.status.startsWith("A")).length;
   const deleted = preview.files.filter((file) => file.status.startsWith("D")).length;
+  const changed = preview.files.length - added - deleted;
+  const direction = preview.action === "pull"
+    ? `서버 ${preview.upstream ?? "Remote"} → 로컬`
+    : `로컬 → 서버 ${preview.upstream ?? "Remote"}`;
   const commitLines = preview.commits.slice(0, 5).map((commit) => `• ${commit.id} ${commit.subject}`);
+  const fileLines = preview.files.slice(0, 5).map((file) => `• ${file.status} ${file.path}`);
   return [
+    direction,
     preview.summary,
-    preview.files.length ? `영향 파일 ${preview.files.length}개 · 변경/추가 ${changed} · 삭제 ${deleted}` : "영향 파일 없음",
-    commitLines.length ? `\n커밋 미리보기\n${commitLines.join("\n")}` : null,
-    preview.commits.length > 5 ? `외 ${preview.commits.length - 5}개` : null,
+    preview.files.length ? `영향 파일 ${preview.files.length}개 · 변경 ${changed} · 추가 ${added} · 삭제 ${deleted}` : "영향 파일 없음",
+    commitLines.length ? `\n${preview.action === "pull" ? "받아올 커밋" : "보낼 커밋"}\n${commitLines.join("\n")}${preview.commits.length > 5 ? `\n외 ${preview.commits.length - 5}개` : ""}` : null,
+    fileLines.length ? `\n변경 파일 미리보기\n${fileLines.join("\n")}${preview.files.length > 5 ? `\n외 ${preview.files.length - 5}개` : ""}` : null,
   ].filter(Boolean).join("\n");
 }
 
+export function formatGitStateDelta(before, after) {
+  const changes = [];
+  if (before.branch !== after.branch) changes.push(`브랜치 ${before.branch ?? "없음"} → ${after.branch ?? "없음"}`);
+  if (before.upstream !== after.upstream) changes.push(`추적 Remote ${before.upstream ?? "없음"} → ${after.upstream ?? "없음"}`);
+  if (before.tracking && after.tracking && (before.tracking.ahead !== after.tracking.ahead || before.tracking.behind !== after.tracking.behind)) {
+    const trackingChanges = [];
+    if (before.tracking.ahead !== after.tracking.ahead) trackingChanges.push(`ahead ${before.tracking.ahead} → ${after.tracking.ahead}`);
+    if (before.tracking.behind !== after.tracking.behind) trackingChanges.push(`behind ${before.tracking.behind} → ${after.tracking.behind}`);
+    changes.push(`원격 기준 ${trackingChanges.join(", ")}`);
+  }
+  if (before.dirty !== after.dirty) changes.push(`작업 폴더 ${before.dirty ? "변경 있음" : "깨끗함"} → ${after.dirty ? "변경 있음" : "깨끗함"}`);
+  return changes.length ? `상태 변화: ${changes.join(" · ")}` : "상태 변화 없음";
+}
+
+export async function runWithGitStateDelta(cwd, action) {
+  const snapshot = async () => {
+    const state = await getRepositoryState(cwd);
+    const root = state.root ?? cwd;
+    const [tracking, changes] = await Promise.all([getTrackingStatus(root), getWorkingTreeChanges(root)]);
+    return { branch: state.branch, upstream: state.upstream, tracking, dirty: changes.length > 0 };
+  };
+  const before = await snapshot();
+  const result = await action();
+  if (!result.ok) return result;
+  const after = await snapshot();
+  return { ...result, message: `${result.message} ${formatGitStateDelta(before, after)}` };
+}
+
 export async function compareBranches(cwd, base, other) {
-  const [counts, baseOnly, otherOnly, files] = await Promise.all([
+  const [counts, baseOnly, otherOnly, files, mergeBase] = await Promise.all([
     run(cwd, ["rev-list", "--left-right", "--count", `${base}...${other}`]),
     run(cwd, ["log", "--oneline", `${other}..${base}`]),
     run(cwd, ["log", "--oneline", `${base}..${other}`]),
     run(cwd, ["diff", "--name-status", `${base}...${other}`]),
+    run(cwd, ["merge-base", base, other]),
   ]);
+  const mergeBaseDetails = mergeBase.ok
+    ? await run(cwd, ["show", "-s", "--format=%H%x1f%s", mergeBase.detail])
+    : { ok: false, detail: "" };
+  const [mergeBaseId = null, ...mergeBaseSubjectParts] = mergeBaseDetails.ok ? mergeBaseDetails.detail.split("\x1f") : [];
   const [baseCount = 0, otherCount = 0] = counts.ok ? counts.detail.split(/\s+/).map(Number) : [0, 0];
   return {
     base,
     other,
+    mergeBase: mergeBaseId,
+    mergeBaseSubject: mergeBaseSubjectParts.join("\x1f"),
     baseCount,
     otherCount,
     baseOnly: baseOnly.ok ? parseSubjects(baseOnly.detail) : [],
@@ -167,7 +213,7 @@ export function recommendNextAction({ tracking, changes = [], operation = null }
     return {
       kind: "dirty",
       title: "로컬 변경을 먼저 Commit 또는 Stash하세요",
-      detail: `현재 변경 파일 ${changes.length}개가 있습니다.`,
+      detail: "",
     };
   }
   if (tracking?.kind === "behind") {
@@ -182,6 +228,103 @@ export function recommendNextAction({ tracking, changes = [], operation = null }
   return { kind: "clean", title: "현재 특별히 필요한 Git 작업이 없습니다", detail: "로컬과 원격 상태가 정리되어 있습니다." };
 }
 
+export function getGitDoctorFindings({ head, tracking, changes = [], operation = null, remoteRewrite = null } = {}) {
+  const findings = [];
+  const add = (finding) => findings.push(finding);
+
+  if (operation) {
+    add({
+      id: "operation",
+      state: `${operation.operation} 진행 중`,
+      risk: "작업을 끝내기 전에 다른 Git 작업을 실행하면 상태가 더 복잡해질 수 있습니다.",
+      recommendation: "충돌 파일과 Continue/Abort 방법을 확인하세요.",
+      action: "conflict",
+    });
+  }
+  if (head?.detached) {
+    add({
+      id: "detached-head",
+      state: "Detached HEAD",
+      risk: "새 커밋이 브랜치에 연결되지 않을 수 있습니다.",
+      recommendation: "작업을 유지하려면 브랜치를 만들고, 아니면 기존 브랜치로 돌아가세요.",
+      action: "branch",
+      guideKey: "detached-head",
+    });
+  }
+
+  const trackingFindings = {
+    "no-upstream": {
+      id: "no-upstream",
+      state: "Upstream 없음",
+      risk: "Pull 또는 Push의 대상 브랜치를 확인할 수 없습니다.",
+      recommendation: "Remote와 추적 브랜치를 확인하세요.",
+      action: "remote",
+      guideKey: "no-upstream",
+    },
+    unknown: {
+      id: "tracking-unknown",
+      state: "원격 추적 상태 확인 불가",
+      risk: "로컬과 원격 중 어느 쪽이 앞섰는지 알 수 없습니다.",
+      recommendation: "Remote 연결을 확인한 뒤 새로고침하세요.",
+      action: "refresh",
+    },
+    diverged: {
+      id: "diverged",
+      state: `로컬 ${tracking.ahead}개 앞섬 · 원격 ${tracking.behind}개 앞섬`,
+      risk: "양쪽 기록이 갈라져 바로 동기화할 수 없습니다.",
+      recommendation: "Branch 비교에서 양쪽 커밋을 확인하세요.",
+      action: "compare",
+      guideKey: "diverged",
+    },
+    behind: {
+      id: "behind",
+      state: `원격이 ${tracking.behind}개 커밋 앞섬`,
+      risk: "로컬에 아직 없는 변경이 원격에 있습니다.",
+      recommendation: "Pull 전에 변경 파일과 충돌 여부를 확인하세요.",
+      action: "pull",
+    },
+    ahead: {
+      id: "ahead",
+      state: `로컬이 ${tracking.ahead}개 커밋 앞섬`,
+      risk: "현재 커밋은 원격에 아직 공유되지 않았습니다.",
+      recommendation: "보낼 커밋을 확인하고 Push하세요.",
+      action: "push",
+    },
+  };
+  if (trackingFindings[tracking?.kind]) add(trackingFindings[tracking.kind]);
+
+  if (changes.length) {
+    add({
+      id: "dirty",
+      state: `커밋하지 않은 변경 ${changes.length}개`,
+      risk: "전환이나 복구 작업에서 로컬 내용을 잃을 수 있습니다.",
+      recommendation: "Source Control에서 변경을 확인하고 Commit 또는 Stash하세요.",
+      action: "scm",
+    });
+  }
+  if (remoteRewrite?.rewritten) {
+    add({
+      id: "remote-rewrite",
+      state: "원격 기록이 다시 작성됐을 수 있음",
+      risk: "원격 커밋이 이전에 확인한 기록과 달라졌습니다.",
+      recommendation: "Push를 멈추고 Compare에서 원격 기록을 확인하세요.",
+      action: "compare",
+      guideKey: "remote-history-rewritten",
+    });
+  }
+
+  if (!findings.length) {
+    add({
+      id: "healthy",
+      state: `정상 · ${head?.branch ?? "현재 브랜치"}`,
+      risk: "확인된 위험이 없습니다.",
+      recommendation: "현재 Git 작업을 계속할 수 있습니다.",
+      action: "refresh",
+    });
+  }
+  return findings;
+}
+
 export async function getUndoContext(cwd) {
   const [status, upstream] = await Promise.all([
     run(cwd, ["status", "--porcelain=v1"]),
@@ -193,6 +336,45 @@ export async function getUndoContext(cwd) {
     hasUpstream: upstream.ok,
     headIsInUpstream: pushed.ok,
   };
+}
+
+export async function createRecoveryPoint(cwd, action = "manual") {
+  const head = await run(cwd, ["rev-parse", "HEAD"]);
+  if (!head.ok) return { ...head, action: "recovery-point", message: "복구 지점을 만들 HEAD를 확인하지 못했습니다." };
+
+  const actionName = String(action).replace(/[^a-zA-Z0-9-]/g, "-");
+  const stamp = new Date().toISOString().replace(/[-:]/g, "").replace(/\.\d{3}Z$/, "Z");
+  for (let attempt = 0; attempt < 10; attempt += 1) {
+    const suffix = attempt ? `-${attempt}` : "";
+    const name = `git-next-recovery/${actionName}-${stamp}${suffix}`;
+    const created = await run(cwd, ["branch", name, head.detail]);
+    if (created.ok) {
+      return {
+        ok: true,
+        action: "recovery-point",
+        name,
+        commit: head.detail,
+        message: `복구 지점 '${name}'에 현재 커밋을 보관했습니다. Undo의 복구 지점 메뉴에서 복원할 수 있습니다.`,
+      };
+    }
+    if (!/already exists/i.test(created.detail)) {
+      return { ...created, action: "recovery-point", message: "복구 지점을 만들지 못했습니다." };
+    }
+  }
+  return { ok: false, action: "recovery-point", message: "고유한 복구 지점 이름을 만들지 못했습니다." };
+}
+
+export async function listRecoveryPoints(cwd) {
+  const result = await run(cwd, [
+    "for-each-ref",
+    "--format=%(refname:short)%09%(objectname)%09%(subject)",
+    "refs/heads/git-next-recovery",
+  ]);
+  if (!result.ok || !result.detail) return [];
+  return result.detail.split("\n").filter(Boolean).map((line) => {
+    const [name = "", commit = "", subject = ""] = line.split("\t");
+    return { name, commit, subject };
+  });
 }
 
 export async function restoreFile(cwd, path) {
@@ -462,14 +644,18 @@ export async function getCommitDetails(cwd, commit) {
 }
 
 export async function getStashDetails(cwd, ref) {
-  const [files, stat] = await Promise.all([
-    run(cwd, ["stash", "show", "--name-status", ref]),
-    run(cwd, ["stash", "show", "--stat", ref]),
+  const [files, stat, changes] = await Promise.all([
+    run(cwd, ["stash", "show", "--include-untracked", "--name-status", ref]),
+    run(cwd, ["stash", "show", "--include-untracked", "--stat", ref]),
+    getWorkingTreeChanges(cwd),
   ]);
+  const parsedFiles = files.ok ? parseNameStatus(files.detail) : [];
+  const stashPaths = new Set(parsedFiles.flatMap((file) => [file.path, file.oldPath].filter(Boolean)));
   return {
     ref,
-    files: files.ok ? parseNameStatus(files.detail) : [],
+    files: parsedFiles,
     stat: stat.ok ? stat.detail : "",
+    overlap: [...new Set(changes.filter((change) => stashPaths.has(change.path)).map((change) => change.path))],
   };
 }
 

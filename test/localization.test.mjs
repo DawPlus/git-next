@@ -4,7 +4,8 @@ import test from "node:test";
 
 import { explainGitError } from "../src/git-actions.mjs";
 import { getPushGuidance } from "../src/git-safety.mjs";
-import { renderGraphHtml, renderSidebarHtml } from "../src/graph-view.mjs";
+import { renderGraphHtml } from "../src/graph-view.mjs";
+import { renderSidebarHtml } from "../src/sidebar-view.mjs";
 
 test("사용자 노출 UI가 한글을 기본으로 사용한다", () => {
   const html = renderGraphHtml({
@@ -67,14 +68,14 @@ test("사이드바에서 변경 파일을 보고 diff, stage, unstage, commit �
   assert.match(html, /class="folder-icon"/);
   assert.match(html, /class="file-icon"/);
   assert.match(html, /data-action="sidebarDiscard"/);
-  assert.match(html, /class="status "\>수정<\/span>\s*<span class="path" title="src\/staged\.js">/);
+  assert.match(html, /class="status "\>수정<\/span>\s*<svg class="file-icon"[\s\S]*?<span class="path" title="src\/staged\.js">/);
   assert.match(html, /data-action="sidebarStageAll"/);
   assert.match(html, /data-action="sidebarUnstageAll"/);
   assert.match(html, /class="scm-group scm-card"/);
   assert.match(html, /class="commit-compose"/);
   assert.match(html, /stage-control/);
   assert.match(html, /\.scm-file \.mini-action:active/);
-  assert.match(html, /border-top: 1px solid/);
+  assert.match(html, /class="status-hints"/);
   assert.ok(html.indexOf('data-action="openGraph"') < html.indexOf("source-control\">"));
   assert.ok(html.indexOf('data-action="openCompare"') < html.indexOf("source-control\">"));
 });
