@@ -3,6 +3,16 @@ import { existsSync, readFileSync } from "node:fs";
 import test from "node:test";
 
 const packageJson = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
+const runtimeSource = [
+  "extension.js",
+  "extension-core.js",
+  "sync-handler.js",
+  "git-menu-handlers.js",
+  "panel-handlers.js",
+  "ai-panel-handlers.js",
+  "webview-host.js",
+  "webview-message-handler.js",
+].map((file) => readFileSync(new URL(`../src/${file}`, import.meta.url), "utf8")).join("\n");
 
 test("registers Git Next open command activation", () => {
   assert.equal(packageJson.main, "./dist/extension.js");
@@ -13,19 +23,27 @@ test("registers Git Next open command activation", () => {
 });
 
 test("refreshes open Git Next views when VS Code Source Control changes Git state", () => {
-  const source = readFileSync(new URL("../src/extension.js", import.meta.url), "utf8");
+  const source = runtimeSource;
   assert.match(source, /vscode\.extensions\.getExtension\("vscode\.git"\)/);
   assert.match(source, /repository\.state\?\.onDidChange\?\.\(scheduleExternalGitRefresh\)/);
   assert.match(source, /api\.onDidOpenRepository/);
   assert.match(source, /liveWebviewHosts/);
   assert.match(source, /renderPanel\(host, null, mode, getOptions\(\)\)/);
+  assert.match(source, /internalGitOperationDepth/);
+  assert.match(source, /externalGitRefreshPending/);
+  assert.match(source, /runInternalGitOperation\(\(\) => runSyncAction/);
+  assert.match(source, /Git 작업 처리 중 오류가 발생했습니다/);
+  assert.match(source, /consumeExternalRefresh/);
+  assert.match(source, /workflows\.stageFile\(root, message\.path\)/);
+  assert.match(source, /workflows\.unstageFile\(root, message\.path\)/);
+  assert.match(source, /\{ consumeExternalRefresh: true \}/);
 });
 
 test("registers a visible Git Next activity-bar webview", () => {
   const extensionPath = new URL("../src/extension.js", import.meta.url);
   assert.equal(existsSync(extensionPath), true);
 
-  const source = readFileSync(extensionPath, "utf8");
+  const source = runtimeSource;
   assert.match(source, /registerCommand\(["']gitNext\.open["']/);
   assert.match(source, /registerCommand\(["']gitNext\.fileHistory["']/);
   assert.match(source, /workflows\.getFileHistory\(root, filePath\)/);
@@ -36,7 +54,7 @@ test("registers a visible Git Next activity-bar webview", () => {
   assert.match(source, /\[서버 · \$\{serverRef\} · 변경 전\]/);
   assert.match(source, /\[로컬 · 현재 파일 · 변경 후\]/);
   assert.match(source, /"vscode\.diff"/);
-  assert.match(source, /message\?\.type === "sidebarDiscard"/);
+  assert.match(source, /sidebarDiscard: async \(message\)/);
   assert.match(source, /Git Doctor/);
   assert.match(source, /async function gitDoctor\(/);
   assert.match(source, /async function showStatefulResult\(host, mode, options, cwd, action\)/);
@@ -71,7 +89,7 @@ test("registers a visible Git Next activity-bar webview", () => {
 });
 
 test("shows a skippable commit movement preview before sync confirmation", () => {
-  const source = readFileSync(new URL("../src/extension.js", import.meta.url), "utf8");
+  const source = runtimeSource;
   assert.match(source, /async function showSyncMovementPreview\(/);
   assert.match(source, /vscode\.ProgressLocation\.Notification/);
   assert.match(source, /cancellable: true/);
@@ -80,16 +98,16 @@ test("shows a skippable commit movement preview before sync confirmation", () =>
 });
 
 test("requires an explicit stash message choice and confirms included files", () => {
-  const source = readFileSync(new URL("../src/extension.js", import.meta.url), "utf8");
+  const source = runtimeSource;
   assert.match(source, /async function promptStashMessage\(/);
   assert.match(source, /기본 메모로 빠르게 저장/);
   assert.match(source, /validateInput: \(value\) => value\.trim\(\)/);
-  assert.equal((source.match(/formatStashPreview\(changes, (?:message|memo)\)/g) ?? []).length, 2);
+  assert.equal((source.match(/formatStashPreview\(changes, (?:message|memo)\)/g) ?? []).length, 1);
 });
 
 
 test("includes sibling worktree details in mutation confirmation", () => {
-  const source = readFileSync(new URL("../src/extension.js", import.meta.url), "utf8");
+  const source = runtimeSource;
   assert.match(source, /const \{ getLinkedWorktrees \} = await import/);
   assert.match(source, /다른 작업 폴더 \$\{others\.length\}개/);
   assert.match(source, /worktrees: await getLinkedWorktrees\(state\.root\)/);
@@ -97,7 +115,7 @@ test("includes sibling worktree details in mutation confirmation", () => {
 
 
 test("exposes partial-stage guidance from Git Doctor and Git tools", () => {
-  const source = readFileSync(new URL("../src/extension.js", import.meta.url), "utf8");
+  const source = runtimeSource;
   assert.match(source, /finding: \{ id: "partial-stage", guideKey: "partial-stage" \}/);
   assert.match(source, /selected\.finding\.id === "partial-stage"/);
   assert.match(source, /id: "partial-stage"/);
@@ -105,13 +123,13 @@ test("exposes partial-stage guidance from Git Doctor and Git tools", () => {
 
 
 test("passes live repository state to the glossary center", () => {
-  const source = readFileSync(new URL("../src/extension.js", import.meta.url), "utf8");
+  const source = runtimeSource;
   assert.match(source, /renderKnowledgeCenter\(\{ tab: selected \? "guides" : tab, selected, state \}\)/);
 });
 
 
 test("shows advisory message hints beside editable commit drafts", () => {
-  const source = readFileSync(new URL("../src/extension.js", import.meta.url), "utf8");
+  const source = runtimeSource;
   assert.match(source, /workflows\.getCommitMessageHints\(suggestion\.subject\)/);
   assert.match(source, /무시하고 그대로 진행해도 됩니다/);
   assert.match(source, /value: suggestion\.subject/);
@@ -119,7 +137,7 @@ test("shows advisory message hints beside editable commit drafts", () => {
 
 
 test("records blocked actions with retry checks and re-runs guarded flows", () => {
-  const source = readFileSync(new URL("../src/extension.js", import.meta.url), "utf8");
+  const source = runtimeSource;
   assert.match(source, /retryCheck,\n      recoveryPoint/);
   assert.match(source, /if \(notice\?\.ok === false\) await recordActivity\(notice\)/);
   assert.match(source, /async function retryTimelineAction\(/);
@@ -129,7 +147,7 @@ test("records blocked actions with retry checks and re-runs guarded flows", () =
 });
 
 test("relaxes only the session-scoped overlap check and protects history rewrites", () => {
-  const source = readFileSync(new URL("../src/extension.js", import.meta.url), "utf8");
+  const source = runtimeSource;
   assert.match(source, /const relaxedSafeGuardRules = new Set\(\)/);
   assert.match(source, /selected\.rule\.risk/);
   assert.match(source, /세션 동안 완화/);
@@ -139,13 +157,15 @@ test("relaxes only the session-scoped overlap check and protects history rewrite
 });
 
 test("offers Force-with-lease only after a rejected or blocked regular Push", () => {
-  const source = readFileSync(new URL("../src/extension.js", import.meta.url), "utf8");
+  const source = runtimeSource;
   assert.match(source, /async function offerForceWithLease\(/);
   assert.match(source, /getForceWithLeasePreview\(cwd\)/);
   assert.match(source, /현재 원격 기준점: \$\{preview\.expected\.slice\(0, 12\)\}/);
   assert.match(source, /원격 기준점이 바뀌면 Git이 Push를 취소합니다/);
   assert.match(source, /actions\.pushWithForceWithLease\(cwd, preview\.remote, preview\.remoteRef, preview\.expected\)/);
-  assert.match(source, /preflight\.code === "behind" \|\| preflight\.code === "diverged"/);
+  assert.match(source, /preflight\.code === "diverged"/);
+  assert.match(source, /offerDivergedResolution/);
+  assert.match(source, /preflight\.code === "behind"/);
   assert.match(source, /result\.detail \?\? ""\} \$\{result\.message/);
   assert.match(source, /safety\.code === "remote-history-rewritten"/);
 });

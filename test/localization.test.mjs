@@ -79,17 +79,35 @@ test("사이드바에서 변경 파일을 보고 diff, stage, unstage, commit �
   assert.ok(html.indexOf('data-action="openGraph"') < html.indexOf("source-control\">"));
   assert.match(html, /data-action="refresh" aria-label="동기화"/);
   assert.doesNotMatch(html, /data-action="openKnowledge" aria-label="동기화 도움말"/);
-  assert.ok(html.indexOf('data-action="openCompare"') < html.indexOf("source-control\">"));
+  assert.equal((html.match(/class="tool-button"/g) ?? []).length, 9);
+  assert.ok(html.indexOf('data-action="openGraph"') < html.indexOf('data-tool="ai-diagnose"'));
+  assert.ok(html.indexOf('data-tool="ai-diagnose"') < html.indexOf('data-action="refresh"'));
+  assert.doesNotMatch(html, /class="tool-button"[^>]*data-tool="ai-history"/);
+  assert.doesNotMatch(html, /class="tool-button"[^>]*data-tool="remote"/);
+  assert.doesNotMatch(html, /class="tool-button"[^>]*data-tool="compare"/);
+  assert.match(html, /data-tool="commit" aria-label="Commit 메시지 도우미"/);
+  assert.doesNotMatch(html, /data-tool="partial-stage" aria-label="부분 Commit 안내"/);
+  assert.match(html, /class="commit-input-wrap"/);
+  assert.match(html, /class="icon-button commit-helper"/);
 });
 
-test("전체 Stage와 Unstage 버튼은 비어 있어도 보이고 해당 동작만 비활성화한다", () => {
-  const html = renderSidebarHtml({
+test("변경 그룹은 항목이 있을 때만 보인다", () => {
+  const emptyHtml = renderSidebarHtml({
     branch: "main",
     upstream: "origin/main",
     tracking: { kind: "up-to-date" },
     changes: [],
   });
+  assert.doesNotMatch(emptyHtml, /data-action="sidebarStageAll"/);
+  assert.doesNotMatch(emptyHtml, /data-action="sidebarUnstageAll"/);
+  assert.match(emptyHtml, /변경사항이 없습니다/);
 
-  assert.match(html, /data-action="sidebarStageAll"[^>]*disabled/);
-  assert.match(html, /data-action="sidebarUnstageAll"[^>]*disabled/);
+  const stagedOnly = renderSidebarHtml({
+    branch: "main",
+    upstream: "origin/main",
+    tracking: { kind: "up-to-date" },
+    changes: [{ status: "M ", path: "src/staged.js" }],
+  });
+  assert.match(stagedOnly, /data-action="sidebarUnstageAll"/);
+  assert.doesNotMatch(stagedOnly, /data-action="sidebarStageAll"/);
 });

@@ -1,10 +1,10 @@
 {
 	"version": 1,
 	"activeTicket": null,
-	"classification": null,
+	"classification": "feature",
 	"phase": null,
 	"next": null,
 	"agentVerification": "passed",
 	"qa": "passed",
-	"updatedAt": "2026-10-04T17:44:47.716Z"
+	"updatedAt": "2026-10-05T12:25:00+09:00"
 }

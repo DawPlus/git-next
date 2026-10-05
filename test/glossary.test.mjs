@@ -55,10 +55,18 @@ test("sidebar exposes source control, terminology, and repository tool actions",
   assert.match(html, /data-action="branchMenu"/);
   assert.match(html, /data-action="tagMenu"/);
   assert.match(html, /data-action="stashMenu"/);
+  assert.doesNotMatch(html, /<span class="tool-title">더보기<\/span>/);
+  for (const tool of ["repository", "doctor", "ai-diagnose", "recovery", "safe-guard", "timeline", "commit", "pr"]) {
+    assert.match(html, new RegExp(`data-tool="${tool}"`));
+  }
+  assert.doesNotMatch(html, /data-tool="partial-stage"/);
+  for (const removed of ["ai-history", "conflict", "compare", "undo", "reflog", "remote"]) {
+    assert.doesNotMatch(html, new RegExp(`class="tool-button"[^>]*data-tool="${removed}"`));
+  }
   assert.match(html, /data-action="openKnowledge"/);
   assert.match(html, /class="tool-grid"/);
   assert.match(html, /class="tool-icon"/);
-  for (const label of ["그래프 보기", "동기화", "Git 도구", "도움말"]) {
+  for (const label of ["그래프 보기", "AI 진단", "동기화", "Git 도구", "도움말"]) {
     assert.match(html, new RegExp(`aria-label="${label}"`));
   }
   assert.match(html, /\[origin\/main\]/);
@@ -87,7 +95,9 @@ test("sidebar links Safe Guard result to separate details view", () => {
   });
 
   assert.match(html, /data-action="openSafeGuard"/);
-  assert.match(html, /class="guard-message-button has-notice"/);
+  assert.match(html, /class="guard-message-button"/);
+  assert.match(html, /class="guard-summary blocked"/);
+  assert.doesNotMatch(html, /guard-state/);
   assert.doesNotMatch(html, /<details>/);
   assert.doesNotMatch(html, /이 상황 해결 방법/);
 

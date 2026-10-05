@@ -56,6 +56,28 @@ async function run(cwd, args) {
   }
 }
 
+function isSafePositionalValue(value) {
+  return typeof value === "string"
+    && value.length > 0
+    && value.length <= 240
+    && !value.startsWith("-")
+    && !/[\u0000-\u001f\u007f\s]/.test(value);
+}
+
+export function isSafeStashRef(ref) {
+  return /^stash@\{\d+\}$/.test(ref ?? "");
+}
+
+export async function validateCommitish(cwd, value) {
+  if (!isSafePositionalValue(value)) {
+    return { ok: false, message: "Git 대상을 안전하게 확인할 수 없습니다." };
+  }
+  const result = await run(cwd, ["rev-parse", "--verify", "--quiet", "--end-of-options", `${value}^{commit}`]);
+  return result.ok
+    ? { ok: true, value, commit: result.detail }
+    : { ok: false, message: "존재하는 커밋 또는 Ref를 확인할 수 없습니다.", detail: result.detail };
+}
+
 export async function pullRepository(cwd) {
   const result = await run(cwd, ["pull", "--ff-only"]);
   return {
@@ -140,7 +162,12 @@ export async function validateTagName(cwd, name) {
 }
 
 export async function createTag(cwd, name, target = "HEAD") {
-  const result = await run(cwd, ["tag", name, target]);
+  const nameCheck = await validateTagName(cwd, name);
+  const targetCheck = await validateCommitish(cwd, target);
+  if (!nameCheck.ok || !targetCheck.ok) {
+    return { ok: false, action: "create-tag", message: nameCheck.message ?? targetCheck.message };
+  }
+  const result = await run(cwd, ["tag", "--", nameCheck.name, target]);
   return {
     ...result,
     action: "create-tag",
@@ -151,7 +178,9 @@ export async function createTag(cwd, name, target = "HEAD") {
 }
 
 export async function deleteTag(cwd, name) {
-  const result = await run(cwd, ["tag", "-d", name]);
+  const check = await validateTagName(cwd, name);
+  if (!check.ok) return { ok: false, action: "delete-tag", message: check.message };
+  const result = await run(cwd, ["tag", "-d", "--", check.name]);
   return {
     ...result,
     action: "delete-tag",
@@ -162,7 +191,12 @@ export async function deleteTag(cwd, name) {
 }
 
 export async function createBranch(cwd, name, target = "HEAD") {
-  const result = await run(cwd, ["branch", name, target]);
+  const nameCheck = await validateBranchName(cwd, name);
+  const targetCheck = await validateCommitish(cwd, target);
+  if (!nameCheck.ok || !targetCheck.ok) {
+    return { ok: false, action: "create-branch", message: nameCheck.message ?? targetCheck.message };
+  }
+  const result = await run(cwd, ["branch", "--", nameCheck.name, target]);
   return {
     ...result,
     action: "create-branch",
@@ -173,7 +207,9 @@ export async function createBranch(cwd, name, target = "HEAD") {
 }
 
 export async function checkoutBranch(cwd, name) {
-  const result = await run(cwd, ["switch", name]);
+  const check = await validateBranchName(cwd, name);
+  if (!check.ok) return { ok: false, action: "switch-branch", message: check.message };
+  const result = await run(cwd, ["switch", "--", check.name]);
   return {
     ...result,
     action: "switch-branch",
@@ -184,7 +220,12 @@ export async function checkoutBranch(cwd, name) {
 }
 
 export async function createTrackingBranch(cwd, localName, remoteRef) {
-  const result = await run(cwd, ["switch", "-c", localName, "--track", remoteRef]);
+  const localCheck = await validateBranchName(cwd, localName);
+  const remoteCheck = await validateCommitish(cwd, remoteRef);
+  if (!localCheck.ok || !remoteCheck.ok) {
+    return { ok: false, action: "create-tracking-branch", message: localCheck.message ?? remoteCheck.message };
+  }
+  const result = await run(cwd, ["switch", "-c", localCheck.name, "--track", "--", remoteRef]);
   return {
     ...result,
     action: "create-tracking-branch",
@@ -195,7 +236,14 @@ export async function createTrackingBranch(cwd, localName, remoteRef) {
 }
 
 export async function renameBranch(cwd, oldName, newName) {
-  const result = await run(cwd, ["branch", "-m", oldName, newName]);
+  const [oldCheck, newCheck] = await Promise.all([
+    validateBranchName(cwd, oldName),
+    validateBranchName(cwd, newName),
+  ]);
+  if (!oldCheck.ok || !newCheck.ok) {
+    return { ok: false, action: "rename-branch", message: oldCheck.message ?? newCheck.message };
+  }
+  const result = await run(cwd, ["branch", "-m", "--", oldCheck.name, newCheck.name]);
   return {
     ...result,
     action: "rename-branch",
@@ -247,7 +295,9 @@ export async function getBranchCleanupCandidates(cwd, { now = Date.now(), staleA
 }
 
 export async function deleteBranch(cwd, name, force = false) {
-  const result = await run(cwd, ["branch", force ? "-D" : "-d", name]);
+  const check = await validateBranchName(cwd, name);
+  if (!check.ok) return { ok: false, action: "delete-branch", message: check.message };
+  const result = await run(cwd, ["branch", force ? "-D" : "-d", "--", check.name]);
   return {
     ...result,
     action: "delete-branch",
@@ -284,7 +334,8 @@ export async function stashPush(cwd, message = "Git Next 임시 저장") {
 }
 
 export async function stashApply(cwd, ref) {
-  const result = await run(cwd, ["stash", "apply", ref]);
+  if (!isSafeStashRef(ref)) return { ok: false, action: "stash-apply", message: "올바른 Stash 대상을 확인할 수 없습니다." };
+  const result = await run(cwd, ["stash", "apply", "--", ref]);
   return {
     ...result,
     action: "stash-apply",
@@ -295,7 +346,8 @@ export async function stashApply(cwd, ref) {
 }
 
 export async function stashPop(cwd, ref) {
-  const result = await run(cwd, ["stash", "pop", ref]);
+  if (!isSafeStashRef(ref)) return { ok: false, action: "stash-pop", message: "올바른 Stash 대상을 확인할 수 없습니다." };
+  const result = await run(cwd, ["stash", "pop", "--", ref]);
   return {
     ...result,
     action: "stash-pop",
@@ -306,7 +358,8 @@ export async function stashPop(cwd, ref) {
 }
 
 export async function stashDrop(cwd, ref) {
-  const result = await run(cwd, ["stash", "drop", ref]);
+  if (!isSafeStashRef(ref)) return { ok: false, action: "stash-drop", message: "올바른 Stash 대상을 확인할 수 없습니다." };
+  const result = await run(cwd, ["stash", "drop", "--", ref]);
   return {
     ...result,
     action: "stash-drop",
@@ -317,7 +370,9 @@ export async function stashDrop(cwd, ref) {
 }
 
 export async function cherryPickCommit(cwd, commit) {
-  const result = await run(cwd, ["cherry-pick", commit]);
+  const check = await validateCommitish(cwd, commit);
+  if (!check.ok) return { ok: false, action: "cherry-pick", message: check.message };
+  const result = await run(cwd, ["cherry-pick", "--", commit]);
   return {
     ...result,
     action: "cherry-pick",
@@ -328,7 +383,9 @@ export async function cherryPickCommit(cwd, commit) {
 }
 
 export async function revertCommit(cwd, commit) {
-  const result = await run(cwd, ["revert", "--no-edit", commit]);
+  const check = await validateCommitish(cwd, commit);
+  if (!check.ok) return { ok: false, action: "revert", message: check.message };
+  const result = await run(cwd, ["revert", "--no-edit", "--", commit]);
   return {
     ...result,
     action: "revert",

@@ -17,6 +17,7 @@ import {
   getBranchDeleteInfo,
   getBranchCleanupCandidates,
   listStashes,
+  isSafeStashRef,
   pushWithUpstream,
   pushWithForceWithLease,
   renameBranch,
@@ -25,6 +26,7 @@ import {
   stashDrop,
   stashPush,
   validateBranchName,
+  validateCommitish,
   validateTagName,
 } from "../src/git-actions.mjs";
 
@@ -221,6 +223,15 @@ test("force-with-lease updates only the reviewed remote tip and rejects a change
   assert.equal(rejected.ok, false);
   assert.match(rejected.message, /원격 기준점이 바뀌어 Push를 취소/);
   assert.equal(git(remote, ["rev-parse", "refs/heads/main"]), remoteBefore);
+});
+
+test("rejects option-like refs before destructive Git actions", async () => {
+  const repo = makeRepo();
+  assert.equal((await validateCommitish(repo, "--abort")).ok, false);
+  assert.equal((await createBranch(repo, "-danger", "HEAD")).ok, false);
+  assert.equal((await cherryPickCommit(repo, "--abort")).ok, false);
+  assert.equal(isSafeStashRef("--index"), false);
+  assert.equal((await stashApply(repo, "--index")).ok, false);
 });
 
 test("force-with-lease sends the reviewed local history when the remote tip still matches", async () => {

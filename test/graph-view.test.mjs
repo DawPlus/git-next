@@ -241,8 +241,10 @@ test("keeps the status hint and Safe Guard compact above collapsible change grou
   assert.doesNotMatch(html, /현재 변경 파일 \d+개가 있습니다/);
   assert.match(html, /class="scm-count">1개<\/span>/);
   assert.match(html, /class="guard-summary warning"/);
-  assert.match(html, /class="guard-message-button has-notice"/);
-  assert.doesNotMatch(html, />확인 필요</);
+  assert.match(html, /class="guard-message-button"/);
+  assert.match(html, /class="guard-hint"/);
+  assert.match(html, /로컬 변경을 먼저 Commit 또는 Stash하세요/);
+  assert.doesNotMatch(html, /class="guard-state"/);
   assert.match(html, /<details class="scm-group scm-card" open>/);
   assert.match(html, /<summary class="scm-group-head">/);
   assert.match(html, /class="file-actions"/);
@@ -264,7 +266,9 @@ test("keeps the status hint and Safe Guard compact above collapsible change grou
   assert.match(html, /\.changes-mini\s*\{[^}]*flex:\s*1 1 0[^}]*min-height:\s*0[^}]*height:\s*0[^}]*overflow-y:\s*auto/s);
   assert.match(html, /\.changes-mini\s*\{[^}]*align-content:\s*start/s);
   assert.match(html, /class="revert-icon"/);
-  assert.match(html, /\.guard-message-button svg,[\s\S]*\.hint-mark svg\s*\{[^}]*stroke:\s*currentColor/s);
+  assert.match(html, /\.guard-message-button svg\s*\{[^}]*stroke:\s*currentColor/s);
+  assert.match(html, /\.guard-summary\s*\{[^}]*border:\s*0/s);
+  assert.match(html, /\.guard-hint\s*\{[^}]*text-align:\s*right/s);
   assert.match(html, /\.repo-action:hover\s*\{\s*transform:\s*none/);
   assert.match(html, /\.repo-actions \.tool-toggle\s*\{[^}]*place-items:\s*center[^}]*padding:\s*0/s);
   assert.match(html, /class="action-risk medium"[^>]*title="작업 폴더에 커밋하지 않은 변경이 있습니다\./);

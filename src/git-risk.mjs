@@ -1,3 +1,5 @@
+import { guidanceNotice } from "./git-guidance.mjs";
+
 export function getDirtyTreeGuard(action, changes = []) {
   if (changes.length === 0) {
     return {
@@ -18,20 +20,48 @@ export function getDirtyTreeGuard(action, changes = []) {
   ]);
 
   if (!protectedActions.has(action)) {
-    return {
+    return guidanceNotice({
       level: "warning",
       code: "working-tree-dirty",
-      message: "커밋하지 않은 로컬 변경이 남아 있습니다. 지금 실행하려는 작업이 이 파일들을 직접 덮지는 않더라도 이후 Git 상태를 이해하기 어려워질 수 있습니다. 가능하면 먼저 Commit하거나 Stash로 보관한 뒤 진행하세요.",
+      state: `커밋하지 않은 로컬 변경 ${changes.length}개`,
+      risk: "지금 실행하려는 작업이 파일을 직접 덮지 않더라도 이후 Git 상태를 이해하기 어려워질 수 있습니다.",
+      next: "가능하면 먼저 Commit하거나 Stash로 보관한 뒤 진행하세요.",
       affected: changes.map((change) => change.path),
-    };
+    });
   }
 
-  return {
+  return guidanceNotice({
     level: "blocked",
     code: "dirty-working-tree",
-    message: "커밋하지 않은 로컬 변경이 남아 있습니다. 지금 이 작업을 진행하면 내 수정 내용과 이동하거나 받아올 변경이 겹쳐 파일이 덮이거나 충돌할 수 있어서 Git Next가 중단했습니다. 먼저 Commit하거나 Stash로 현재 작업을 안전하게 보관한 뒤 다시 진행하세요.",
+    state: `커밋하지 않은 로컬 변경 ${changes.length}개`,
+    risk: "이 작업을 진행하면 내 수정 내용과 이동하거나 받아올 변경이 겹쳐 파일이 덮이거나 충돌할 수 있습니다.",
+    next: "먼저 Commit하거나 Stash로 현재 작업을 안전하게 보관한 뒤 다시 진행하세요.",
     affected: changes.map((change) => change.path),
-  };
+  });
+}
+
+export function isProtectedBranch(branch, patterns = ["main", "master", "release/*"]) {
+  const name = String(branch ?? "").trim();
+  if (!name) return false;
+  return patterns.some((pattern) => {
+    if (pattern.endsWith("/*")) return name.startsWith(pattern.slice(0, -1));
+    return name === pattern;
+  });
+}
+
+export function getProtectedBranchGuard(action, branch, patterns) {
+  const riskyActions = new Set(["delete-branch", "force-push", "rebase", "reset", "hard-reset"]);
+  if (!riskyActions.has(action) || !isProtectedBranch(branch, patterns)) {
+    return { protected: false, level: "safe", code: null, message: null };
+  }
+  return guidanceNotice({
+    protected: true,
+    level: "warning",
+    code: "protected-branch",
+    state: `보호 브랜치 '${branch}'`,
+    risk: `${action} 작업이 공유 기록이나 기본 브랜치 흐름에 영향을 줄 수 있습니다.`,
+    next: "대상 브랜치와 변경 범위를 다시 확인한 뒤 명시적으로 진행하세요.",
+  });
 }
 
 export function getActionRisk(action, { tracking = null, changes = [], operation = null } = {}) {
@@ -76,22 +106,26 @@ export function getDestructiveActionGuard(action, impact = {}) {
 
   const message = messages[action];
   if (!message) {
-    return {
+    return guidanceNotice({
       level: "blocked",
       code: "unknown-destructive-action",
-      message: "영향 범위를 확인할 수 없는 위험 작업은 실행하지 않습니다.",
+      state: "영향 범위를 확인할 수 없는 위험 작업",
+      risk: "예상하지 못한 Git 기록 또는 파일 변경이 발생할 수 있습니다.",
+      next: "지원되는 Git Next 작업으로 다시 선택하세요.",
       detail: null,
       affected: [],
       requiresConfirmation: true,
-    };
+    });
   }
 
-  return {
+  return guidanceNotice({
     level: "warning",
     code: action,
-    message,
+    state: `${action} 실행 전 확인`,
+    risk: message,
+    next: "영향 대상을 확인하고 필요한 경우에만 실행하세요.",
     detail: impact.detail ?? null,
     affected: impact.affected ?? [],
     requiresConfirmation: true,
-  };
+  });
 }

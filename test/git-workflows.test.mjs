@@ -23,11 +23,18 @@ import {
   getCommitSuggestion,
   getPullRequestReadiness,
   createPullRequestDraft,
+  getIntegrationPreview,
+  formatIntegrationPreview,
+  mergeIntoCurrent,
+  rebaseCurrentOnto,
   getGitDoctorFindings,
   getUndoRecommendation,
   getStashDetails,
   getStagedFiles,
+  buildSyncImpactSummary,
   formatImpactPreview,
+  formatSyncImpactSummary,
+  buildOperationGuard,
   formatOperationActionPreview,
   formatStashPreview,
   formatGitStateDelta,
@@ -50,6 +57,34 @@ test("impact preview separates changed, added, and deleted file counts", () => {
     { status: "M", path: "changed.txt" }, { status: "A", path: "added.txt" }, { status: "D", path: "deleted.txt" },
   ] });
   assert.match(text, /영향 파일 3개 · 변경 1 · 추가 1 · 삭제 1/);
+});
+
+test("Pull and Push share one sync impact summary shape", () => {
+  const files = [
+    { status: "M", path: "changed.txt" },
+    { status: "A", path: "added.txt" },
+  ];
+  const pull = buildSyncImpactSummary({
+    action: "pull",
+    upstream: "origin/main",
+    summary: "원격 커밋 2개",
+    commits: [{ id: "a1", subject: "one" }, { id: "b2", subject: "two" }],
+    files,
+  });
+  const push = buildSyncImpactSummary({
+    action: "push",
+    upstream: "origin/main",
+    summary: "로컬 커밋 2개",
+    commits: [{ id: "a1", subject: "one" }, { id: "b2", subject: "two" }],
+    files,
+  });
+
+  assert.deepEqual(Object.keys(pull), Object.keys(push));
+  assert.equal(pull.direction, "서버 origin/main → 로컬");
+  assert.equal(push.direction, "로컬 → 서버 origin/main");
+  assert.equal(pull.commitCount, 2);
+  assert.equal(push.fileCount, 2);
+  assert.match(formatSyncImpactSummary(pull), /커밋 2개/);
 });
 
 test("state delta reports only changed branch, tracking, and working tree values", () => {
@@ -193,6 +228,16 @@ test("finds local branches that keep a detached commit reachable", async () => {
   assert.deepEqual(await getBranchesContainingCommit(cwd, head), ["main"]);
   await git(cwd, "switch", "--detach", head);
   assert.deepEqual(await getBranchesContainingCommit(cwd, head), ["main"]);
+});
+
+test("in-progress operations expose one state/risk/next recovery guard", () => {
+  const guard = buildOperationGuard({ operation: "rebase", path: "/repo/.git/rebase-merge" }, ["app.js"]);
+  assert.equal(guard.code, "operation-in-progress");
+  assert.deepEqual(guard.actions, ["operation-recovery"]);
+  assert.match(guard.message, /상태:/);
+  assert.match(guard.message, /위험:/);
+  assert.match(guard.message, /다음:/);
+  assert.match(guard.detail, /app\.js/);
 });
 
 test("operation previews explain continue and abort outcomes before confirmation", () => {
@@ -441,4 +486,41 @@ test("force-with-lease preview names the exact current upstream tip", async () =
   assert.equal(preview.remote, "origin");
   assert.equal(preview.remoteRef, "refs/heads/main");
   assert.equal(preview.expected, await git(remote, "rev-parse", "refs/heads/main"));
+});
+
+test("previews and merges another branch into the current branch", async () => {
+  const cwd = await repo();
+  await git(cwd, "switch", "-c", "feature");
+  await exec("sh", ["-c", "printf 'feature\n' > feature.txt"], { cwd });
+  await git(cwd, "add", ".");
+  await git(cwd, "commit", "-qm", "feature work");
+  const featureTip = await git(cwd, "rev-parse", "HEAD");
+  await git(cwd, "switch", "main");
+
+  const preview = await getIntegrationPreview(cwd, "feature");
+  assert.equal(preview.ok, true);
+  assert.equal(preview.incomingCommits.length, 1);
+  assert.equal(preview.targetCommit, featureTip);
+  assert.match(formatIntegrationPreview(preview, "merge"), /Merge 대상: feature/);
+
+  const result = await mergeIntoCurrent(cwd, "feature");
+  assert.equal(result.ok, true);
+  assert.equal(await git(cwd, "rev-parse", "HEAD"), featureTip);
+});
+
+test("rebases diverged local work onto the reviewed target", async () => {
+  const cwd = await repo();
+  await git(cwd, "switch", "-c", "remote");
+  await exec("sh", ["-c", "printf 'remote\n' > remote.txt"], { cwd });
+  await git(cwd, "add", ".");
+  await git(cwd, "commit", "-qm", "remote work");
+
+  await git(cwd, "switch", "main");
+  await exec("sh", ["-c", "printf 'local\n' > local.txt"], { cwd });
+  await git(cwd, "add", ".");
+  await git(cwd, "commit", "-qm", "local work");
+
+  const result = await rebaseCurrentOnto(cwd, "remote");
+  assert.equal(result.ok, true);
+  await git(cwd, "merge-base", "--is-ancestor", "remote", "HEAD");
 });

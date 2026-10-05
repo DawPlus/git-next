@@ -1,4 +1,5 @@
 export * from "./git-operation-workflows.mjs";
+export * from "./git-integration-workflows.mjs";
 
 export * from "./git-change-workflows.mjs";
 

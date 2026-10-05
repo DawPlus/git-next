@@ -125,6 +125,17 @@ export function renderSidebarHtml(state, notice = null) {
 
   const stagedRows = renderChangeTree(stagedChanges, "staged");
   const unstagedRows = renderChangeTree(unstagedChanges, "unstaged");
+  const stagedGroup = stagedChanges.length ? `<details class="scm-group scm-card" open>
+    <summary class="scm-group-head"><span class="group-caret">›</span><span class="group-title">Staged</span><span class="group-count">${stagedChanges.length}</span><button class="group-action" type="button" data-action="sidebarUnstageAll" title="전체 Unstage">전체 −</button></summary>
+    <div class="changes-mini">${stagedRows}</div>
+  </details>` : "";
+  const unstagedGroup = unstagedChanges.length ? `<details class="scm-group scm-card" open>
+    <summary class="scm-group-head"><span class="group-caret">›</span><span class="group-title">변경사항</span><span class="group-count">${unstagedChanges.length}</span><button class="group-action" type="button" data-action="sidebarStageAll" title="전체 Stage">전체 +</button></summary>
+    <div class="changes-mini">${unstagedRows}</div>
+  </details>` : "";
+  const emptyChanges = !stagedChanges.length && !unstagedChanges.length
+    ? '<div class="scm-empty">변경사항이 없습니다.</div>'
+    : "";
 
   return `<!doctype html>
 <html lang="ko">
@@ -145,6 +156,7 @@ export function renderSidebarHtml(state, notice = null) {
         <div class="tracking"><span class="branch-dot ${syncState}" aria-hidden="true"></span>${escapeHtml(tracking)}</div>
         <div class="repo-actions">
           <button class="icon-button repo-action" type="button" data-action="openGraph" aria-label="그래프 보기" title="그래프 보기"><svg viewBox="0 0 24 24"><circle cx="6" cy="6" r="2.2"></circle><circle cx="18" cy="9" r="2.2"></circle><circle cx="8" cy="18" r="2.2"></circle><path d="m8 7 7.8 1.3M7 8l.8 7.7"></path></svg></button>
+          <button class="icon-button repo-action" type="button" data-action="toolsMenu" data-tool="ai-diagnose" aria-label="AI 진단" title="AI 진단"><svg viewBox="0 0 24 24"><path d="M12 3l1.3 4.2L17.5 8.5l-4.2 1.3L12 14l-1.3-4.2L6.5 8.5l4.2-1.3z"></path><path d="M18.5 14.5l.8 2.2 2.2.8-2.2.8-.8 2.2-.8-2.2-2.2-.8 2.2-.8z"></path></svg></button>
           <button class="icon-button repo-action" type="button" data-action="refresh" aria-label="동기화" title="동기화"><svg viewBox="0 0 24 24"><path d="M20 7v5h-5M4 17v-5h5"></path><path d="M6.1 9a7 7 0 0 1 11.5-2L20 12M4 12l2.4 5a7 7 0 0 0 11.5-2"></path></svg></button>
           <button class="icon-button repo-action tool-toggle" type="button" data-toggle-tools aria-expanded="false" aria-label="Git 도구" title="Git 도구"><svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.4"></circle><circle cx="12" cy="12" r="1.4"></circle><circle cx="19" cy="12" r="1.4"></circle></svg></button>
           <button class="icon-button repo-action" type="button" data-action="openKnowledge" aria-label="도움말" title="도움말"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"></circle><path d="M9.7 9a2.4 2.4 0 1 1 4.1 1.7c-1 .9-1.8 1.2-1.8 2.8M12 17h.01"></path></svg></button>
@@ -155,7 +167,12 @@ export function renderSidebarHtml(state, notice = null) {
           <button class="tool-button" type="button" data-action="branchMenu" aria-label="브랜치 도구"><span class="tool-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="6" cy="5" r="2.5"></circle><circle cx="6" cy="19" r="2.5"></circle><circle cx="18" cy="9" r="2.5"></circle><path d="M6 7.5v9M8.5 15c4.5 0 7-1.7 7-4.5"></path></svg></span><span class="tool-title">브랜치</span></button>
           <button class="tool-button" type="button" data-action="tagMenu" aria-label="태그 도구"><span class="tool-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 5.5v5.7L12.8 20 20 12.8 11.2 4H5.5A1.5 1.5 0 0 0 4 5.5Z"></path><circle cx="8.3" cy="8.3" r="1.2"></circle></svg></span><span class="tool-title">태그</span></button>
           <button class="tool-button" type="button" data-action="stashMenu" aria-label="Stash 도구"><span class="tool-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 7.5h14v10H5z"></path><path d="M8 4.5h8M8 12h8M12 9v6"></path></svg></span><span class="tool-title">Stash</span></button>
-          <button class="tool-button" type="button" data-action="toolsMenu" aria-label="추가 Git 도구"><span class="tool-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.5"></circle><circle cx="12" cy="12" r="1.5"></circle><circle cx="19" cy="12" r="1.5"></circle></svg></span><span class="tool-title">더보기</span></button>
+          <button class="tool-button" type="button" data-action="toolsMenu" data-tool="repository" aria-label="저장소 선택"><span class="tool-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 6h16v12H4z"></path><path d="M8 10h8M8 14h5"></path></svg></span><span class="tool-title">저장소</span></button>
+          <button class="tool-button" type="button" data-action="toolsMenu" data-tool="doctor" aria-label="Git Doctor"><span class="tool-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 4v16M4 12h16"></path></svg></span><span class="tool-title">Doctor</span></button>
+          <button class="tool-button" type="button" data-action="toolsMenu" data-tool="recovery" aria-label="복구 도구"><span class="tool-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M9 8 5 12l4 4"></path><path d="M5 12h8a5 5 0 0 1 0 10"></path><path d="M16 5h3v3"></path></svg></span><span class="tool-title">복구</span></button>
+          <button class="tool-button" type="button" data-action="toolsMenu" data-tool="safe-guard" aria-label="Safe Guard 규칙"><span class="tool-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3 19 6v5c0 4.5-2.8 8-7 10-4.2-2-7-5.5-7-10V6z"></path></svg></span><span class="tool-title">Safe Guard</span></button>
+          <button class="tool-button" type="button" data-action="toolsMenu" data-tool="timeline" aria-label="Git 작업 타임라인"><span class="tool-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="7" cy="6" r="2"></circle><circle cx="7" cy="12" r="2"></circle><circle cx="7" cy="18" r="2"></circle><path d="M10 6h8M10 12h8M10 18h8"></path></svg></span><span class="tool-title">타임라인</span></button>
+          <button class="tool-button" type="button" data-action="toolsMenu" data-tool="pr" aria-label="PR handoff"><span class="tool-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="6" cy="6" r="2"></circle><circle cx="18" cy="18" r="2"></circle><path d="M6 8v10M18 6v10M12 6h6M14 4l4 2-4 2"></path></svg></span><span class="tool-title">PR handoff</span></button>
         </div>
       </div>
     </section>
@@ -163,17 +180,25 @@ export function renderSidebarHtml(state, notice = null) {
     ${otherWorktrees.length ? `<div class="worktree-note">다른 작업 폴더 ${otherWorktrees.length}개 · ${otherWorktrees.map((item) => `${item.branch ?? "분리된 HEAD"} · ${item.path}`).map(escapeHtml).join(" / ")}</div>` : ""}
     ${relaxedRules.length ? `<div class="worktree-note" role="status">세션 동안 완화된 보호: ${relaxedRules.map(escapeHtml).join(", ")}</div>` : ""}
     <section class="status-hints">
-      <div class="guard-summary ${notice ? safeLevel : "idle"}">
-        <span class="guard-mark" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3 19 6v5c0 4.5-2.8 8-7 10-4.2-2-7-5.5-7-10V6z"></path><path d="m9 12 2 2 4-4"></path></svg></span>
-        <span class="guard-summary-main"><span class="eyebrow">Safe Guard</span><span class="guard-state">${escapeHtml(safeLabel)}</span></span>
-        <button class="guard-message-button ${notice ? "has-notice" : ""}" type="button" data-action="openSafeGuard" data-notice-message="${escapeHtml(notice?.message ?? "실행된 검사 결과가 없습니다.")}" data-notice-detail="${escapeHtml(notice?.detail ?? "")}" aria-label="검사 결과 상세 보기" title="검사 결과 상세 보기"><svg viewBox="0 0 24 24"><path d="M4 6h16v12H4z"></path><path d="m5 7 7 6 7-6"></path></svg></button>
+      <div class="guard-summary ${notice ? safeLevel : "idle"}" aria-label="Safe Guard 상태: ${escapeHtml(safeLabel)}">
+        <span class="guard-summary-main">
+          <span class="guard-mark" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3 19 6v5c0 4.5-2.8 8-7 10-4.2-2-7-5.5-7-10V6z"></path><path d="m9 12 2 2 4-4"></path></svg></span>
+          <span class="guard-title">Safe Guard</span>
+        </span>
+        <span class="guard-side">
+          ${nextAction ? `<span class="guard-hint"><strong>${escapeHtml(nextAction.title)}</strong>${nextAction.detail ? ` ${escapeHtml(nextAction.detail)}` : ""}</span>` : ""}
+          <button class="guard-message-button" type="button" data-action="openSafeGuard" data-notice-message="${escapeHtml(notice?.message ?? "실행된 검사 결과가 없습니다.")}" data-notice-detail="${escapeHtml(notice?.detail ?? "")}" aria-label="검사 결과 상세 보기" title="검사 결과 상세 보기"><svg viewBox="0 0 24 24"><path d="M4 6h16v12H4z"></path><path d="m5 7 7 6 7-6"></path></svg></button>
+        </span>
       </div>
-      ${nextAction ? `<div class="hint-message"><span class="hint-mark" aria-hidden="true"><svg viewBox="0 0 24 24" width="15" height="15"><path d="M9 18h6M10 21h4M8 14c-1.2-1-2-2.5-2-4.2a6 6 0 1 1 12 0c0 1.7-.8 3.2-2 4.2-.6.5-1 1.1-1 2h-6c0-.9-.4-1.5-1-2Z"></path></svg></span><span><strong>${escapeHtml(nextAction.title)}</strong>${nextAction.detail ? ` ${escapeHtml(nextAction.detail)}` : ""}</span></div>` : ""}
+      ${notice?.actions?.includes("operation-recovery") ? '<button class="linkish" type="button" data-action="operationRecovery">진행 중 작업 Continue / Abort</button>' : ""}
     </section>
 
     <section class="section action-panel">
       <div class="commit-compose">
-        <input class="commit-input" id="sidebar-commit-message" type="text" placeholder="Commit message 입력" />
+        <div class="commit-input-wrap">
+          <input class="commit-input" id="sidebar-commit-message" type="text" placeholder="Commit message 입력" />
+          <button class="icon-button commit-helper" type="button" data-action="toolsMenu" data-tool="commit" aria-label="Commit 메시지 도우미" title="Commit 메시지 도우미"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v12H8l-4 3z"></path><path d="M8 9h8M8 13h5"></path></svg></button>
+        </div>
         <button class="primary" type="button" data-action="sidebarCommit">Commit</button>
       </div>
       <div class="sync-row">
@@ -198,14 +223,9 @@ export function renderSidebarHtml(state, notice = null) {
         </div>
       </div>
       <div class="scm-groups">
-        <details class="scm-group scm-card" open>
-          <summary class="scm-group-head"><span class="group-caret">›</span><span class="group-title">Staged</span><span class="group-count">${stagedChanges.length}</span><button class="group-action" type="button" data-action="sidebarUnstageAll" title="전체 Unstage" ${stagedChanges.length ? "" : "disabled"}>전체 −</button></summary>
-          <div class="changes-mini">${stagedRows || '<div class="empty">Staged 변경 없음</div>'}</div>
-        </details>
-        <details class="scm-group scm-card" open>
-          <summary class="scm-group-head"><span class="group-caret">›</span><span class="group-title">변경사항</span><span class="group-count">${unstagedChanges.length}</span><button class="group-action" type="button" data-action="sidebarStageAll" title="전체 Stage" ${unstagedChanges.length ? "" : "disabled"}>전체 +</button></summary>
-          <div class="changes-mini">${unstagedRows || '<div class="empty">미포함 변경 없음</div>'}</div>
-        </details>
+        ${stagedGroup}
+        ${unstagedGroup}
+        ${emptyChanges}
       </div>
     </section>
   </main>

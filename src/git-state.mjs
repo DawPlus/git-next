@@ -30,7 +30,7 @@ export function parseRefs(raw) {
     .map((record) => record.trim())
     .filter(Boolean)
     .map((record) => {
-      const [fullName, target] = record.split(FIELD);
+      const [fullName, target, upstream = ""] = record.split(FIELD);
       const localPrefix = "refs/heads/";
       const remotePrefix = "refs/remotes/";
       const tagPrefix = "refs/tags/";
@@ -50,6 +50,7 @@ export function parseRefs(raw) {
         fullName,
         target,
         kind,
+        upstream: upstream || null,
       };
     });
 }
@@ -122,7 +123,7 @@ export async function getRepositoryState(cwd, { limit = 100 } = {}) {
       root,
       [
         "for-each-ref",
-        "--format=%(refname)" + FIELD + "%(objectname)" + RECORD,
+        "--format=%(refname)" + FIELD + "%(objectname)" + FIELD + "%(upstream:short)" + RECORD,
         "refs/heads",
         "refs/remotes",
         "refs/tags",

@@ -1,1 +1,77 @@
-export const GRAPH_INTERACTIONS = "\n    const vscode = acquireVsCodeApi();\n    for (const button of document.querySelectorAll(\"[data-action]\")) {\n      button.addEventListener(\"click\", () => {\n        vscode.postMessage({\n          type: button.dataset.action,\n          guideKey: button.dataset.guideKey ?? null,\n        });\n      });\n    }\n\n    for (const button of document.querySelectorAll(\"[data-commit-action]\")) {\n      button.addEventListener(\"click\", () => {\n        vscode.postMessage({ type: \"commitMenu\", commit: button.dataset.commitAction });\n      });\n    }\n\n    const graphTable = document.querySelector(\".graph-table\");\n    const clearActiveLane = () => {\n      graphTable?.classList.remove(\"has-active-lane\");\n      for (const item of document.querySelectorAll(\".lane-active\")) {\n        item.classList.remove(\"lane-active\");\n      }\n    };\n    const setActiveLane = (lane) => {\n      clearActiveLane();\n      if (!graphTable || lane == null) return;\n      graphTable.classList.add(\"has-active-lane\");\n      for (const item of document.querySelectorAll('[data-lane=\"' + lane + '\"]')) {\n        item.classList.add(\"lane-active\");\n      }\n    };\n    for (const row of document.querySelectorAll(\".commit-row[data-lane]\")) {\n      row.addEventListener(\"mouseenter\", () => setActiveLane(row.dataset.lane));\n      row.addEventListener(\"mouseleave\", clearActiveLane);\n      row.addEventListener(\"focusin\", () => setActiveLane(row.dataset.lane));\n      row.addEventListener(\"focusout\", clearActiveLane);\n      row.addEventListener(\"click\", (event) => {\n        if (event.target.closest(\"button\")) return;\n        vscode.postMessage({ type: \"openCommitDetails\", commit: row.dataset.commitId });\n      });\n      row.addEventListener(\"keydown\", (event) => {\n        if (event.key !== \"Enter\" && event.key !== \" \") return;\n        if (event.target.closest(\"button\")) return;\n        event.preventDefault();\n        vscode.postMessage({ type: \"openCommitDetails\", commit: row.dataset.commitId });\n      });\n    }\n\n    let filterTimer;\n    const sendFilters = () => {\n      vscode.postMessage({\n        type: \"graphOptions\",\n        options: {\n          query: document.querySelector(\"#filter-query\")?.value ?? \"\",\n          ref: document.querySelector(\"#filter-ref\")?.value ?? \"\",\n          scope: document.querySelector(\"#filter-scope\")?.value ?? \"all\",\n          focus: document.querySelector(\"#filter-focus\")?.value ?? \"all\",\n          limit: Number(document.querySelector(\"#filter-limit\")?.value ?? 50),\n          density: document.querySelector(\"#filter-density\")?.value ?? \"compact\",\n        },\n      });\n    };\n\n    document.querySelector(\"#filter-query\")?.addEventListener(\"input\", () => {\n      clearTimeout(filterTimer);\n      filterTimer = setTimeout(sendFilters, 180);\n    });\n    for (const id of [\"#filter-ref\", \"#filter-scope\", \"#filter-focus\", \"#filter-limit\", \"#filter-density\"]) {\n      document.querySelector(id)?.addEventListener(\"change\", sendFilters);\n    }\n  ";
+export const GRAPH_INTERACTIONS = `
+    const vscode = acquireVsCodeApi();
+    let filterTimer;
+
+    const graphTable = () => document.querySelector(".graph-table");
+    const clearActiveLane = () => {
+      graphTable()?.classList.remove("has-active-lane");
+      for (const item of document.querySelectorAll(".lane-active")) item.classList.remove("lane-active");
+    };
+    const setActiveLane = (lane) => {
+      clearActiveLane();
+      const table = graphTable();
+      if (!table || lane == null) return;
+      table.classList.add("has-active-lane");
+      for (const item of document.querySelectorAll('[data-lane="' + lane + '"]')) item.classList.add("lane-active");
+    };
+    const sendFilters = () => {
+      vscode.postMessage({
+        type: "graphOptions",
+        options: {
+          query: document.querySelector("#filter-query")?.value ?? "",
+          ref: document.querySelector("#filter-ref")?.value ?? "",
+          scope: document.querySelector("#filter-scope")?.value ?? "all",
+          focus: document.querySelector("#filter-focus")?.value ?? "all",
+          limit: Number(document.querySelector("#filter-limit")?.value ?? 50),
+          density: document.querySelector("#filter-density")?.value ?? "compact",
+        },
+      });
+    };
+
+    document.addEventListener("click", (event) => {
+      const actionButton = event.target.closest("button[data-action]");
+      if (actionButton) {
+        vscode.postMessage({ type: actionButton.dataset.action, guideKey: actionButton.dataset.guideKey ?? null });
+        return;
+      }
+      const commitButton = event.target.closest("button[data-commit-action]");
+      if (commitButton) {
+        vscode.postMessage({ type: "commitMenu", commit: commitButton.dataset.commitAction });
+        return;
+      }
+      const row = event.target.closest(".commit-row[data-lane]");
+      if (row) vscode.postMessage({ type: "openCommitDetails", commit: row.dataset.commitId });
+    });
+
+    document.addEventListener("mouseover", (event) => {
+      const row = event.target.closest(".commit-row[data-lane]");
+      if (row) setActiveLane(row.dataset.lane);
+    });
+    document.addEventListener("mouseout", (event) => {
+      if (event.target.closest(".commit-row[data-lane]")) clearActiveLane();
+    });
+    document.addEventListener("focusin", (event) => {
+      const row = event.target.closest(".commit-row[data-lane]");
+      if (row) setActiveLane(row.dataset.lane);
+    });
+    document.addEventListener("focusout", (event) => {
+      if (event.target.closest(".commit-row[data-lane]")) clearActiveLane();
+    });
+    document.addEventListener("keydown", (event) => {
+      if (event.key !== "Enter" && event.key !== " ") return;
+      if (event.target.closest("button")) return;
+      const row = event.target.closest(".commit-row[data-lane]");
+      if (!row) return;
+      event.preventDefault();
+      vscode.postMessage({ type: "openCommitDetails", commit: row.dataset.commitId });
+    });
+    document.addEventListener("input", (event) => {
+      if (event.target?.id !== "filter-query") return;
+      clearTimeout(filterTimer);
+      filterTimer = setTimeout(sendFilters, 180);
+    });
+    document.addEventListener("change", (event) => {
+      if (!["filter-ref", "filter-scope", "filter-focus", "filter-limit", "filter-density"].includes(event.target?.id)) return;
+      sendFilters();
+    });
+  `;

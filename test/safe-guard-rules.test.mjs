@@ -5,6 +5,8 @@ import {
   getDestructiveActionGuard,
   getDirtyTreeGuard,
   getActionRisk,
+  getProtectedBranchGuard,
+  isProtectedBranch,
 } from "../src/git-safety.mjs";
 import { renderGraphHtml } from "../src/graph-view.mjs";
 
@@ -17,6 +19,21 @@ test("destructive actions always require explicit confirmation", () => {
   assert.equal(guard.requiresConfirmation, true);
   assert.deepEqual(guard.affected, ["origin/main"]);
   assert.match(guard.message, /원격 브랜치/);
+});
+
+test("protected branches receive stronger safeguards for risky actions", () => {
+  assert.equal(isProtectedBranch("main"), true);
+  assert.equal(isProtectedBranch("master"), true);
+  assert.equal(isProtectedBranch("release/1.2"), true);
+  assert.equal(isProtectedBranch("feature/login"), false);
+
+  const protectedGuard = getProtectedBranchGuard("force-push", "main");
+  assert.equal(protectedGuard.protected, true);
+  assert.equal(protectedGuard.level, "warning");
+  assert.match(protectedGuard.message, /보호 브랜치/);
+
+  assert.equal(getProtectedBranchGuard("push", "main").protected, false);
+  assert.equal(getProtectedBranchGuard("delete-branch", "feature/login").protected, false);
 });
 
 test("unknown destructive actions are blocked", () => {

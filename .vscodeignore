@@ -1,6 +1,10 @@
 src/**
 test/**
 scripts/**
+acorn/**
+docs/**
+.superpowers/**
+AGENTS.md
 .git/**
 .github/**
 *.vsix

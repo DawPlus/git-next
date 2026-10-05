@@ -1,3 +1,5 @@
+import { escapeHtml } from "./view-shared.mjs";
+
 export const GUIDES = {
   "dirty-pull": {
     title: "작업 중인데 Pull 해야 해요",
@@ -199,15 +201,6 @@ export function classifyGuide({ action, code, detail = "", message = "" } = {}) 
   if (/merge-in-progress|merge_head|merge 작업/.test(text)) return "merge-in-progress";
 
   return null;
-}
-
-function escapeHtml(value) {
-  return String(value ?? "")
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
 }
 
 function renderMarkerGuide() {

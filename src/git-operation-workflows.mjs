@@ -3,6 +3,7 @@ import { runGit, parseNameStatus, parseSubjects } from "./git-command.mjs";
 import { getTrackingStatus, getWorkingTreeChanges } from "./git-safety.mjs";
 
 import { getRepositoryState } from "./git-state.mjs";
+import { guidanceNotice } from "./git-guidance.mjs";
 
 export async function listConflictedFiles(cwd) {
   const result = await runGit(cwd, ["diff", "--name-only", "--diff-filter=U"]);
@@ -64,6 +65,28 @@ export function formatOperationActionPreview(operation, action, conflictedFiles 
   return action === "continue"
     ? `${name}를 계속하면 ${conflicts}의 정리 내용을 반영하고 진행 중인 Git 작업을 이어갑니다.`
     : `${name}를 취소하면 ${conflicts}의 해결 내용은 반영되지 않고 시작 전 위치로 돌아갑니다.`;
+}
+
+export function buildOperationGuard(operation, conflictedFiles = []) {
+  const name = ({ merge: "Merge", rebase: "Rebase", "cherry-pick": "Cherry-pick", revert: "Revert" })[operation?.operation] ?? operation?.operation ?? "Git";
+  const state = `${name} 진행 중`;
+  const risk = "진행 중인 작업을 끝내기 전에 다른 Git 작업을 겹치면 상태가 더 복잡해질 수 있습니다.";
+  const next = conflictedFiles.length
+    ? `충돌 파일 ${conflictedFiles.length}개를 정리한 뒤 Continue하거나, 원치 않으면 Abort하세요.`
+    : "Continue로 작업을 이어가거나 Abort로 시작 전 상태로 돌아가세요.";
+  return guidanceNotice({
+    ok: false,
+    level: "blocked",
+    code: "operation-in-progress",
+    operation: operation?.operation ?? null,
+    state,
+    risk,
+    next,
+    detail: conflictedFiles.length
+      ? `충돌 파일:\n${conflictedFiles.join("\n")}`
+      : operation?.path ?? null,
+    actions: ["operation-recovery"],
+  });
 }
 
 export async function continueGitOperation(cwd, operation) {
@@ -141,22 +164,50 @@ export async function getActionImpactPreview(cwd, action) {
   };
 }
 
-export function formatImpactPreview(preview) {
-  const added = preview.files.filter((file) => file.status.startsWith("A")).length;
-  const deleted = preview.files.filter((file) => file.status.startsWith("D")).length;
-  const changed = preview.files.length - added - deleted;
-  const direction = preview.action === "pull"
-    ? `서버 ${preview.upstream ?? "Remote"} → 로컬`
-    : `로컬 → 서버 ${preview.upstream ?? "Remote"}`;
-  const commitLines = preview.commits.slice(0, 5).map((commit) => `• ${commit.id} ${commit.subject}`);
-  const fileLines = preview.files.slice(0, 5).map((file) => `• ${file.status} ${file.path}`);
+export function buildSyncImpactSummary(preview) {
+  const files = preview.files ?? [];
+  const commits = preview.commits ?? [];
+  const added = files.filter((file) => file.status.startsWith("A")).length;
+  const deleted = files.filter((file) => file.status.startsWith("D")).length;
+  const changed = files.length - added - deleted;
+  return {
+    action: preview.action,
+    label: preview.action === "pull" ? "Pull" : "Push",
+    direction: preview.action === "pull"
+      ? `서버 ${preview.upstream ?? "Remote"} → 로컬`
+      : `로컬 → 서버 ${preview.upstream ?? "Remote"}`,
+    upstream: preview.upstream ?? null,
+    summary: preview.summary ?? "",
+    commitCount: commits.length,
+    fileCount: files.length,
+    changed,
+    added,
+    deleted,
+    commits: commits.slice(0, 5),
+    files: files.slice(0, 5),
+    risk: preview.action === "pull"
+      ? "원격 변경이 로컬 작업에 반영됩니다."
+      : "로컬 Commit이 공유 Remote에 반영됩니다.",
+  };
+}
+
+export function formatSyncImpactSummary(summary) {
+  const commitLines = summary.commits.map((commit) => `• ${commit.id} ${commit.subject}`);
+  const fileLines = summary.files.map((file) => `• ${file.status} ${file.path}`);
   return [
-    direction,
-    preview.summary,
-    preview.files.length ? `영향 파일 ${preview.files.length}개 · 변경 ${changed} · 추가 ${added} · 삭제 ${deleted}` : "영향 파일 없음",
-    commitLines.length ? `\n${preview.action === "pull" ? "받아올 커밋" : "보낼 커밋"}\n${commitLines.join("\n")}${preview.commits.length > 5 ? `\n외 ${preview.commits.length - 5}개` : ""}` : null,
-    fileLines.length ? `\n변경 파일 미리보기\n${fileLines.join("\n")}${preview.files.length > 5 ? `\n외 ${preview.files.length - 5}개` : ""}` : null,
+    summary.direction,
+    summary.summary,
+    `커밋 ${summary.commitCount}개`,
+    summary.fileCount
+      ? `영향 파일 ${summary.fileCount}개 · 변경 ${summary.changed} · 추가 ${summary.added} · 삭제 ${summary.deleted}`
+      : "영향 파일 없음",
+    commitLines.length ? `\n${summary.action === "pull" ? "받아올 커밋" : "보낼 커밋"}\n${commitLines.join("\n")}${summary.commitCount > 5 ? `\n외 ${summary.commitCount - 5}개` : ""}` : null,
+    fileLines.length ? `\n변경 파일 미리보기\n${fileLines.join("\n")}${summary.fileCount > 5 ? `\n외 ${summary.fileCount - 5}개` : ""}` : null,
   ].filter(Boolean).join("\n");
+}
+
+export function formatImpactPreview(preview) {
+  return formatSyncImpactSummary(buildSyncImpactSummary(preview));
 }
 
 export function formatGitStateDelta(before, after) {

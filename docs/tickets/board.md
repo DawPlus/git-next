@@ -36,18 +36,41 @@ This board is the status source of truth.
 | T-261004-30 | Improve Source Control workflow | done | - | worker | implementation | 1+2 | [ticket](archive/2026-10/T-261004-30.md) | Follow-up to T-261004-01 |
 | T-261004-31 | Clarify Source Control actions and sync previews | done | - | worker | implementation | 1+2 | [ticket](archive/2026-10/T-261004-31.md) | Follow-up to T-261004-30 |
 | T-261005-01 | Source module refactor | done | - | worker | implementation | 1+2 | [ticket](archive/2026-10/T-261005-01.md) | Existing spec/plan are implementation references; Acorn ticket remains source of truth |
-| T-261005-02 | Resolve diverged history with Merge or Rebase | ready | worker | worker | implementation | 1+2 | [ticket](active/T-261005-02.md) | Biggest beginner dead-end after Push reject / ff-only Pull fail |
-| T-261005-03 | Merge selected branch into current branch | ready | worker | worker | implementation | 1+2 | [ticket](active/T-261005-03.md) | Completes create → work → merge flow in Branches UI |
-| T-261005-04 | Align README with Source Control features | ready | worker | worker | implementation | 1+2 | [ticket](active/T-261005-04.md) | Docs only; keep Stage/Commit, update README to match |
-| T-261005-05 | Support multi-root workspaces and multiple repositories | ready | worker | worker | implementation | 1+2 | [ticket](active/T-261005-05.md) | Stop using only workspace folder[0] |
-| T-261005-06 | Show progress for network Git operations | ready | worker | worker | implementation | 1+2 | [ticket](active/T-261005-06.md) | withProgress for Fetch/Pull/Push |
-| T-261005-07 | Auto-refresh graph and sidebar on external Git changes | ready | worker | worker | implementation | 1+2 | [ticket](active/T-261005-07.md) | Prefer vscode.git API; debounced; manual refresh fallback |
-| T-261005-08 | Add nonce-based CSP to webview panels | ready | worker | worker | implementation | 1+2 | [ticket](active/T-261005-08.md) | enableScripts panels need CSP meta/nonce |
-| T-261005-09 | Harden Git args with `--` and ref validation | ready | worker | worker | implementation | 1+2 | [ticket](active/T-261005-09.md) | cherry-pick/revert/branch/stash targets from webview |
-| T-261005-10 | Refresh webviews with postMessage instead of full HTML replace | ready | worker | worker | implementation | 1+2 | [ticket](active/T-261005-10.md) | Preserve scroll and commit message draft |
-| T-261005-11 | Split extension.js webview message handler chain | ready | worker | worker | implementation | 1+2 | [ticket](active/T-261005-11.md) | Follow-up to T-261005-01 module refactor |
-| T-261005-12 | Deduplicate escapeHtml into view-shared.mjs | ready | worker | worker | implementation | 1+2 | [ticket](active/T-261005-12.md) | Drop local copies; use view-shared |
-| T-261005-13 | Slim extension.js into focused handlers and panels | ready | worker | worker | implementation | 1+2 | [ticket](active/T-261005-13.md) | Broader follow-up to T-261005-11; preserve behavior while reducing extension.js to activation shell |
+| T-261005-02 | Resolve diverged history with Merge or Rebase | done | - | worker | implementation | 1+2 | [ticket](archive/2026-10/T-261005-02.md) | Biggest beginner dead-end after Push reject / ff-only Pull fail |
+| T-261005-03 | Merge selected branch into current branch | done | - | worker | implementation | 1+2 | [ticket](archive/2026-10/T-261005-03.md) | Completes create → work → merge flow in Branches UI |
+| T-261005-04 | Align README with Source Control features | done | - | worker | implementation | 1+2 | [ticket](archive/2026-10/T-261005-04.md) | Docs only; keep Stage/Commit, update README to match |
+| T-261005-05 | Support multi-root workspaces and multiple repositories | done | - | worker | implementation | 1+2 | [ticket](archive/2026-10/T-261005-05.md) | Stop using only workspace folder[0] |
+| T-261005-06 | Show progress for network Git operations | done | - | worker | implementation | 1+2 | [ticket](archive/2026-10/T-261005-06.md) | withProgress for Fetch/Pull/Push |
+| T-261005-07 | Auto-refresh graph and sidebar on external Git changes | done | - | worker | implementation | 1+2 | [ticket](archive/2026-10/T-261005-07.md) | Prefer vscode.git API; debounced; manual refresh fallback |
+| T-261005-08 | Add nonce-based CSP to webview panels | done | - | worker | implementation | 1+2 | [ticket](archive/2026-10/T-261005-08.md) | enableScripts panels need CSP meta/nonce |
+| T-261005-09 | Harden Git args with `--` and ref validation | done | - | worker | implementation | 1+2 | [ticket](archive/2026-10/T-261005-09.md) | cherry-pick/revert/branch/stash targets from webview |
+| T-261005-10 | Refresh webviews with postMessage instead of full HTML replace | done | - | worker | implementation | 1+2 | [ticket](archive/2026-10/T-261005-10.md) | Preserve scroll and commit message draft |
+| T-261005-11 | Split extension.js webview message handler chain | done | - | worker | implementation | 1+2 | [ticket](archive/2026-10/T-261005-11.md) | Follow-up to T-261005-01 module refactor |
+| T-261005-12 | Deduplicate escapeHtml into view-shared.mjs | done | - | worker | implementation | 1+2 | [ticket](archive/2026-10/T-261005-12.md) | Drop local copies; use view-shared |
+| T-261005-13 | Slim extension.js into focused handlers and panels | done | - | worker | implementation | 1+2 | [ticket](archive/2026-10/T-261005-13.md) | Broader follow-up to T-261005-11; preserve behavior while reducing extension.js to activation shell |
+| T-261005-14 | Add AI diagnosis provider and guide-card schema | done | - | worker | implementation | 1+2 | [ticket](archive/2026-10/T-261005-14.md) | AI Coach + Rescue foundation; provider-neutral diagnosis + existing guide/preset reuse |
+| T-261005-15 | Save AI diagnosis history | done | - | worker | implementation | 1+2 | [ticket](archive/2026-10/T-261005-15.md) | Depends on T-261005-14 |
+| T-261005-16 | Add guided practice and AI rescue flow | done | - | worker | implementation | 1+2 | [ticket](archive/2026-10/T-261005-16.md) | Depends on T-261005-14; learn-first + explicit rescue |
+| T-261005-17 | Add shared Pull and Push impact summary card | done | - | worker | implementation | 1+2 | [ticket](archive/2026-10/T-261005-17.md) | One impact model for Pull/Push |
+| T-261005-18 | Connect diverged guard to Merge/Rebase resolution | done | - | worker | implementation | 1+2 | [ticket](archive/2026-10/T-261005-18.md) | Depends on T-261005-02 |
+| T-261005-19 | Add protected branch safeguards | done | - | worker | implementation | 1+2 | [ticket](archive/2026-10/T-261005-19.md) | main/master/release/* |
+| T-261005-20 | Unify in-progress Git operation guard and recovery | done | - | worker | implementation | 1+2 | [ticket](archive/2026-10/T-261005-20.md) | Merge/Rebase/Cherry-pick/Revert Continue/Abort |
+| T-261005-21 | Standardize blocked and warning copy | done | - | worker | implementation | 1+2 | [ticket](archive/2026-10/T-261005-21.md) | 상태 / 위험 / 다음 |
+| T-261005-22 | Show all Git tool buttons directly | done | - | worker | implementation | 1+2 | [ticket](archive/2026-10/T-261005-22.md) | Remove nested More tools step |
+| T-261005-23 | Reorganize Branch workspace by Local and Remote | done | - | worker | implementation | 1+2 | [ticket](archive/2026-10/T-261005-23.md) | Separate Local/Remote and show tracking mapping |
+| T-261005-24 | Add explicit Remote to Local tracking flow | done | - | worker | implementation | 1+2 | [ticket](archive/2026-10/T-261005-24.md) | Depends on T-261005-23 |
+| T-261005-25 | Visualize Local and Remote tracking links | done | - | worker | implementation | 1+2 | [ticket](archive/2026-10/T-261005-25.md) | Depends on T-261005-23 |
+| T-261005-26 | Consolidate Git tool workspaces | done | - | worker | implementation | 1+2 | [ticket](archive/2026-10/T-261005-26.md) | Branch/AI/Recovery/Commit consolidation |
+| T-261005-27 | Simplify Git tools grid | done | - | worker | implementation | 1+2 | [ticket](archive/2026-10/T-261005-27.md) | 17 buttons → 9 top-level tools |
+| T-261005-28 | Post-consolidation code diet and duplicate-handler cleanup | done | - | worker | implementation | 1+2 | [ticket](archive/2026-10/T-261005-28.md) | Dead code + duplicate handlers + Branch unification + handler slimming |
+| T-261005-29 | Refresh README for current Git Next UX | done | - | worker | implementation | 1+2 | [ticket](archive/2026-10/T-261005-29.md) | Depends on T-261005-28; document current AI/Branch/Recovery/tool layout |
+| T-261005-30 | Pre-release cleanup and smoke checklist | done | - | worker | implementation | 1+2 | [ticket](archive/2026-10/T-261005-30.md) | Final diff review + code diet + package verification + manual smoke checklist |
+| T-261005-31 | Fix Codex provider hanging on additional stdin | ready_for_qa | human | worker | implementation | 1+2 | [ticket](active/T-261005-31.md) | Codex 0.160.0 waits on additional stdin during non-interactive diagnosis |
+| T-261005-32 | Refine Safe Guard status presentation | ready_for_qa | human | worker | implementation | 1+2 | [ticket](active/T-261005-32.md) | Icon color + subtle status background + hint alignment cleanup |
+| T-261005-33 | Compact commit compose into one row | ready_for_qa | human | worker | implementation | 1+2 | [ticket](active/T-261005-33.md) | Inline message generator + primary Commit beside input; remove partial-commit guide button |
+| T-261005-34 | Hide empty SCM change groups | ready_for_qa | human | worker | implementation | 1+2 | [ticket](active/T-261005-34.md) | Hide zero-count Staged/Changes groups; show them when items appear |
+| T-261005-35 | Fix sidebar flicker during repeated Stage actions | ready_for_qa | human | worker | implementation | 1+2 | [ticket](active/T-261005-35.md) | Repeated single-file Stage intermittently looks like full sidebar refresh |
+| T-261005-36 | Fix Push button silent failure | ready_for_qa | human | worker | implementation | 1+2 | [ticket](active/T-261005-36.md) | Missing Push preflight import caused silent ReferenceError |
 
 Allowed states: `draft`, `ready`, `in_progress`, `review`, `ready_for_qa`, `blocked`, `done`, `superseded`.
 

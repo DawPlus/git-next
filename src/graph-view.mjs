@@ -284,6 +284,7 @@ export function renderGraphHtml(state, notice = null, options = {}) {
       ${notice.detail ? `<div class="git-detail-label">Git 상세 정보</div><pre>${escapeHtml(notice.detail)}</pre>` : ""}
       <div class="notice-actions">
         <button class="commit-action" type="button" data-action="openCompare">Local ↔ Remote 비교</button>
+        ${notice.actions?.includes("operation-recovery") ? '<button class="commit-action" type="button" data-action="operationRecovery">Continue / Abort</button>' : ""}
         ${notice.guideKey ? `<button class="commit-action" type="button" data-action="openGuide" data-guide-key="${escapeHtml(notice.guideKey)}">이 상황 해결 방법</button>` : ""}
       </div>
     </div>` : ""}

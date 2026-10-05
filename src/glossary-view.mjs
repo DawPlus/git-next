@@ -1,14 +1,7 @@
 import { TERMS, SCENARIOS } from "./glossary-data.mjs";
-export { TERMS, SCENARIOS } from "./glossary-data.mjs";
+import { escapeHtml } from "./view-shared.mjs";
 
-function escapeHtml(value) {
-  return String(value ?? "")
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
-}
+export { TERMS, SCENARIOS } from "./glossary-data.mjs";
 
 function nodeKind(label) {
   const value = String(label).toLowerCase();

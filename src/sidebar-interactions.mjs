@@ -1,1 +1,40 @@
-export const SIDEBAR_INTERACTIONS = "\n    const vscode = acquireVsCodeApi();\n    for (const button of document.querySelectorAll(\"[data-action]\")) {\n      button.addEventListener(\"click\", (event) => {\n        if (button.classList.contains(\"folder-action\") || button.closest(\".scm-group-head\")) {\n          event.preventDefault();\n          event.stopPropagation();\n        }\n        const message = {\n          type: button.dataset.action,\n          guideKey: button.dataset.guideKey ?? null,\n          noticeMessage: button.dataset.noticeMessage ?? null,\n          noticeDetail: button.dataset.noticeDetail ?? null,\n          path: button.dataset.path ?? null,\n          untracked: button.dataset.untracked === \"1\",\n          message: document.querySelector(\"#sidebar-commit-message\")?.value ?? \"\",\n        };\n        const row = button.closest(\".scm-file\");\n        if (row && button.classList.contains(\"mini-action\") && [\"sidebarStage\", \"sidebarUnstage\"].includes(message.type) && !window.matchMedia(\"(prefers-reduced-motion: reduce)\").matches) {\n          button.disabled = true;\n          row.classList.add(message.type === \"sidebarStage\" ? \"is-moving-up\" : \"is-moving-down\");\n          window.setTimeout(() => vscode.postMessage(message), 180);\n          return;\n        }\n        vscode.postMessage(message);\n      });\n    }\n    const toolToggle = document.querySelector(\"[data-toggle-tools]\");\n    const toolPanel = document.querySelector(\"[data-tool-panel]\");\n    toolToggle?.addEventListener(\"click\", () => {\n      const opening = toolPanel?.hasAttribute(\"hidden\");\n      if (opening) toolPanel?.removeAttribute(\"hidden\");\n      else toolPanel?.setAttribute(\"hidden\", \"\");\n      toolToggle.setAttribute(\"aria-expanded\", String(Boolean(opening)));\n    });\n  ";
+export const SIDEBAR_INTERACTIONS = `
+    const vscode = acquireVsCodeApi();
+
+    document.addEventListener("click", (event) => {
+      const toolToggle = event.target.closest("[data-toggle-tools]");
+      if (toolToggle) {
+        const toolPanel = document.querySelector("[data-tool-panel]");
+        const opening = toolPanel?.hasAttribute("hidden");
+        if (opening) toolPanel?.removeAttribute("hidden");
+        else toolPanel?.setAttribute("hidden", "");
+        toolToggle.setAttribute("aria-expanded", String(Boolean(opening)));
+        return;
+      }
+
+      const button = event.target.closest("button[data-action]");
+      if (!button) return;
+      if (button.classList.contains("folder-action") || button.closest(".scm-group-head")) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+      const message = {
+        type: button.dataset.action,
+        guideKey: button.dataset.guideKey ?? null,
+        noticeMessage: button.dataset.noticeMessage ?? null,
+        noticeDetail: button.dataset.noticeDetail ?? null,
+        path: button.dataset.path ?? null,
+        tool: button.dataset.tool ?? null,
+        untracked: button.dataset.untracked === "1",
+        message: document.querySelector("#sidebar-commit-message")?.value ?? "",
+      };
+      const row = button.closest(".scm-file");
+      if (row && button.classList.contains("mini-action") && ["sidebarStage", "sidebarUnstage"].includes(message.type) && !window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+        button.disabled = true;
+        row.classList.add(message.type === "sidebarStage" ? "is-moving-up" : "is-moving-down");
+        window.setTimeout(() => vscode.postMessage(message), 180);
+        return;
+      }
+      vscode.postMessage(message);
+    });
+  `;

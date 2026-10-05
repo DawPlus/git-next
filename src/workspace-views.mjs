@@ -164,9 +164,11 @@ ${notice ? `<div class="card"><strong>${esc(notice.message)}</strong>${notice.de
 <section class="section"><div class="section-title"><h2>Commit</h2><span class="badge">Local only</span></div><div class="card"><input class="input" id="message" placeholder="Commit message 입력" /><div class="toolbar" style="margin-top:10px"><button class="btn primary" data-action="commit">Commit 만들기</button><button class="btn" data-action="undo-commit">마지막 로컬 Commit 취소</button></div><div class="meta">Commit은 현재 Staged 파일만 포함합니다. Push는 별도 작업입니다.</div></div></section>`;
   const script = `
 const vscode=acquireVsCodeApi();
-for(const btn of document.querySelectorAll("[data-action]")){
- btn.addEventListener("click",()=>vscode.postMessage({type:btn.dataset.action,path:btn.dataset.path,untracked:btn.dataset.untracked==="1",message:document.querySelector("#message")?.value??""}));
-}`;
+document.addEventListener("click",(event)=>{
+ const btn=event.target.closest("[data-action]");
+ if(!btn)return;
+ vscode.postMessage({type:btn.dataset.action,path:btn.dataset.path,untracked:btn.dataset.untracked==="1",message:document.querySelector("#message")?.value??""});
+});`;
   return shell("Git Next · 변경사항", body, script);
 }
 
@@ -187,15 +189,36 @@ export function renderCompareWorkspace(comparison) {
 }
 
 export function renderBranchWorkspace(state) {
-  const refs = state.refs.filter((ref)=>ref.kind==="local"||ref.kind==="remote");
-  const cards = refs.map((ref)=>`<button class="card branch-card ${ref.name===state.branch?"current":""}" data-branch="${esc(ref.name)}" data-kind="${esc(ref.kind)}" style="text-align:left;color:inherit;cursor:pointer">
-    <div class="row"><div class="grow"><h2>${esc(ref.name)}</h2><div class="meta">${ref.name===state.branch?"현재 브랜치":ref.kind==="remote"?"Remote branch":"Local branch"}</div></div>${ref.name===state.branch?'<span class="badge">현재</span>':""}</div>
-  </button>`).join("");
-  const body=`<header><div><h1>Branch</h1><div class="sub">브랜치를 고르면 비교하거나 안전하게 전환할 수 있습니다.</div></div><button class="btn" data-action="create">새 브랜치</button></header><div class="grid">${cards||'<div class="empty">브랜치가 없습니다.</div>'}</div><section class="section card" id="selection"><h2>브랜치를 선택하세요</h2><div class="meta">선택은 실행이 아닙니다. 실제 변경 전에는 항상 Confirm을 받습니다.</div><div class="toolbar" style="margin-top:10px"><button class="btn" data-action="compare" disabled>비교</button><button class="btn primary" data-action="switch" disabled>전환</button><button class="btn" data-action="rename" disabled>이름 변경</button><button class="btn danger" data-action="delete" disabled>삭제</button></div></section>`;
+  const locals = state.refs.filter((ref) => ref.kind === "local");
+  const remotes = state.refs.filter((ref) => ref.kind === "remote");
+  const remotesByName = new Map(remotes.map((ref) => [ref.name, ref]));
+  const pairedRemotes = new Set();
+  const card = (ref) => ref
+    ? `<button class="card branch-card ${ref.name === state.branch ? "current" : ""}" data-branch="${esc(ref.name)}" data-kind="${esc(ref.kind)}" style="text-align:left;color:inherit;cursor:pointer">
+        <div class="row"><div class="grow"><h2>${esc(ref.name)}</h2><div class="meta">${ref.kind === "local" ? `Local branch${ref.upstream ? ` · ${esc(ref.upstream)}` : ""}` : "Remote branch"}</div></div>${ref.name === state.branch ? '<span class="badge">현재</span>' : ""}</div>
+      </button>`
+    : '<div class="branch-slot"></div>';
+  const rows = locals.map((local) => {
+    const remote = local.upstream ? remotesByName.get(local.upstream) : null;
+    if (remote) pairedRemotes.add(remote.name);
+    return `<div class="branch-map-row">
+      ${card(local)}
+      <div class="tracking-link ${remote ? "connected" : ""}" aria-hidden="true">${remote ? '<span class="tracking-signal"></span>' : ""}</div>
+      ${card(remote)}
+    </div>`;
+  });
+  for (const remote of remotes) {
+    if (!pairedRemotes.has(remote.name)) {
+      rows.push(`<div class="branch-map-row">${card(null)}<div class="tracking-link"></div>${card(remote)}</div>`);
+    }
+  }
+  const body=`<style>
+.branch-map{display:grid;gap:8px}.branch-map-head,.branch-map-row{display:grid;grid-template-columns:minmax(0,1fr) 72px minmax(0,1fr);gap:8px;align-items:center}.branch-map-head{padding:0 4px;color:var(--vscode-descriptionForeground);font-size:12px;font-weight:700}.branch-map-head span:last-child{text-align:right}.branch-slot{min-height:1px}.tracking-link{position:relative;height:20px}.tracking-link.connected::before{content:"";position:absolute;left:0;right:0;top:50%;height:1px;background:color-mix(in srgb,var(--vscode-textLink-foreground) 58%,transparent)}.tracking-signal{position:absolute;left:0;top:50%;width:7px;height:7px;border-radius:50%;background:var(--vscode-textLink-foreground);box-shadow:0 0 8px color-mix(in srgb,var(--vscode-textLink-foreground) 70%,transparent);transform:translate(-50%,-50%);animation:trackingFlow 1.6s ease-in-out infinite alternate}.branch-card.current{border-color:var(--vscode-textLink-foreground)}@keyframes trackingFlow{from{left:4%}to{left:96%}}@media(max-width:720px){.branch-map-head,.branch-map-row{grid-template-columns:minmax(0,1fr) 42px minmax(0,1fr);gap:5px}}@media(prefers-reduced-motion:reduce){.tracking-signal{animation:none;left:50%}}
+</style><header><div><h1>Branch</h1><div class="sub">브랜치를 고르면 비교하거나 안전하게 전환할 수 있습니다.</div></div><div class="toolbar"><button class="btn" data-action="cleanup">정리 후보</button><button class="btn" data-action="remote-settings">Remote 설정</button><button class="btn" data-action="create">새 브랜치</button></div></header><div class="branch-map"><div class="branch-map-head"><span>Local</span><span></span><span>Remote</span></div>${rows.join("") || '<div class="empty">브랜치가 없습니다.</div>'}</div><section class="section card" id="selection"><h2>브랜치를 선택하세요</h2><div class="meta">선택은 실행이 아닙니다. 실제 변경 전에는 항상 Confirm을 받습니다.</div><div class="toolbar" style="margin-top:10px"><button class="btn" data-action="compare" disabled>비교</button><button class="btn" data-action="merge" disabled>현재 브랜치에 Merge</button><button class="btn primary" data-action="switch" disabled>전환</button><button class="btn" data-action="track" disabled>로컬 브랜치 생성 + Tracking</button><button class="btn" data-action="rename" disabled>이름 변경</button><button class="btn danger" data-action="delete" disabled>삭제</button></div></section>`;
   const script=`
 const vscode=acquireVsCodeApi();let selected=null;let kind=null;
 const buttons=[...document.querySelectorAll("#selection [data-action]")];
-for(const card of document.querySelectorAll(".branch-card"))card.addEventListener("click",()=>{for(const c of document.querySelectorAll(".branch-card"))c.classList.remove("selected");card.classList.add("selected");selected=card.dataset.branch;kind=card.dataset.kind;document.querySelector("#selection h2").textContent=selected;for(const b of buttons)b.disabled=false;if(kind==="remote"){document.querySelector('[data-action="rename"]').disabled=true;document.querySelector('[data-action="delete"]').disabled=true;}});
+for(const card of document.querySelectorAll(".branch-card"))card.addEventListener("click",()=>{for(const c of document.querySelectorAll(".branch-card"))c.classList.remove("selected");card.classList.add("selected");selected=card.dataset.branch;kind=card.dataset.kind;document.querySelector("#selection h2").textContent=selected;for(const b of buttons)b.disabled=false;document.querySelector('[data-action="track"]').disabled=kind!=="remote";if(kind==="remote"){document.querySelector('[data-action="rename"]').disabled=true;document.querySelector('[data-action="delete"]').disabled=true;}});
 for(const b of document.querySelectorAll("[data-action]"))b.addEventListener("click",(e)=>{e.stopPropagation();vscode.postMessage({type:b.dataset.action,branch:selected,kind});});
 `;
   return shell("Git Next · Branch",body,script);
@@ -343,6 +366,79 @@ function renderGuideVisual(key) {
     <span class="guide-token b"></span>
     <span class="guide-warning">×</span>
   </div>`;
+}
+
+export function renderAiHistoryWorkspace(history = []) {
+  const cards = history.map((item) => {
+    const diagnosis = item.diagnosis ?? {};
+    const outcome = item.outcome
+      ? `<div class="meta">결과 · ${esc(item.outcome.action ?? "-")} · ${esc(item.outcome.status ?? "-")}</div>`
+      : '<div class="meta">결과 · 아직 실행하지 않음</div>';
+    return `<button class="card" type="button" data-action="open-entry" data-id="${esc(item.id)}" style="text-align:left;color:inherit;cursor:pointer">
+      <div class="row"><div class="grow"><h2>${esc(diagnosis.situation || "AI 진단")}</h2><div class="meta">${esc(item.provider || "AI")} · ${esc(item.createdAt || "")}</div></div><span class="badge">${esc(diagnosis.confidence || "medium")}</span></div>
+      <p style="margin-top:8px">${esc(diagnosis.summary || "")}</p>
+      <div class="meta" style="margin-top:6px">다음 · ${esc(diagnosis.next || "")}</div>
+      ${outcome}
+    </button>`;
+  }).join("");
+  const body = `<header><div><h1>AI 진단 기록</h1><div class="sub">이전에 물어본 Git 상황과 추천을 다시 확인합니다.</div></div></header>
+  <section class="grid">${cards || '<div class="empty">저장된 AI 진단이 없습니다.</div>'}</section>`;
+  const script = `const vscode=acquireVsCodeApi();document.addEventListener("click",(event)=>{const button=event.target.closest("[data-action]");if(button)vscode.postMessage({type:button.dataset.action,id:button.dataset.id});});`;
+  return shell("Git Next · AI 진단 기록", body, script);
+}
+
+export function renderAiPracticeWorkspace({ diagnosis, plan = [], results = [] } = {}) {
+  const rows = plan.map((step) => {
+    const result = results[step.index] ?? null;
+    const status = result?.ok ? "✓ 완료" : result ? "아직" : "대기";
+    const tone = result?.ok ? "" : result ? "warn" : "";
+    return `<article class="card">
+      <div class="row"><div class="grow"><h2>${step.index + 1}. ${esc(step.text)}</h2><div class="meta">${esc(result?.message || "이 단계 후 저장소 상태를 다시 확인합니다.")}</div></div><span class="badge ${tone}">${esc(status)}</span></div>
+      <div class="toolbar" style="margin-top:10px"><button class="btn" data-action="check-step" data-index="${step.index}">상태 확인</button></div>
+    </article>`;
+  }).join("");
+  const body = `<header><div><h1>직접 해보기</h1><div class="sub">${esc(diagnosis?.situation || "AI 진단")} · 클릭 여부가 아니라 실제 Git 상태로 확인합니다.</div></div><button class="btn" data-action="back">진단으로 돌아가기</button></header>
+  <section class="section"><div class="card">${renderKnowledgeFlow(["현재 저장소", diagnosis?.next || "다음 단계"], "warning", diagnosis?.animationPreset || "generic")}<div class="meta">목표 · ${esc(diagnosis?.next || "")}</div></div></section>
+  <section class="section grid">${rows || '<div class="empty">이 상황에 연결된 단계가 없습니다.</div>'}</section>
+  ${diagnosis?.recommendedAction ? '<div class="toolbar"><button class="btn primary" data-action="practice-action">관련 Git 작업 열기</button></div>' : ""}`;
+  const script = `const vscode=acquireVsCodeApi();document.addEventListener("click",(event)=>{const button=event.target.closest("[data-action]");if(button)vscode.postMessage({type:button.dataset.action,index:Number(button.dataset.index)});});`;
+  return shell("Git Next · 직접 해보기", body, script);
+}
+
+export function renderAiDiagnosisWorkspace({ diagnosis, provider = "AI" } = {}) {
+  const safe = diagnosis ?? {
+    situation: "진단 결과 없음",
+    summary: "AI 진단 결과를 표시할 수 없습니다.",
+    risk: "현재 상태를 다시 확인하세요.",
+    next: "Git Doctor를 먼저 확인하세요.",
+    guideKey: null,
+    animationPreset: "generic",
+    recommendedAction: null,
+    confidence: "low",
+  };
+  const flow = renderKnowledgeFlow(
+    ["현재 저장소", safe.next || "다음 단계"],
+    safe.risk ? "warning" : "local",
+    safe.animationPreset || "generic",
+  );
+  const body = `<header><div><h1>AI Git 진단</h1><div class="sub">${esc(provider)} · Git Next가 현재 상태만 AI에 전달해 진단했습니다.</div></div></header>
+  <article class="guide-card knowledge">
+    <h2>${esc(safe.situation)}</h2>
+    <p>${esc(safe.summary)}</p>
+    ${flow}
+    <div class="guide-example"><strong>상태</strong>${esc(safe.summary)}</div>
+    <div class="guide-example"><strong>위험</strong>${esc(safe.risk)}</div>
+    <div class="guide-example"><strong>다음</strong>${esc(safe.next)}</div>
+    <div class="toolbar" style="margin-top:12px">
+      ${safe.guideKey ? '<button class="btn" data-action="open-guide">가이드 보기</button>' : ""}
+      ${safe.guideKey ? '<button class="btn primary" data-action="guided-practice">직접 해보기</button>' : ""}
+      ${safe.recommendedAction ? '<button class="btn danger" data-action="rescue">AI가 해결</button>' : ""}
+      <button class="btn" data-action="history">진단 기록</button>
+    </div>
+    <div class="meta" style="margin-top:8px">신뢰도 · ${esc(safe.confidence)}</div>
+  </article>`;
+  const script = `const vscode=acquireVsCodeApi();document.addEventListener("click",(event)=>{const button=event.target.closest("[data-action]");if(button)vscode.postMessage({type:button.dataset.action});});`;
+  return shell("Git Next · AI 진단", body, script);
 }
 
 export function renderKnowledgeCenter({ tab = "terms", selected = null, state = null } = {}) {

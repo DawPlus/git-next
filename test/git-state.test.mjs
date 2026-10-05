@@ -32,8 +32,8 @@ test("parses commit graph records", () => {
 
 test("parses local and remote refs", () => {
   const raw = [
-    "refs/heads/main\x1faaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\x1e",
-    "refs/remotes/origin/main\x1fbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\x1e",
+    "refs/heads/main\x1faaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\x1forigin/main\x1e",
+    "refs/remotes/origin/main\x1fbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\x1f\x1e",
   ].join("");
 
   assert.deepEqual(parseRefs(raw), [
@@ -42,12 +42,14 @@ test("parses local and remote refs", () => {
       fullName: "refs/heads/main",
       target: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
       kind: "local",
+      upstream: "origin/main",
     },
     {
       name: "origin/main",
       fullName: "refs/remotes/origin/main",
       target: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
       kind: "remote",
+      upstream: null,
     },
   ]);
 });

@@ -6,6 +6,9 @@ import {
   renderChangesWorkspace,
   renderCompareWorkspace,
   renderCommitDetailsWorkspace,
+  renderAiDiagnosisWorkspace,
+  renderAiHistoryWorkspace,
+  renderAiPracticeWorkspace,
   renderKnowledgeCenter,
   renderStashWorkspace,
 } from "../src/workspace-views.mjs";
@@ -66,14 +69,22 @@ test("branch and stash workspaces use visual selection instead of raw picker-onl
   const branch = renderBranchWorkspace({
     branch: "main",
     refs: [
-      { name: "main", kind: "local" },
-      { name: "feature", kind: "local" },
-      { name: "origin/main", kind: "remote" },
+      { name: "main", kind: "local", upstream: "origin/main" },
+      { name: "feature", kind: "local", upstream: null },
+      { name: "origin/main", kind: "remote", upstream: null },
     ],
   });
   assert.match(branch, /branch-card/);
+  assert.match(branch, />Local</);
+  assert.match(branch, />Remote</);
+  assert.match(branch, /origin\/main/);
+  assert.match(branch, /tracking-link/);
+  assert.match(branch, /tracking-signal/);
+  assert.match(branch, /prefers-reduced-motion/);
+  assert.match(branch, /data-action="track"/);
   assert.match(branch, /data-action="compare"/);
   assert.match(branch, /data-action="switch"/);
+  assert.match(branch, /data-action="remote-settings"/);
 
   const stash = renderStashWorkspace(
     [{ ref: "stash@{0}", message: "wip", relative: "1 minute ago" }],
@@ -94,6 +105,53 @@ test("Stash preview distinguishes overlapping file paths from confirmed conflict
 
   assert.match(html, /겹치는 파일 1개: app\.txt/);
   assert.match(html, /실제 충돌이 확정된 것은 아닙니다/);
+});
+
+test("AI diagnosis reuses guide styling and exposes learn or rescue paths", () => {
+  const html = renderAiDiagnosisWorkspace({
+    provider: "codex",
+    diagnosis: {
+      situation: "Diverged",
+      summary: "양쪽에 다른 커밋이 있습니다.",
+      risk: "기록을 덮을 수 있습니다.",
+      next: "Merge 또는 Rebase",
+      guideKey: "diverged",
+      animationPreset: "diverged",
+      recommendedAction: "merge",
+      confidence: "high",
+    },
+  });
+  assert.match(html, /AI Git 진단/);
+  assert.match(html, /상태/);
+  assert.match(html, /위험/);
+  assert.match(html, /다음/);
+  assert.match(html, /semantic-diverged/);
+  assert.match(html, /직접 해보기/);
+  assert.match(html, /AI가 해결/);
+  assert.match(html, /진단 기록/);
+});
+
+test("AI history and practice stay compact and action-oriented", () => {
+  const history = renderAiHistoryWorkspace([{
+    id: "d1",
+    provider: "codex",
+    createdAt: "2026-10-05T00:00:00Z",
+    diagnosis: { situation: "Diverged", summary: "갈라짐", next: "Merge", confidence: "high" },
+    outcome: { action: "merge", status: "started" },
+  }]);
+  assert.match(history, /AI 진단 기록/);
+  assert.match(history, /Merge/);
+  assert.match(history, /open-entry/);
+
+  const practice = renderAiPracticeWorkspace({
+    diagnosis: { situation: "Diverged", next: "Merge", animationPreset: "diverged", recommendedAction: "merge" },
+    plan: [{ index: 0, text: "차이를 확인해요.", check: "repository-visible" }],
+    results: [{ ok: true, message: "확인했습니다." }],
+  });
+  assert.match(practice, /직접 해보기/);
+  assert.match(practice, /상태 확인/);
+  assert.match(practice, /✓ 완료/);
+  assert.match(practice, /관련 Git 작업 열기/);
 });
 
 test("knowledge center merges terms and situation guides with top toggle", () => {

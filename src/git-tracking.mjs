@@ -1,6 +1,7 @@
 import { execFile } from "node:child_process";
 
 import { promisify } from "node:util";
+import { formatStateRiskNext } from "./git-guidance.mjs";
 
 const execFileAsync = promisify(execFile);
 
@@ -25,41 +26,58 @@ export function isPullUnnecessary(tracking) {
 }
 
 export function getPushGuidance(status) {
+  const result = (allowed, state, risk, next) => ({
+    allowed,
+    state,
+    risk,
+    next,
+    message: formatStateRiskNext({ state, risk, next }),
+  });
+
   if (status.kind === "no-upstream") {
-    return {
-      allowed: false,
-      message: "현재 브랜치에 연결된 원격 브랜치(Upstream)가 없습니다. Git은 어디로 Push해야 하는지 확실히 판단할 수 없어서 Git Next가 작업을 멈췄습니다. 먼저 Remote와 Upstream을 연결한 뒤 다시 Push하세요.",
-    };
+    return result(
+      false,
+      "현재 브랜치에 Upstream이 없습니다.",
+      "Push 대상을 확실히 판단할 수 없습니다.",
+      "먼저 Remote와 Upstream을 연결한 뒤 다시 Push하세요.",
+    );
   }
 
   if (status.kind === "behind") {
-    return {
-      allowed: false,
-      message: "원격 브랜치에 아직 내 로컬에 없는 새 커밋이 있습니다. 이 상태에서 바로 Push하면 기준이 달라 Push가 거절되고, 강제 Push를 사용하면 다른 사람의 변경을 덮어쓸 수도 있습니다. 먼저 받기(Pull) 또는 Branch 비교로 원격 변경을 확인한 뒤 다시 Push하세요.",
-    };
+    return result(
+      false,
+      `원격이 ${status.behind}개 커밋 앞서 있습니다.`,
+      "바로 Push하면 거절될 수 있고 강제 Push는 다른 사람의 변경을 덮을 수 있습니다.",
+      "먼저 받기(Pull) 또는 Branch 비교로 원격 변경을 확인하세요.",
+    );
   }
 
   if (status.kind === "diverged") {
-    return {
-      allowed: false,
-      message: "내 로컬과 원격 양쪽에 서로 다른 새 커밋이 생겨 기록이 갈라졌습니다(Diverged). 어느 한쪽을 바로 덮으면 다른 변경을 잃을 수 있어서 Push를 중단했습니다. Branch 비교에서 차이를 확인하고 Merge 또는 Rebase로 기록을 정리한 뒤 다시 Push하세요.",
-    };
+    return result(
+      false,
+      `로컬 ${status.ahead}개 · 원격 ${status.behind}개 커밋이 서로 갈라졌습니다.`,
+      "어느 한쪽을 바로 덮으면 다른 변경을 잃을 수 있습니다.",
+      "Branch 비교 후 Merge 또는 Rebase로 기록을 정리하세요.",
+    );
   }
 
   if (status.kind === "unknown") {
-    return {
-      allowed: false,
-      message: "현재 로컬과 원격의 관계를 신뢰할 수 있게 확인하지 못했습니다. 상태를 모른 채 Push하면 예상하지 못한 기록 변경이 생길 수 있어서 작업을 중단했습니다. 새로고침하거나 Git 상세 정보를 확인한 뒤 다시 시도하세요.",
-    };
+    return result(
+      false,
+      "로컬과 원격의 관계를 확인할 수 없습니다.",
+      "상태를 모른 채 Push하면 예상하지 못한 기록 변경이 생길 수 있습니다.",
+      "새로고침하거나 Git 상세 정보를 확인한 뒤 다시 시도하세요.",
+    );
   }
 
-  return {
-    allowed: true,
-    message:
-      status.kind === "ahead"
-        ? `원격에 보낼 로컬 커밋이 ${status.ahead}개 있습니다.`
-        : "로컬과 원격이 같은 상태입니다.",
-  };
+  return result(
+    true,
+    status.kind === "ahead"
+      ? `원격에 보낼 로컬 커밋이 ${status.ahead}개 있습니다.`
+      : "로컬과 원격이 같은 상태입니다.",
+    "확인된 Push 차단 위험이 없습니다.",
+    "보낼 커밋과 대상을 확인한 뒤 Push할 수 있습니다.",
+  );
 }
 
 export async function runGitInspection(cwd, args) {

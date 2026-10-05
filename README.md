@@ -55,6 +55,18 @@ Git 오류 메시지를 그대로 외울 필요가 없습니다.
 
 Conflict 화면의 `<<<<<<< HEAD`, `=======`, `>>>>>>>`도 **내 변경 / 경계 / 들어온 변경** 기준으로 설명합니다.
 
+### 🤖 AI 진단 + Rescue
+
+상단의 AI 아이콘에서 현재 Git 상태를 진단할 수 있습니다.
+
+- 현재 상태 / 위험 / 다음 행동을 구조화해서 설명
+- 관련 상황 가이드 연결
+- 직접 해보기 흐름 제공
+- 필요할 때만 기존 Git Next 안전 흐름을 통해 Rescue 실행
+- 이전 진단 기록 다시 보기
+
+AI가 임의의 shell 명령을 바로 실행하는 구조가 아니라, Git Next가 이미 허용한 작업과 Safe Guard를 통해 실행됩니다.
+
 ### 📖 움직이는 Git 용어 설명
 
 용어를 정의만 하지 않고 **어디에서 어디로 이동하는지** 보여줍니다.
@@ -76,42 +88,49 @@ Conflict 화면의 `<<<<<<< HEAD`, `=======`, `>>>>>>>`도 **내 변경 / 경계
 | --- | --- |
 | 그래프 | 커밋 그래프, branch/ref, HEAD, merge lane, 검색/필터, compact mode |
 | 동기화 | Pull / Push, ahead / behind / diverged 상태, Push 전 Pull 옵션 |
-| 브랜치 | 생성, 전환, 추적 브랜치 생성, 이름 변경, 삭제 |
+| 브랜치 | Local / Remote 분리, Tracking 연결 표시, 생성/전환/비교/Merge/이름 변경/삭제, Remote 설정, 정리 후보 |
 | 태그 | 로컬 태그 생성 / 삭제 |
 | Stash | 저장, Apply, Pop, 삭제 |
+| 변경/커밋 | 파일 Stage/Unstage, Commit, Commit 메시지 도우미, 부분 Commit 안내 |
 | 커밋 작업 | Cherry-pick, Revert, 커밋 기준 브랜치/태그 생성 |
 | 안전 | dirty tree, detached HEAD, 진행 중 작업, 원격 기록 재작성 감지 |
+| AI | Git 상태 진단, 가이드, 직접 해보기, Rescue, 진단 기록 |
 | 가이드 | Pull/Push 실패 분석, Conflict 설명, 해결 순서 안내 |
-| 비교 | 브랜치별 고유 커밋과 변경 파일 비교 |
-| 복구 | Undo 가이드, Reflog 기반 복구 브랜치 |
-| 협업 | Remote 관리, PR 준비 상태 확인 및 GitHub/GitLab handoff |
+| 복구 | Undo, Reflog, Conflict / 진행 중 작업 복구를 한 진입점에서 제공 |
+| 협업 | Branch 안 Remote 관리, PR 준비 상태 확인 및 GitHub/GitLab handoff |
 | 기록 | Git Next에서 실행한 최근 작업 타임라인 |
-| 도움 | Commit 메시지 초안, 상황별 가이드, Git 용어 설명 |
+| 도움 | 상황별 가이드, Git 용어 설명 |
 
 ---
 
 ## 🎛️ 사이드바
 
-Git Next 사이드바는 Git Next 전용 메뉴와 상태 확인에 집중합니다. 파일 변경사항, Stage/Unstage, Commit은 VS Code 기본 Source Control을 사용합니다.
+Git Next 사이드바 상단은 텍스트 대신 아이콘 중심으로 구성됩니다.
 
 ```text
-Repository                        ↻
+[Graph] [AI] [Refresh] [Tools] [Help]
+
+Repository
 main                     동기화됨
 origin/main
 
     ↓ 받기        ↑ 보내기
-
-        Git 도구
-  Branch   Tag   Stash
-           더보기
-
-도움말
-
-        Safe Guard
-           대기
 ```
 
-기본 Source Control을 복제하지 않고, Git Next의 Graph, Pull/Push, Compare, Branch, Stash, 도움말, Safe Guard 기능을 좌측 탭에서 그대로 사용할 수 있습니다.
+`Tools`를 열면 현재 상위 도구는 9개입니다.
+
+```text
+Branch · Tag · Stash
+Repository · Doctor · Recovery
+Safe Guard · Timeline · PR handoff
+```
+
+- **Branch**: Local / Remote를 나눠 보여주고 Tracking 관계를 연결선으로 표시합니다. Remote 브랜치에서 로컬 Tracking 브랜치를 만들거나, Branch 비교/Merge/Remote 설정/정리 후보를 처리할 수 있습니다.
+- **Recovery**: Undo, Reflog, Conflict, 진행 중인 Merge/Rebase/Cherry-pick/Revert 복구 흐름을 묶습니다.
+- **AI**: Tools 목록이 아니라 Graph 옆 상단 아이콘에서 진입합니다. 진단, 직접 해보기, Rescue, 진단 기록을 한 흐름으로 사용합니다.
+- **Commit 보조 기능**: Commit 입력 영역 옆에서 메시지 도우미와 부분 Commit 안내를 바로 열 수 있습니다.
+
+Git Next 사이드바에서 파일 변경사항을 확인하고 Stage/Unstage, Commit, 파일 변경 되돌리기를 처리할 수 있습니다. 줄 단위 Partial Stage는 VS Code 기본 Source Control을 사용합니다.
 
 ---
 
