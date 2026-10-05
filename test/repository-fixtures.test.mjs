@@ -5,9 +5,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 
-import { getLinkedWorktrees, getRepositoryState } from "../src/git-state.mjs";
-import { abortGitOperation, continueGitOperation, listConflictedFiles, resolveConflictSide } from "../src/git-workflows.mjs";
-import { pullRepository, pushRepository } from "../src/git-actions.mjs";
+import { getLinkedWorktrees, getRepositoryState } from "../src/git-state.mts";
+import { abortGitOperation, continueGitOperation, listConflictedFiles, resolveConflictSide } from "../src/git-workflows.mts";
+import { pullRepository, pushRepository } from "../src/git-actions.mts";
 import {
   detectRemoteHistoryRewrite,
   getHeadSafety,
@@ -16,7 +16,7 @@ import {
   getWorkingTreeChanges,
   inspectCurrentUpstream,
   preflightPullSafety,
-} from "../src/git-safety.mjs";
+} from "../src/git-safety.mts";
 
 function git(cwd, args) {
   return execFileSync("git", args, { cwd, encoding: "utf8" }).trim();

@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { formatStateRiskNext, guidanceNotice } from "../src/git-guidance.mjs";
+import { formatStateRiskNext, guidanceNotice } from "../src/git-guidance.mts";
 
 test("guidance copy always uses state risk next", () => {
   const text = formatStateRiskNext({

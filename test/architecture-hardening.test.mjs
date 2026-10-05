@@ -5,8 +5,8 @@ import test from "node:test";
 const read = (file) => readFileSync(new URL(`../src/${file}`, import.meta.url), "utf8");
 
 test("multi-repository routing follows active resources and persisted repository choice", () => {
-  const core = read("extension-core.js");
-  const host = read("webview-host.js");
+  const core = read("extension-core.ts");
+  const host = read("webview-host.ts");
   assert.match(core, /knownRepositoryRoots/);
   assert.match(core, /activeTextEditor\?\.document\.uri/);
   assert.match(core, /gitNext\.selectedRepositoryRoot/);
@@ -16,8 +16,8 @@ test("multi-repository routing follows active resources and persisted repository
 });
 
 test("network Git operations surface VS Code progress", () => {
-  const sync = read("sync-handler.js");
-  const menus = read("git-menu-handlers.js");
+  const sync = read("sync-handler.ts");
+  const menus = read("git-menu-handlers.ts");
   assert.match(sync, /vscode\.window\.withProgress/);
   assert.match(sync, /Git Next · Pull/);
   assert.match(sync, /Git Next · Push/);
@@ -25,7 +25,7 @@ test("network Git operations surface VS Code progress", () => {
 });
 
 test("webviews receive nonce CSP and routine refreshes use postMessage", () => {
-  const core = read("extension-core.js");
+  const core = read("extension-core.ts");
   assert.match(core, /crypto\.randomBytes/);
   assert.match(core, /Content-Security-Policy/);
   assert.match(core, /script-src 'nonce-\$\{nonce\}'/);
@@ -35,8 +35,8 @@ test("webviews receive nonce CSP and routine refreshes use postMessage", () => {
 });
 
 test("webview message routing is owned by a focused dispatch module", () => {
-  const handler = read("webview-message-handler.js");
-  const host = read("webview-host.js");
+  const handler = read("webview-message-handler.ts");
+  const host = read("webview-host.ts");
   assert.match(handler, /const handlers = \{/);
   assert.match(handler, /sidebarDiscard: async/);
   assert.match(handler, /sidebarCommit: async/);
@@ -45,9 +45,9 @@ test("webview message routing is owned by a focused dispatch module", () => {
 });
 
 test("shared views use one escapeHtml implementation", () => {
-  const shared = read("view-shared.mjs");
-  const guide = read("git-guide.mjs");
-  const glossary = read("glossary-view.mjs");
+  const shared = read("view-shared.mts");
+  const guide = read("git-guide.mts");
+  const glossary = read("glossary-view.mts");
   assert.match(shared, /export function escapeHtml/);
   assert.match(guide, /import \{ escapeHtml \} from "\.\/view-shared\.mjs"/);
   assert.match(glossary, /import \{ escapeHtml \} from "\.\/view-shared\.mjs"/);
@@ -56,16 +56,16 @@ test("shared views use one escapeHtml implementation", () => {
 });
 
 test("AI rescue history records terminal outcomes", () => {
-  const menus = read("git-menu-handlers.js");
+  const menus = read("git-menu-handlers.ts");
   assert.match(menus, /updateOutcome\("started"\)/);
   assert.match(menus, /updateOutcome\("finished"\)/);
   assert.match(menus, /updateOutcome\("failed"/);
 });
 
 test("extension entrypoint stays a small activation shell", () => {
-  const extension = read("extension.js");
+  const extension = read("extension.ts");
   const lineCount = extension.trimEnd().split("\n").length;
-  assert.ok(lineCount <= 250, `extension.js is ${lineCount} lines`);
+  assert.ok(lineCount <= 250, `extension.ts is ${lineCount} lines`);
   assert.match(extension, /createSyncHandler/);
   assert.match(extension, /createPanelHandlers/);
   assert.match(extension, /createGitMenus/);

@@ -5,7 +5,7 @@ import {
   appendDiagnosisHistory,
   createDiagnosisHistoryEntry,
   updateDiagnosisHistoryOutcome,
-} from "../src/ai-history.mjs";
+} from "../src/ai-history.mts";
 
 test("history entry keeps diagnosis metadata without raw prompts", () => {
   const entry = createDiagnosisHistoryEntry({

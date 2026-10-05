@@ -28,7 +28,7 @@ import {
   validateBranchName,
   validateCommitish,
   validateTagName,
-} from "../src/git-actions.mjs";
+} from "../src/git-actions.mts";
 
 function git(cwd, args) {
   return execFileSync("git", args, { cwd, encoding: "utf8" }).trim();

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { parseCommits, parseRefs, parseWorktrees } from "../src/git-state.mjs";
+import { parseCommits, parseRefs, parseWorktrees } from "../src/git-state.mts";
 
 test("parses commit graph records", () => {
   const raw = [

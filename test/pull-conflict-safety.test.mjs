@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { parseMergeTreeConflictOutput } from "../src/git-safety.mjs";
+import { parseMergeTreeConflictOutput } from "../src/git-safety.mts";
 
 test("parses conflict file names from merge-tree output", () => {
   const files = parseMergeTreeConflictOutput(

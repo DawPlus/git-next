@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { promisify } from "node:util";
 import test from "node:test";
 
-import { detectCachedRemoteHistoryRewrite } from "../src/git-safety.mjs";
+import { detectCachedRemoteHistoryRewrite } from "../src/git-safety.mts";
 import {
   compareBranches,
   createRecoveryPoint,
@@ -48,7 +48,7 @@ import {
   stageFile,
   unstageAll,
   unstageFile,
-} from "../src/git-workflows.mjs";
+} from "../src/git-workflows.mts";
 
 const exec = promisify(execFile);
 

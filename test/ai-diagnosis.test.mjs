@@ -6,7 +6,7 @@ import {
   buildDiagnosisPrompt,
   normalizeDiagnosis,
   validateDiagnosis,
-} from "../src/ai-diagnosis.mjs";
+} from "../src/ai-diagnosis.mts";
 
 test("buildDiagnosisContext keeps Git diagnosis input compact", () => {
   const context = buildDiagnosisContext({

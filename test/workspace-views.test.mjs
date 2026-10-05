@@ -11,7 +11,7 @@ import {
   renderAiPracticeWorkspace,
   renderKnowledgeCenter,
   renderStashWorkspace,
-} from "../src/workspace-views.mjs";
+} from "../src/workspace-views.mts";
 
 test("changes workspace exposes stage, unstage, compare, commit, and undo", () => {
   const html = renderChangesWorkspace({

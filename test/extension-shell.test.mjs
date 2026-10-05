@@ -4,14 +4,14 @@ import test from "node:test";
 
 const packageJson = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
 const runtimeSource = [
-  "extension.js",
-  "extension-core.js",
-  "sync-handler.js",
-  "git-menu-handlers.js",
-  "panel-handlers.js",
-  "ai-panel-handlers.js",
-  "webview-host.js",
-  "webview-message-handler.js",
+  "extension.ts",
+  "extension-core.ts",
+  "sync-handler.ts",
+  "git-menu-handlers.ts",
+  "panel-handlers.ts",
+  "ai-panel-handlers.ts",
+  "webview-host.ts",
+  "webview-message-handler.ts",
 ].map((file) => readFileSync(new URL(`../src/${file}`, import.meta.url), "utf8")).join("\n");
 
 test("registers Git Next open command activation", () => {
@@ -40,7 +40,7 @@ test("refreshes open Git Next views when VS Code Source Control changes Git stat
 });
 
 test("registers a visible Git Next activity-bar webview", () => {
-  const extensionPath = new URL("../src/extension.js", import.meta.url);
+  const extensionPath = new URL("../src/extension.ts", import.meta.url);
   assert.equal(existsSync(extensionPath), true);
 
   const source = runtimeSource;

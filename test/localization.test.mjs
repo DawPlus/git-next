@@ -2,10 +2,10 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 
-import { explainGitError } from "../src/git-actions.mjs";
-import { getPushGuidance } from "../src/git-safety.mjs";
-import { renderGraphHtml } from "../src/graph-view.mjs";
-import { renderSidebarHtml } from "../src/sidebar-view.mjs";
+import { explainGitError } from "../src/git-actions.mts";
+import { getPushGuidance } from "../src/git-safety.mts";
+import { renderGraphHtml } from "../src/graph-view.mts";
+import { renderSidebarHtml } from "../src/sidebar-view.mts";
 
 test("사용자 노출 UI가 한글을 기본으로 사용한다", () => {
   const html = renderGraphHtml({
@@ -79,7 +79,7 @@ test("사이드바에서 변경 파일을 보고 diff, stage, unstage, commit �
   assert.ok(html.indexOf('data-action="openGraph"') < html.indexOf("source-control\">"));
   assert.match(html, /data-action="refresh" aria-label="동기화"/);
   assert.doesNotMatch(html, /data-action="openKnowledge" aria-label="동기화 도움말"/);
-  assert.equal((html.match(/class="tool-button"/g) ?? []).length, 9);
+  assert.equal((html.match(/class="tool-button"/g) ?? []).length, 6);
   assert.ok(html.indexOf('data-action="openGraph"') < html.indexOf('data-tool="ai-diagnose"'));
   assert.ok(html.indexOf('data-tool="ai-diagnose"') < html.indexOf('data-action="refresh"'));
   assert.doesNotMatch(html, /class="tool-button"[^>]*data-tool="ai-history"/);

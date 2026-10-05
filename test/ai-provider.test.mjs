@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { EventEmitter } from "node:events";
 import { PassThrough } from "node:stream";
 
-import { diagnoseWithProvider, runCodexCommand } from "../src/ai-provider.mjs";
+import { diagnoseWithProvider, runCodexCommand } from "../src/ai-provider.mts";
 
 const diagnosis = {
   situation: "diverged",

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { classifyGuide, renderGuideHtml } from "../src/git-guide.mjs";
+import { classifyGuide, renderGuideHtml } from "../src/git-guide.mts";
 
 test("classifies common pull and push recovery situations", () => {
   assert.equal(classifyGuide({ action: "pull", code: "dirty-working-tree" }), "dirty-pull");

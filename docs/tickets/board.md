@@ -74,6 +74,12 @@ This board is the status source of truth.
 | T-261005-37 | Make Safe Guard guidance action-first and beginner-friendly | ready_for_qa | human | worker | implementation | 1+2 | [ticket](active/T-261005-37.md) | Safe Guard should tell beginners exactly what to do next, not just expose Git state |
 | T-261005-38 | Simplify beginner-facing Git messages | ready_for_qa | human | worker | implementation | 1+2 | [ticket](active/T-261005-38.md) | Rewrite normal action copy so users do not need Git internals to understand what happens next |
 | T-261005-39 | Redesign Branch workspace around Local ↔ Remote relationship | ready_for_qa | human | worker | implementation | 1+2 | [ticket](active/T-261005-39.md) | Repair 3 complete: branch mutation lock releases after Git work; compact + 브랜치 control |
+| T-261005-40 | Introduce TypeScript runtime build | done | - | worker | implementation | 1+2 | [ticket](archive/2026-10/T-261005-40.md) | Runtime shell migrated to TypeScript; .mjs domain modules remain as typed-boundary follow-up |
+| T-261005-41 | Complete TypeScript source migration | done | - | worker | implementation | 1+2 | [ticket](archive/2026-10/T-261005-41.md) | All implementation source is now .ts/.mts; runtime dist paths preserved; type hardening remains a follow-up |
+| T-261005-42 | Add foundational Git domain types | done | - | worker | implementation | 1+2 | [ticket](archive/2026-10/T-261005-42.md) | Added reusable Git domain types and removed @ts-nocheck from state/tracking/command foundations |
+| T-261005-43 | Type Git safety chain | done | - | worker | implementation | 1+2 | [ticket](archive/2026-10/T-261005-43.md) | Guidance, safeguards, risk, and pull/push preflight now typecheck without @ts-nocheck |
+| T-261005-44 | Type core Git workflows | done | - | worker | implementation | 1+2 | [ticket](archive/2026-10/T-261005-44.md) | Operation/change/history workflows now typecheck without @ts-nocheck |
+| T-261005-45 | Remove remaining TypeScript no-check markers | done | - | worker | implementation | 1+2 | [ticket](archive/2026-10/T-261005-45.md) | Full src tree typechecks; zero @ts-nocheck markers remain |
 
 Allowed states: `draft`, `ready`, `in_progress`, `review`, `ready_for_qa`, `blocked`, `done`, `superseded`.
 

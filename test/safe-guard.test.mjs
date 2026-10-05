@@ -4,7 +4,7 @@ import test from "node:test";
 import {
   createGuardDecision,
   evaluateSafeguards,
-} from "../src/safe-guard.mjs";
+} from "../src/safe-guard.mts";
 
 test("returns safe when every rule passes", async () => {
   const result = await evaluateSafeguards({
@@ -50,10 +50,12 @@ test("blocked outranks warning and cannot be overridden", async () => {
 });
 
 test("exposes only explained noncritical rules as session-relaxable", async () => {
-  const { listSafeGuardRules } = await import("../src/safe-guard.mjs");
+  const { listSafeGuardRules } = await import("../src/safe-guard.mts");
   const rules = listSafeGuardRules(["dirty-incoming-overlap"]);
   assert.equal(rules.find(({ id }) => id === "dirty-incoming-overlap").relaxed, true);
   assert.equal(rules.find(({ id }) => id === "dirty-incoming-overlap").relaxable, true);
   assert.equal(rules.find(({ id }) => id === "remote-history-rewritten").relaxable, false);
   assert.match(rules.find(({ id }) => id === "remote-history-rewritten").risk, /완화할 수 없어요/);
+  assert.equal(rules.find(({ id }) => id === "protected-branch").relaxable, false);
+  assert.match(rules.find(({ id }) => id === "protected-branch").purpose, /보호 브랜치/);
 });

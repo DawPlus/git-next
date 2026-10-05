@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { buildPracticePlan, evaluatePracticeStep } from "../src/ai-practice.mjs";
+import { buildPracticePlan, evaluatePracticeStep } from "../src/ai-practice.mts";
 
 test("diverged guide creates observable practice expectations", () => {
   const plan = buildPracticePlan("diverged", [

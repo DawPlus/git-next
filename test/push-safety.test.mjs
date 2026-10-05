@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { classifyTrackingStatus, getPushGuidance, isPullUnnecessary } from "../src/git-safety.mjs";
-import { renderGraphHtml } from "../src/graph-view.mjs";
+import { classifyTrackingStatus, getPushGuidance, isPullUnnecessary } from "../src/git-safety.mts";
+import { renderGraphHtml } from "../src/graph-view.mts";
 
 test("classifies ahead, behind, and diverged tracking states", () => {
   assert.deepEqual(classifyTrackingStatus(2, 0), { kind: "ahead", ahead: 2, behind: 0 });

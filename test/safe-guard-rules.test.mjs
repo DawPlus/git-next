@@ -7,8 +7,8 @@ import {
   getActionRisk,
   getProtectedBranchGuard,
   isProtectedBranch,
-} from "../src/git-safety.mjs";
-import { renderGraphHtml } from "../src/graph-view.mjs";
+} from "../src/git-safety.mts";
+import { renderGraphHtml } from "../src/graph-view.mts";
 
 test("destructive actions always require explicit confirmation", () => {
   const guard = getDestructiveActionGuard("force-push", {

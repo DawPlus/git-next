@@ -5,8 +5,8 @@ import {
   filterGraphState,
   layoutGraph,
   renderGraphHtml,
-} from "../src/graph-view.mjs";
-import { renderSidebarHtml } from "../src/sidebar-view.mjs";
+} from "../src/graph-view.mts";
+import { renderSidebarHtml } from "../src/sidebar-view.mts";
 
 const commits = [
   { id: "m", parents: ["a", "b"], author: "Min", authoredAt: "2026-10-04T10:00:00+09:00", message: "merge" },
@@ -216,8 +216,8 @@ test("renders compact sidebar controls with graph action", () => {
   assert.match(html, /data-action="openGraph"/);
   assert.match(html, /aria-label="그래프 보기"/);
   assert.match(html, /data-action="refresh" aria-label="동기화"/);
-  assert.match(html, /받기 · Pull/);
-  assert.match(html, /보내기 · Push/);
+  assert.match(html, />Pull<\/span>/);
+  assert.match(html, />Push<\/span>/);
   assert.match(html, /class="action-risk low"[^>]*aria-label="위험도 낮음:/);
   assert.match(html, /Safe Guard/);
   assert.doesNotMatch(html, /aria-label="커밋 그래프"/);

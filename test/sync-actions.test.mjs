@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { explainGitError } from "../src/git-actions.mjs";
-import { renderGraphHtml } from "../src/graph-view.mjs";
+import { explainGitError } from "../src/git-actions.mts";
+import { renderGraphHtml } from "../src/graph-view.mts";
 
 test("explains common push rejection in plain language", () => {
   const message = explainGitError("push", "rejected non-fast-forward");

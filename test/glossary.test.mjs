@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { getLiveTermExample, getMatchingScenarios, renderGlossaryHtml } from "../src/glossary-view.mjs";
-import { renderSafeGuardDetailsHtml, renderSidebarHtml } from "../src/sidebar-view.mjs";
+import { getLiveTermExample, getMatchingScenarios, renderGlossaryHtml } from "../src/glossary-view.mts";
+import { renderSafeGuardDetailsHtml, renderSidebarHtml } from "../src/sidebar-view.mts";
 
 test("renders Korean Git terminology guide", () => {
   const html = renderGlossaryHtml();
@@ -34,7 +34,7 @@ test("renders Korean Git terminology guide", () => {
   assert.match(html, /prefers-reduced-motion/);
 });
 
-test("sidebar exposes source control, terminology, and repository tool actions", () => {
+test("sidebar exposes source control, terminology, and compact tool actions", () => {
   const html = renderSidebarHtml({
     kind: "repository",
     root: "/repo",
@@ -56,11 +56,11 @@ test("sidebar exposes source control, terminology, and repository tool actions",
   assert.match(html, /data-action="tagMenu"/);
   assert.match(html, /data-action="stashMenu"/);
   assert.doesNotMatch(html, /<span class="tool-title">더보기<\/span>/);
-  for (const tool of ["repository", "doctor", "ai-diagnose", "recovery", "safe-guard", "timeline", "commit", "pr"]) {
+  for (const tool of ["doctor", "ai-diagnose", "recovery", "safe-guard", "commit"]) {
     assert.match(html, new RegExp(`data-tool="${tool}"`));
   }
   assert.doesNotMatch(html, /data-tool="partial-stage"/);
-  for (const removed of ["ai-history", "conflict", "compare", "undo", "reflog", "remote"]) {
+  for (const removed of ["repository", "timeline", "pr", "ai-history", "conflict", "compare", "undo", "reflog", "remote"]) {
     assert.doesNotMatch(html, new RegExp(`class="tool-button"[^>]*data-tool="${removed}"`));
   }
   assert.match(html, /data-action="openKnowledge"/);
@@ -70,8 +70,8 @@ test("sidebar exposes source control, terminology, and repository tool actions",
     assert.match(html, new RegExp(`aria-label="${label}"`));
   }
   assert.match(html, /\[origin\/main\]/);
-  assert.match(html, /받기 · Pull/);
-  assert.match(html, /보내기 · Push/);
+  assert.match(html, />Pull<\/span>/);
+  assert.match(html, />Push<\/span>/);
   assert.match(html, /<svg viewBox="0 0 24 24">/);
 });
 

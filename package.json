@@ -1,9 +1,9 @@
 {
   "name": "git-next",
   "displayName": "Git Next",
-  "description": "Git 그래프와 기본 Pull/Push를 한눈에 보여주는 개인용 VS Code 확장입니다.",
-  "version": "0.2.0",
-  "publisher": "doh-local",
+  "description": "Git 그래프, Safe Guard, 한국어 가이드와 AI 진단으로 Git 상태와 다음 행동을 이해하기 쉽게 보여주는 VS Code 확장입니다.",
+  "version": "0.2.1",
+  "publisher": "DawChae",
   "license": "MIT",
   "private": true,
   "engines": {
@@ -67,7 +67,11 @@
         },
         "gitNext.ai.provider": {
           "type": "string",
-          "enum": ["off", "codex", "ollama"],
+          "enum": [
+            "off",
+            "codex",
+            "ollama"
+          ],
           "default": "off",
           "description": "Git 상황 진단에 사용할 AI Provider입니다."
         },
@@ -83,17 +87,34 @@
         },
         "gitNext.protectedBranches": {
           "type": "array",
-          "items": { "type": "string" },
-          "default": ["main", "master", "release/*"],
+          "items": {
+            "type": "string"
+          },
+          "default": [
+            "main",
+            "master",
+            "release/*"
+          ],
           "description": "위험한 이력 변경 작업에서 추가 경고를 표시할 보호 브랜치 패턴입니다."
         }
       }
     }
   },
   "scripts": {
+    "typecheck": "tsc -p tsconfig.typecheck.json",
     "build": "node scripts/build.mjs",
-    "test": "node --test test/*.test.mjs",
-    "package": "npx --yes @vscode/vsce package --allow-missing-repository --out git-next-0.2.0.vsix",
-    "setup": "npm test && npm run build && npm run package"
+    "test": "tsx --test test/*.test.mjs",
+    "package": "npx --yes @vscode/vsce package --allow-missing-repository --out git-next-0.2.1.vsix",
+    "setup": "npm test && npm run typecheck && npm run build && npm run package"
+  },
+  "devDependencies": {
+    "@types/node": "^20.19.43",
+    "@types/vscode": "^1.100.0",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2"
+  },
+  "icon": "assets/icon.png",
+  "author": {
+    "name": "Daw Chae"
   }
 }

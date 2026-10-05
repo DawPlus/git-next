@@ -1,189 +1,142 @@
 # Git Next
 
-> Git을 잘 몰라도, 지금 무슨 일이 일어나는지는 알 수 있게.
+> **무슨 일이 일어났는지 보세요.**
 
-Git Next는 **Git 그래프 + Safe Guard + 쉬운 한국어 가이드**를 한 화면에 묶은 VS Code 확장입니다.  
-단순히 Git 명령을 대신 실행하는 것보다, **실행 전에는 무엇이 바뀌는지**, **실패하면 왜 그런지**, **다음에는 무엇을 해야 하는지**를 이해하기 쉽게 보여주는 데 집중합니다.
+Git은 어렵게 느껴질 수 있습니다.
+
+매일 Git을 사용하고 있어도, 지금 저장소 안에서 정확히 무슨 일이 일어나고 있는지 한눈에 이해하기 어려운 순간이 있습니다.
+그건 경력이나 실력의 문제가 아닙니다.
+
+Git Next는 커밋, 브랜치, 변경 사항, 로컬과 원격의 관계를 눈으로 확인할 수 있게 도와줍니다.
+
+모든 명령어를 외울 필요도 없고,
+실수를 지나치게 두려워할 필요도 없습니다.
+
+Git의 많은 실수는 상태를 이해하면 되돌리거나 수습할 수 있습니다.
+
+Git Next는 Git을 조금 더 이해하고,
+조금 더 자신 있게 사용하고,
+필요한 순간에는 다시 차근차근 배워갈 수 있도록 만들었습니다.
 
 ---
 
-## ✨ 핵심 경험
+## 왜 Git Next인가요?
 
-### 🌿 그래프 중심 Git
+Git에서 가장 답답한 순간은 명령어를 모를 때보다 **현재 상태를 모를 때**입니다.
 
-커밋, 브랜치, HEAD, 로컬/원격 ref를 한눈에 보고 현재 위치를 이해할 수 있습니다.
+- 지금 내 브랜치는 원격보다 앞서 있나, 뒤처졌나?
+- Pull 해도 괜찮은가?
+- Push가 왜 거절됐나?
+- 충돌이 났는데 어떤 변경이 내 것인가?
+- 지금 되돌릴 수 있는가?
+- Rebase나 Force Push가 정말 필요한가?
+
+Git Next는 단순히 명령어 하나를 대신 실행하는 데 집중하지 않습니다.
 
 ```text
-작업 파일
-   ↓ Commit
-내 로컬 Git
-   ↓ Push
-원격 저장소
+현재 상태 확인
+      ↓
+무슨 일이 일어났는지 설명
+      ↓
+주의할 점 확인
+      ↓
+다음 행동 선택
+      ↓
+필요하면 안전하게 실행
 ```
 
-그래프 lane에는 흐름 애니메이션이 적용되어 분기와 병합 방향을 더 쉽게 따라갈 수 있습니다.
-
-### 🛡️ Safe Guard
-
-Pull, Push, 브랜치 전환, 위험 작업 전에 현재 저장소 상태를 확인합니다.
-
-짧게 `실패`라고 끝내지 않고 가능한 경우 다음 순서로 설명합니다.
-
-```text
-현재 어떤 상태인가
-        ↓
-왜 지금 위험한가
-        ↓
-무엇이 잘못될 수 있는가
-        ↓
-다음에 무엇을 하면 되는가
-```
-
-Git 원문 상세 정보는 숨기지 않되, 사용자 설명보다 한 단계 아래에 표시합니다.
-
-### 🧭 상황별 가이드
-
-Git 오류 메시지를 그대로 외울 필요가 없습니다.
-
-- 작업 중인데 Pull 해야 할 때
-- Pull 충돌이 예상될 때
-- Push가 거절됐을 때
-- 로컬과 원격이 Diverged 되었을 때
-- Upstream이 없을 때
-- 원격 기록이 Force Push/Rebase로 바뀐 것 같을 때
-- Merge가 끝나지 않았을 때
-
-Conflict 화면의 `<<<<<<< HEAD`, `=======`, `>>>>>>>`도 **내 변경 / 경계 / 들어온 변경** 기준으로 설명합니다.
-
-### 🤖 AI 진단 + Rescue
-
-상단의 AI 아이콘에서 현재 Git 상태를 진단할 수 있습니다.
-
-- 현재 상태 / 위험 / 다음 행동을 구조화해서 설명
-- 관련 상황 가이드 연결
-- 직접 해보기 흐름 제공
-- 필요할 때만 기존 Git Next 안전 흐름을 통해 Rescue 실행
-- 이전 진단 기록 다시 보기
-
-AI가 임의의 shell 명령을 바로 실행하는 구조가 아니라, Git Next가 이미 허용한 작업과 Safe Guard를 통해 실행됩니다.
-
-### 📖 움직이는 Git 용어 설명
-
-용어를 정의만 하지 않고 **어디에서 어디로 이동하는지** 보여줍니다.
-
-- Commit: 작업 파일 → 내 로컬
-- Push: 내 로컬 → 원격
-- Pull: 원격 → 내 로컬
-- Fetch: 원격 → 원격 정보
-- Stash: 작업 파일 → 임시 보관
-- Revert / Reset / Rebase / Cherry-pick 등 주요 Git 개념
-
-작업 파일, 로컬, 원격, 브랜치, 태그, Stash 노드는 아이콘과 색상으로 구분됩니다.
+먼저 이해하고, 그다음 움직일 수 있게 만드는 것이 목표입니다.
 
 ---
 
-## 🧰 주요 기능
+## 🌿 Git을 눈으로 이해하기
 
-| 영역 | 기능 |
-| --- | --- |
-| 그래프 | 커밋 그래프, branch/ref, HEAD, merge lane, 검색/필터, compact mode |
-| 동기화 | Pull / Push, ahead / behind / diverged 상태, Push 전 Pull 옵션 |
-| 브랜치 | Local / Remote 분리, Tracking 연결 표시, 생성/전환/비교/Merge/이름 변경/삭제, Remote 설정, 정리 후보 |
-| 태그 | 로컬 태그 생성 / 삭제 |
-| Stash | 저장, Apply, Pop, 삭제 |
-| 변경/커밋 | 파일 Stage/Unstage, Commit, Commit 메시지 도우미, 부분 Commit 안내 |
-| 커밋 작업 | Cherry-pick, Revert, 커밋 기준 브랜치/태그 생성 |
-| 안전 | dirty tree, detached HEAD, 진행 중 작업, 원격 기록 재작성 감지 |
-| AI | Git 상태 진단, 가이드, 직접 해보기, Rescue, 진단 기록 |
-| 가이드 | Pull/Push 실패 분석, Conflict 설명, 해결 순서 안내 |
-| 복구 | Undo, Reflog, Conflict / 진행 중 작업 복구를 한 진입점에서 제공 |
-| 협업 | Branch 안 Remote 관리, PR 준비 상태 확인 및 GitHub/GitLab handoff |
-| 기록 | Git Next에서 실행한 최근 작업 타임라인 |
-| 도움 | 상황별 가이드, Git 용어 설명 |
+커밋, 브랜치, HEAD, 로컬/원격 ref를 그래프에서 한눈에 확인할 수 있습니다.
+
+분기와 병합 흐름을 따라가며 **지금 내가 Git의 어디에 서 있는지** 빠르게 파악할 수 있습니다.
+
+검색, 범위 필터, 최근 커밋 제한, Compact Mode도 지원합니다.
 
 ---
 
-## 🎛️ 사이드바
+## 🛡️ Safe Guard
 
-Git Next 사이드바 상단은 텍스트 대신 아이콘 중심으로 구성됩니다.
+Pull, Push, 브랜치 전환, 이력 변경처럼 저장소 상태에 영향을 줄 수 있는 작업은 실행 전에 현재 상황을 먼저 확인합니다.
 
-```text
-[Graph] [AI] [Refresh] [Tools] [Help]
+Safe Guard는 단순히 `실패`나 `위험`이라고 끝내지 않습니다.
 
-Repository
-main                     동기화됨
-origin/main
+- 현재 저장소 상태
+- 왜 주의가 필요한지
+- 어떤 문제가 발생할 수 있는지
+- 다음에 무엇을 할 수 있는지
 
-    ↓ 받기        ↑ 보내기
-```
+를 순서대로 보여줍니다.
 
-`Tools`를 열면 현재 상위 도구는 9개입니다.
+또한 `main`, `master`, `release/*` 같은 보호 브랜치에서는 위험한 이력 변경 작업에 추가 경고를 표시할 수 있습니다.
 
-```text
-Branch · Tag · Stash
-Repository · Doctor · Recovery
-Safe Guard · Timeline · PR handoff
-```
-
-- **Branch**: Local / Remote를 나눠 보여주고 Tracking 관계를 연결선으로 표시합니다. Remote 브랜치에서 로컬 Tracking 브랜치를 만들거나, Branch 비교/Merge/Remote 설정/정리 후보를 처리할 수 있습니다.
-- **Recovery**: Undo, Reflog, Conflict, 진행 중인 Merge/Rebase/Cherry-pick/Revert 복구 흐름을 묶습니다.
-- **AI**: Tools 목록이 아니라 Graph 옆 상단 아이콘에서 진입합니다. 진단, 직접 해보기, Rescue, 진단 기록을 한 흐름으로 사용합니다.
-- **Commit 보조 기능**: Commit 입력 영역 옆에서 메시지 도우미와 부분 Commit 안내를 바로 열 수 있습니다.
-
-Git Next 사이드바에서 파일 변경사항을 확인하고 Stage/Unstage, Commit, 파일 변경 되돌리기를 처리할 수 있습니다. 줄 단위 Partial Stage는 VS Code 기본 Source Control을 사용합니다.
+> Git Next는 Force Push나 기록 삭제를 쉬운 해결책처럼 먼저 권하지 않습니다.
 
 ---
 
-## 🧠 Git Next가 지키는 원칙
+## 🔧 필요한 Git 작업을 한곳에서
 
-1. **위험한 작업은 먼저 설명합니다.**
-2. **모르는 상태에서는 안전하다고 단정하지 않습니다.**
-3. **Git 원문은 보존하지만 먼저 사람말로 설명합니다.**
-4. **Force Push나 기록 삭제를 쉬운 지름길처럼 추천하지 않습니다.**
-5. **Human QA가 마지막입니다.**
+Git Next에서는 그래프를 보면서 주요 Git 작업으로 자연스럽게 이어갈 수 있습니다.
 
----
+- Pull / Push와 ahead / behind / diverged 상태 확인
+- 브랜치 생성, 전환, 비교, Merge, 이름 변경, 삭제
+- Tag와 Stash 관리
+- Stage / Unstage / Commit
+- Cherry-pick / Revert
+- Remote 관리
+- Undo / Reflog
+- Merge / Rebase / Cherry-pick / Revert 진행 중 상태 확인과 복구
+- Conflict 상황 안내
 
-## 🚀 개발 실행
-
-```bash
-npm install
-npm test
-npm run build
-```
-
-VS Code에서 프로젝트를 연 뒤 Extension Development Host로 실행합니다.
-
-명령 팔레트:
-
-```text
-Git Next: 그래프 열기
-```
+Git 고유 용어를 감추지는 않습니다.
+대신 처음 보거나 오랜만에 보는 용어라도 흐름을 따라갈 수 있도록 설명을 함께 제공합니다.
 
 ---
 
-## 📦 VSIX 만들기
+## 🚑 실수해도 다시 이해할 수 있게
 
-```bash
-npm test
-npm run build
-npm run package
-```
+실수했다고 바로 터미널부터 열 필요는 없습니다.
 
-생성된 `.vsix` 파일은 다음처럼 설치할 수 있습니다.
+Git Next는 현재 상태와 복구 의미를 먼저 보여주고,
+가능한 경우 다음 행동으로 이어질 수 있게 도와줍니다.
 
-```bash
-code --install-extension git-next-<version>.vsix
-```
+Undo, Reflog, Conflict 복구와 함께
+Merge, Rebase, Cherry-pick, Revert가 진행 중인 상황도 확인할 수 있습니다.
 
----
-
-## 🇰🇷 UI 언어
-
-사용자가 직접 보는 버튼, 상태, 오류, 경고, 가이드는 한국어를 기본으로 합니다.
-
-다만 Git 자체 개념을 익히는 데 도움이 되는 `HEAD`, `origin/main`, `Pull`, `Push`, `Rebase`, `Stash` 같은 용어는 한국어 설명과 함께 유지합니다.
+중요한 것은 **실수를 하지 않는 것**보다,
+**무슨 일이 일어났는지 이해하고 다시 선택할 수 있는 것**이라고 생각합니다.
 
 ---
 
-Git Next의 목표는 Git을 감추는 것이 아니라, **Git이 지금 무엇을 하고 있는지 겁먹지 않고 이해하게 만드는 것**입니다.
+## 🧭 Git Next가 지키는 원칙
+
+1. 위험한 작업은 실행 전에 설명합니다.
+2. 모르는 상태를 안전하다고 단정하지 않습니다.
+3. Git 원문은 보존하되 이해하기 쉬운 설명을 함께 제공합니다.
+4. Force Push와 기록 삭제를 지름길처럼 권하지 않습니다.
+5. 마지막 판단은 사용자에게 남겨둡니다.
+
+---
+
+## Roadmap
+
+Git Next는 아직 1.0을 향해 발전하고 있습니다.
+
+앞으로 다음과 같은 개선을 계획하고 있습니다.
+
+- 다국어 지원
+- AI 연동을 통한 Git 상태 이해와 진단 보조
+- Git을 더 쉽게 이해할 수 있는 시각화와 사용 흐름 개선
+
+기능을 많이 추가하는 것보다,
+Git을 더 잘 이해하고 더 안전하게 사용할 수 있게 만드는 방향을 우선합니다.
+
+---
+
+## License
+
+MIT
