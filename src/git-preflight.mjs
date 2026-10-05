@@ -102,9 +102,9 @@ export async function preflightPushSafety(cwd) {
     return guidanceNotice({
       level: "blocked",
       code: "detached-head",
-      state: "Detached HEAD 상태",
-      risk: "새 커밋이 정상적인 브랜치 흐름에 연결되지 않을 수 있습니다.",
-      next: "유지할 작업이 있다면 새 브랜치를 만들거나 기존 브랜치로 이동한 뒤 Push하세요.",
+      state: "현재 브랜치에 들어가 있지 않은 커밋을 보고 있습니다.",
+      risk: "이 상태에서 만든 새 Commit은 나중에 찾기 어려워질 수 있습니다.",
+      next: "현재 작업을 유지하려면 새 브랜치를 만들거나 기존 브랜치로 이동한 뒤 Push해주세요.",
       detail: null,
       affected: [],
     });
@@ -169,9 +169,9 @@ export async function preflightPullSafety(cwd, runGit = runGitInspection) {
     return guidanceNotice({
       level: "blocked",
       code: "detached-head",
-      state: "Detached HEAD 상태",
-      risk: "Pull 변경을 반영할 브랜치 대상을 명확히 할 수 없습니다.",
-      next: "먼저 작업할 브랜치를 선택한 뒤 Pull하세요.",
+      state: "현재 브랜치에 들어가 있지 않은 커밋을 보고 있습니다.",
+      risk: "어느 브랜치에 원격 변경을 받아야 할지 정할 수 없습니다.",
+      next: "먼저 작업할 브랜치로 이동한 뒤 Pull해주세요.",
       detail: null,
       affected: [],
     });
@@ -240,9 +240,9 @@ export async function preflightPullSafety(cwd, runGit = runGitInspection) {
     return guidanceNotice({
       level: "blocked",
       code: "no-upstream",
-      state: "현재 브랜치에 Upstream이 없음",
-      risk: "어디에서 변경을 받아와야 하는지 확실히 판단할 수 없습니다.",
-      next: "먼저 Remote와 Upstream 연결을 확인한 뒤 다시 Pull하세요.",
+      state: "현재 브랜치에 연결된 원격 브랜치가 없습니다.",
+      risk: "어느 원격 브랜치에서 변경을 받아야 할지 알 수 없습니다.",
+      next: "먼저 현재 브랜치를 원격 브랜치와 연결한 뒤 Pull해주세요.",
       detail: null,
       affected: [],
     });

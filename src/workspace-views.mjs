@@ -189,37 +189,216 @@ export function renderCompareWorkspace(comparison) {
 }
 
 export function renderBranchWorkspace(state) {
-  const locals = state.refs.filter((ref) => ref.kind === "local");
-  const remotes = state.refs.filter((ref) => ref.kind === "remote");
-  const remotesByName = new Map(remotes.map((ref) => [ref.name, ref]));
-  const pairedRemotes = new Set();
-  const card = (ref) => ref
-    ? `<button class="card branch-card ${ref.name === state.branch ? "current" : ""}" data-branch="${esc(ref.name)}" data-kind="${esc(ref.kind)}" style="text-align:left;color:inherit;cursor:pointer">
-        <div class="row"><div class="grow"><h2>${esc(ref.name)}</h2><div class="meta">${ref.kind === "local" ? `Local branch${ref.upstream ? ` · ${esc(ref.upstream)}` : ""}` : "Remote branch"}</div></div>${ref.name === state.branch ? '<span class="badge">현재</span>' : ""}</div>
-      </button>`
-    : '<div class="branch-slot"></div>';
-  const rows = locals.map((local) => {
-    const remote = local.upstream ? remotesByName.get(local.upstream) : null;
-    if (remote) pairedRemotes.add(remote.name);
-    return `<div class="branch-map-row">
-      ${card(local)}
-      <div class="tracking-link ${remote ? "connected" : ""}" aria-hidden="true">${remote ? '<span class="tracking-signal"></span>' : ""}</div>
-      ${card(remote)}
-    </div>`;
-  });
-  for (const remote of remotes) {
-    if (!pairedRemotes.has(remote.name)) {
-      rows.push(`<div class="branch-map-row">${card(null)}<div class="tracking-link"></div>${card(remote)}</div>`);
-    }
+  const locals = state.refs.filter((ref) => ref.kind === "local" && ref.name !== "HEAD");
+  const remoteMap = new Map();
+  for (const ref of state.refs) {
+    if (ref.kind !== "remote") continue;
+    if (ref.name === "HEAD" || ref.name.endsWith("/HEAD")) continue;
+    if (!remoteMap.has(ref.name)) remoteMap.set(ref.name, ref);
   }
+  const remotes = [...remoteMap.values()];
+  const currentBranch = state.branch ?? "";
+  const currentLocal = locals.find((ref) => ref.name === currentBranch);
+  const currentUpstream = currentLocal?.upstream ?? state.upstream ?? null;
+  const syncLabel = ({
+    ahead: "동기화 · Push 필요",
+    behind: "동기화 · Pull 필요",
+    diverged: "동기화 · 확인 필요",
+    "up-to-date": "동기화 완료",
+    "no-upstream": "동기화 · 첫 Push",
+    unknown: "동기화 · 상태 확인",
+  })[state.tracking?.kind] ?? "동기화";
+
+  const localCards = locals.map((ref) => `
+    <button class="card branch-card local-card ${ref.name === state.branch ? "current" : ""}"
+      data-branch="${esc(ref.name)}"
+      data-kind="local"
+      data-upstream="${esc(ref.upstream ?? "")}"
+      style="text-align:left;color:inherit;cursor:pointer">
+      <div class="row">
+        <div class="grow">
+          <h2>${esc(ref.name)}</h2>
+          <div class="meta">${ref.upstream ? `원격 브랜치 ${esc(ref.upstream)}와 연결됨` : "로컬에만 있는 브랜치"}</div>
+        </div>
+        ${ref.name === state.branch ? '<span class="badge">현재 작업</span>' : ""}
+      </div>
+    </button>
+  `).join("");
+
+  const remoteCards = remotes.map((ref) => `
+    <button class="card branch-card remote-card ${ref.name === currentUpstream ? "current-remote" : ""}"
+      data-branch="${esc(ref.name)}"
+      data-kind="remote"
+      draggable="true"
+      style="text-align:left;color:inherit;cursor:grab">
+      <div class="row">
+        <div class="grow">
+          <h2>${esc(ref.name)}</h2>
+          <div class="meta">원격 저장소의 브랜치</div>
+        </div>
+        ${ref.name === currentUpstream ? '<span class="badge">현재 연결</span>' : ""}
+      </div>
+    </button>
+  `).join("");
+
   const body=`<style>
-.branch-map{display:grid;gap:8px}.branch-map-head,.branch-map-row{display:grid;grid-template-columns:minmax(0,1fr) 72px minmax(0,1fr);gap:8px;align-items:center}.branch-map-head{padding:0 4px;color:var(--vscode-descriptionForeground);font-size:12px;font-weight:700}.branch-map-head span:last-child{text-align:right}.branch-slot{min-height:1px}.tracking-link{position:relative;height:20px}.tracking-link.connected::before{content:"";position:absolute;left:0;right:0;top:50%;height:1px;background:color-mix(in srgb,var(--vscode-textLink-foreground) 58%,transparent)}.tracking-signal{position:absolute;left:0;top:50%;width:7px;height:7px;border-radius:50%;background:var(--vscode-textLink-foreground);box-shadow:0 0 8px color-mix(in srgb,var(--vscode-textLink-foreground) 70%,transparent);transform:translate(-50%,-50%);animation:trackingFlow 1.6s ease-in-out infinite alternate}.branch-card.current{border-color:var(--vscode-textLink-foreground)}@keyframes trackingFlow{from{left:4%}to{left:96%}}@media(max-width:720px){.branch-map-head,.branch-map-row{grid-template-columns:minmax(0,1fr) 42px minmax(0,1fr);gap:5px}}@media(prefers-reduced-motion:reduce){.tracking-signal{animation:none;left:50%}}
-</style><header><div><h1>Branch</h1><div class="sub">브랜치를 고르면 비교하거나 안전하게 전환할 수 있습니다.</div></div><div class="toolbar"><button class="btn" data-action="cleanup">정리 후보</button><button class="btn" data-action="remote-settings">Remote 설정</button><button class="btn" data-action="create">새 브랜치</button></div></header><div class="branch-map"><div class="branch-map-head"><span>Local</span><span></span><span>Remote</span></div>${rows.join("") || '<div class="empty">브랜치가 없습니다.</div>'}</div><section class="section card" id="selection"><h2>브랜치를 선택하세요</h2><div class="meta">선택은 실행이 아닙니다. 실제 변경 전에는 항상 Confirm을 받습니다.</div><div class="toolbar" style="margin-top:10px"><button class="btn" data-action="compare" disabled>비교</button><button class="btn" data-action="merge" disabled>현재 브랜치에 Merge</button><button class="btn primary" data-action="switch" disabled>전환</button><button class="btn" data-action="track" disabled>로컬 브랜치 생성 + Tracking</button><button class="btn" data-action="rename" disabled>이름 변경</button><button class="btn danger" data-action="delete" disabled>삭제</button></div></section>`;
+.branch-layout{position:relative;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:76px;align-items:start}
+.branch-pocket{position:relative;z-index:1;border:1px solid var(--vscode-widget-border);border-radius:12px;padding:12px;min-height:180px}
+.local-pocket{background:color-mix(in srgb,var(--vscode-editor-background) 92%,var(--vscode-textLink-foreground) 8%)}
+.remote-pocket{border-color:color-mix(in srgb,var(--vscode-editorWarning-foreground) 42%,transparent);background:color-mix(in srgb,var(--vscode-editorWarning-foreground) 9%,var(--vscode-editor-background))}
+.pocket-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:10px}
+.pocket-title{font-size:12px;font-weight:750}
+.remote-guard-title{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:750}
+.remote-guard-title svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:1.7}
+.remote-copy{margin-top:4px;line-height:1.45}
+.branch-stack{display:grid;gap:8px}
+.branch-card{width:100%}
+.branch-card.current{border-color:var(--vscode-textLink-foreground)}
+.remote-card.current-remote{border-color:color-mix(in srgb,var(--vscode-editorWarning-foreground) 65%,var(--vscode-textLink-foreground))}
+.remote-card:active{cursor:grabbing!important}
+.local-pocket.drag-ready{outline:2px solid var(--vscode-textLink-foreground);outline-offset:2px;background:color-mix(in srgb,var(--vscode-textLink-foreground) 11%,var(--vscode-editor-background))}
+.branch-links{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:0;overflow:visible}
+.tracking-path{fill:none;stroke:color-mix(in srgb,var(--vscode-textLink-foreground) 65%,transparent);stroke-width:1.5}
+.tracking-dot{fill:var(--vscode-textLink-foreground)}
+#selection[hidden]{display:none}
+.branch-detail{margin-top:14px;padding:0;overflow:hidden}
+.detail-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:14px 16px;border-bottom:1px solid var(--vscode-widget-border);background:color-mix(in srgb,var(--vscode-editor-background) 88%,var(--vscode-textLink-foreground) 12%)}
+.detail-kicker{font-size:11px;font-weight:750;text-transform:uppercase;letter-spacing:.08em;color:var(--vscode-descriptionForeground)}
+.detail-head h2{margin:3px 0 0}
+.detail-status{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.detail-body{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:14px;align-items:center;padding:14px 16px}
+.detail-copy{display:grid;gap:5px}
+.detail-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.detail-primary{min-width:150px}
+.detail-secondary{display:flex;gap:6px;flex-wrap:wrap}
+.detail-secondary .btn{opacity:.9}
+@media(max-width:720px){.branch-layout{grid-template-columns:1fr;gap:18px}.branch-links{display:none}.detail-body{grid-template-columns:1fr}.detail-actions{justify-content:flex-start}.detail-status{justify-content:flex-start}}
+</style>
+<header><div><h1>Branch</h1><div class="sub">Local에서 작업하고 Push하면 Remote 보호 영역에 반영됩니다.</div></div><div class="toolbar"><button class="btn primary" data-action="sync">${syncLabel}</button><button class="btn" data-action="refresh-remote" title="원격 브랜치 목록만 새로 확인합니다. 내 작업 파일은 바뀌지 않아요.">원격 새로고침</button></div></header>
+<div class="branch-layout">
+  <svg class="branch-links" id="branch-links" aria-hidden="true"></svg>
+  <section class="branch-pocket local-pocket" data-drop-zone="local">
+    <div class="pocket-head">
+      <div><div class="pocket-title">Local · 내 작업 공간</div><div class="meta">브랜치를 만들고 이동하며 실제 작업하는 곳입니다.</div></div>
+      <button class="btn" data-action="create">+ 브랜치</button>
+    </div>
+    <div class="branch-stack">${localCards || '<div class="empty">로컬 브랜치가 없습니다.</div>'}</div>
+  </section>
+  <section class="branch-pocket remote-pocket">
+    <div class="pocket-head">
+      <div>
+        <div class="remote-guard-title"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 19 6v5c0 4.5-2.8 8-7 10-4.2-2-7-5.5-7-10V6z"></path><path d="m9 12 2 2 4-4"></path></svg><span>Remote 보호 영역</span></div>
+        <div class="meta remote-copy">여기는 로컬에서 직접 수정하지 않아요.<br>Local에서 작업한 뒤 Push하면 원격에 반영됩니다.</div>
+      </div>
+    </div>
+    <div class="branch-stack">${remoteCards || '<div class="empty">표시할 원격 브랜치가 없습니다.</div>'}</div>
+  </section>
+</div>
+<section class="card branch-detail" id="selection" hidden>
+  <div class="detail-head">
+    <div>
+      <div class="detail-kicker">선택한 브랜치</div>
+      <h2>브랜치를 선택하세요</h2>
+    </div>
+    <div class="detail-status">
+      <span class="badge" id="detail-kind">Local</span>
+      <span class="badge" id="detail-current" hidden>현재 작업</span>
+    </div>
+  </div>
+  <div class="detail-body">
+    <div class="detail-copy">
+      <strong id="detail-title">브랜치 상태</strong>
+      <div class="meta" id="detail-summary">브랜치를 선택하면 연결 상태와 가능한 작업을 보여줍니다.</div>
+    </div>
+    <div class="detail-actions">
+      <button class="btn primary detail-primary" data-action="switch">이 브랜치로 이동</button>
+      <button class="btn primary detail-primary" data-action="track">로컬로 가져오기</button>
+      <div class="detail-secondary">
+        <button class="btn" data-action="merge">현재 브랜치에 합치기</button>
+        <button class="btn" data-action="rename">이름 변경</button>
+        <button class="btn danger" data-action="delete">삭제</button>
+      </div>
+    </div>
+  </div>
+</section>`;
+
   const script=`
-const vscode=acquireVsCodeApi();let selected=null;let kind=null;
-const buttons=[...document.querySelectorAll("#selection [data-action]")];
-for(const card of document.querySelectorAll(".branch-card"))card.addEventListener("click",()=>{for(const c of document.querySelectorAll(".branch-card"))c.classList.remove("selected");card.classList.add("selected");selected=card.dataset.branch;kind=card.dataset.kind;document.querySelector("#selection h2").textContent=selected;for(const b of buttons)b.disabled=false;document.querySelector('[data-action="track"]').disabled=kind!=="remote";if(kind==="remote"){document.querySelector('[data-action="rename"]').disabled=true;document.querySelector('[data-action="delete"]').disabled=true;}});
-for(const b of document.querySelectorAll("[data-action]"))b.addEventListener("click",(e)=>{e.stopPropagation();vscode.postMessage({type:b.dataset.action,branch:selected,kind});});
+const vscode=acquireVsCodeApi();let selected=null;let kind=null;let draggingRemote=null;
+const selection=document.querySelector("#selection");
+const selectionButtons=[...selection.querySelectorAll("[data-action]")];
+const layout=document.querySelector(".branch-layout");
+const localPocket=document.querySelector(".local-pocket");
+const links=document.querySelector("#branch-links");
+
+function drawTrackingLinks(){
+  if(!layout||!links)return;
+  const layoutRect=layout.getBoundingClientRect();
+  links.setAttribute("viewBox","0 0 "+layoutRect.width+" "+layoutRect.height);
+  links.replaceChildren();
+  const remoteCards=[...document.querySelectorAll(".remote-card")];
+  for(const local of document.querySelectorAll(".local-card[data-upstream]")){
+    const upstream=local.dataset.upstream;
+    if(!upstream)continue;
+    const remote=remoteCards.find((card)=>card.dataset.branch===upstream);
+    if(!remote)continue;
+    const a=local.getBoundingClientRect();
+    const b=remote.getBoundingClientRect();
+    const x1=a.right-layoutRect.left;
+    const y1=a.top+a.height/2-layoutRect.top;
+    const x2=b.left-layoutRect.left;
+    const y2=b.top+b.height/2-layoutRect.top;
+    const bend=Math.max(24,(x2-x1)*0.48);
+    const path=document.createElementNS("http://www.w3.org/2000/svg","path");
+    path.setAttribute("class","tracking-path");
+    path.setAttribute("d","M "+x1+" "+y1+" C "+(x1+bend)+" "+y1+", "+(x2-bend)+" "+y2+", "+x2+" "+y2);
+    links.appendChild(path);
+    const dot=document.createElementNS("http://www.w3.org/2000/svg","circle");
+    dot.setAttribute("class","tracking-dot");
+    dot.setAttribute("cx",String(x2));
+    dot.setAttribute("cy",String(y2));
+    dot.setAttribute("r","3");
+    links.appendChild(dot);
+  }
+}
+
+function selectCard(card){
+  for(const c of document.querySelectorAll(".branch-card"))c.classList.remove("selected");
+  card.classList.add("selected");selected=card.dataset.branch;kind=card.dataset.kind;selection.hidden=false;
+  const isCurrent=kind==="local"&&selected===${JSON.stringify(currentBranch)};
+  const upstream=kind==="local"?card.dataset.upstream:"";
+  selection.querySelector("h2").textContent=selected;
+  selection.querySelector("#detail-kind").textContent=kind==="remote"?"Remote":"Local";
+  selection.querySelector("#detail-current").hidden=!isCurrent;
+  selection.querySelector("#detail-title").textContent=kind==="remote"
+    ?"원격에 보관된 브랜치"
+    :(isCurrent?"지금 작업 중인 브랜치":upstream?"원격과 연결된 로컬 브랜치":"로컬에만 있는 브랜치");
+  selection.querySelector("#detail-summary").textContent=kind==="remote"
+    ?"직접 수정하지 않고 로컬로 가져온 뒤 작업합니다."
+    :(isCurrent
+      ?(upstream?"현재 작업 중이며 "+upstream+"과 연결되어 있습니다.":"현재 작업 중이며 아직 원격 브랜치와 연결되지 않았습니다.")
+      :(upstream?upstream+"과 연결되어 있습니다. 이동하면 작업 위치가 이 브랜치로 바뀝니다.":"아직 원격 브랜치와 연결되지 않았습니다."));
+  for(const b of selectionButtons)b.hidden=false;
+  selection.querySelector('[data-action="track"]').hidden=kind!=="remote";
+  selection.querySelector('[data-action="switch"]').hidden=kind!=="local"||isCurrent;
+  selection.querySelector('[data-action="rename"]').hidden=kind!=="local";
+  selection.querySelector('[data-action="delete"]').hidden=kind!=="local"||isCurrent;
+  selection.querySelector('[data-action="merge"]').hidden=kind!=="local"||isCurrent;
+}
+
+for(const card of document.querySelectorAll(".branch-card"))card.addEventListener("click",()=>selectCard(card));
+for(const card of document.querySelectorAll(".remote-card")){
+  card.addEventListener("dragstart",e=>{draggingRemote=card.dataset.branch;e.dataTransfer.effectAllowed="copy";e.dataTransfer.setData("text/plain",draggingRemote);});
+  card.addEventListener("dragend",()=>{draggingRemote=null;localPocket?.classList.remove("drag-ready");});
+}
+localPocket?.addEventListener("dragover",e=>{if(!draggingRemote)return;e.preventDefault();e.dataTransfer.dropEffect="copy";localPocket.classList.add("drag-ready");});
+localPocket?.addEventListener("dragleave",e=>{if(e.relatedTarget&&localPocket.contains(e.relatedTarget))return;localPocket.classList.remove("drag-ready");});
+localPocket?.addEventListener("drop",e=>{if(!draggingRemote)return;e.preventDefault();localPocket.classList.remove("drag-ready");vscode.postMessage({type:"track",branch:draggingRemote,kind:"remote"});draggingRemote=null;});
+for(const b of document.querySelectorAll("[data-action]"))b.addEventListener("click",e=>{
+  e.stopPropagation();
+  vscode.postMessage({type:b.dataset.action,branch:selected,kind});
+});
+drawTrackingLinks();
+window.addEventListener("resize",drawTrackingLinks);
 `;
   return shell("Git Next · Branch",body,script);
 }

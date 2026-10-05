@@ -105,10 +105,10 @@ test("wrapped Git action returns the actual working tree state change", async ()
   assert.equal(result.message, "완료 상태 변화: 작업 폴더 깨끗함 → 변경 있음");
 });
 
-test("dirty-state hint points to the file list without repeating its file count", () => {
+test("dirty-state hint tells beginners what to do next", () => {
   const hint = recommendNextAction({ changes: Array.from({ length: 26 }, (_, index) => ({ path: `${index}.txt` })) });
-  assert.equal(hint.title, "로컬 변경을 먼저 Commit 또는 Stash하세요");
-  assert.equal(hint.detail, "");
+  assert.equal(hint.title, "변경 내용을 확인하고 Commit해주세요.");
+  assert.equal(hint.detail, "아직 Commit하지 않은 변경이 있습니다.");
 });
 
 async function git(cwd, ...args) {
@@ -127,11 +127,40 @@ async function repo() {
   return cwd;
 }
 
-test("recommends safe next action from state", () => {
-  assert.equal(recommendNextAction({ changes: [{ path: "a" }], tracking: { kind: "behind", behind: 2 } }).kind, "dirty");
-  assert.equal(recommendNextAction({ changes: [], tracking: { kind: "behind", behind: 2 } }).kind, "pull");
-  assert.equal(recommendNextAction({ changes: [], tracking: { kind: "diverged" } }).kind, "diverged");
-  assert.equal(recommendNextAction({ changes: [], tracking: { kind: "ahead", ahead: 1 } }).kind, "push");
+test("recommends beginner-friendly next action from repository state", () => {
+  const behindDirty = recommendNextAction({ changes: [{ path: "a" }], tracking: { kind: "behind", behind: 2 } });
+  assert.equal(behindDirty.kind, "pull");
+  assert.equal(behindDirty.title, "Commit 전에 Pull을 먼저 진행해주세요.");
+
+  const behind = recommendNextAction({ changes: [], tracking: { kind: "behind", behind: 2 } });
+  assert.equal(behind.kind, "pull");
+  assert.match(behind.title, /Pull을 먼저/);
+
+  const diverged = recommendNextAction({ changes: [], tracking: { kind: "diverged", ahead: 1, behind: 1 } });
+  assert.equal(diverged.kind, "diverged");
+  assert.match(diverged.title, /Push 전에 정리가 필요/);
+  assert.match(diverged.detail, /Merge 또는 Rebase/);
+
+  const ahead = recommendNextAction({ changes: [], tracking: { kind: "ahead", ahead: 1 } });
+  assert.equal(ahead.kind, "push");
+  assert.equal(ahead.title, "Commit 완료! 아직 Push하지 않은 Commit이 1개 있어요.");
+  assert.equal(ahead.detail, "Push해도 됩니다.");
+
+  const aheadDirty = recommendNextAction({ changes: [{ path: "a" }], tracking: { kind: "ahead", ahead: 2 } });
+  assert.equal(aheadDirty.kind, "push-dirty");
+  assert.match(aheadDirty.title, /Push하지 않은 Commit이 있어요/);
+
+  const firstPush = recommendNextAction({ changes: [], tracking: { kind: "no-upstream" } });
+  assert.equal(firstPush.kind, "first-push");
+  assert.match(firstPush.title, /첫 Push가 필요/);
+
+  const clean = recommendNextAction({ changes: [], tracking: { kind: "up-to-date", ahead: 0, behind: 0 } });
+  assert.equal(clean.kind, "clean");
+  assert.equal(clean.title, "로컬과 원격이 최신 상태예요.");
+
+  const operation = recommendNextAction({ operation: { operation: "merge" } });
+  assert.equal(operation.kind, "operation");
+  assert.match(operation.title, /먼저 끝내주세요/);
 });
 
 test("summarizes repository health as state, risk, and a next action", () => {
@@ -173,7 +202,7 @@ test("Git Doctor explains a confirmed gone upstream and offers local branch revi
 
   assert.equal(finding.id, "upstream-gone");
   assert.equal(finding.action, "branch");
-  assert.match(finding.recommendation, /자동 삭제하지 않았습니다/);
+  assert.match(finding.recommendation, /자동으로 삭제하지 않습니다/);
 });
 
 test("derives GitHub and GitLab PR URLs", () => {

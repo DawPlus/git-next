@@ -71,6 +71,9 @@ This board is the status source of truth.
 | T-261005-34 | Hide empty SCM change groups | ready_for_qa | human | worker | implementation | 1+2 | [ticket](active/T-261005-34.md) | Hide zero-count Staged/Changes groups; show them when items appear |
 | T-261005-35 | Fix sidebar flicker during repeated Stage actions | ready_for_qa | human | worker | implementation | 1+2 | [ticket](active/T-261005-35.md) | Repeated single-file Stage intermittently looks like full sidebar refresh |
 | T-261005-36 | Fix Push button silent failure | ready_for_qa | human | worker | implementation | 1+2 | [ticket](active/T-261005-36.md) | Missing Push preflight import caused silent ReferenceError |
+| T-261005-37 | Make Safe Guard guidance action-first and beginner-friendly | ready_for_qa | human | worker | implementation | 1+2 | [ticket](active/T-261005-37.md) | Safe Guard should tell beginners exactly what to do next, not just expose Git state |
+| T-261005-38 | Simplify beginner-facing Git messages | ready_for_qa | human | worker | implementation | 1+2 | [ticket](active/T-261005-38.md) | Rewrite normal action copy so users do not need Git internals to understand what happens next |
+| T-261005-39 | Redesign Branch workspace around Local ↔ Remote relationship | ready_for_qa | human | worker | implementation | 1+2 | [ticket](active/T-261005-39.md) | Repair 3 complete: branch mutation lock releases after Git work; compact + 브랜치 control |
 
 Allowed states: `draft`, `ready`, `in_progress`, `review`, `ready_for_qa`, `blocked`, `done`, `superseded`.
 

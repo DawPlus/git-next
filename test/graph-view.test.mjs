@@ -274,6 +274,23 @@ test("keeps the status hint and Safe Guard compact above collapsible change grou
   assert.match(html, /class="action-risk medium"[^>]*title="작업 폴더에 커밋하지 않은 변경이 있습니다\./);
 });
 
+
+test("Safe Guard color follows the recommended next action before any manual check", () => {
+  const base = {
+    kind: "repository", root: "/repo", branch: "main", upstream: "origin/main", head: "m", refs: [], commits,
+    tracking: { kind: "up-to-date", ahead: 0, behind: 0, upstream: "origin/main" }, pullBeforePush: false, changes: [],
+  };
+
+  const push = renderSidebarHtml({ ...base, nextAction: { kind: "push", title: "Push해도 됩니다.", detail: "" } });
+  assert.match(push, /class="guard-summary safe"/);
+
+  const pull = renderSidebarHtml({ ...base, nextAction: { kind: "pull", title: "Pull을 먼저 진행해주세요.", detail: "" } });
+  assert.match(pull, /class="guard-summary warning"/);
+
+  const blocked = renderSidebarHtml({ ...base, nextAction: { kind: "diverged", title: "정리가 필요해요.", detail: "" } });
+  assert.match(blocked, /class="guard-summary blocked"/);
+});
+
 test("tag focus highlights release points while keeping branch refs visible", () => {
   const state = {
     kind: "repository", root: "/repo", branch: "main", head: "m",

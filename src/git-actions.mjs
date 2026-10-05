@@ -98,7 +98,7 @@ export async function pushRepository(cwd) {
 
 export async function pushWithForceWithLease(cwd, remote, remoteRef, expected) {
   if (!/^refs\/heads\//.test(remoteRef) || !/^[0-9a-f]{40,64}$/i.test(expected)) {
-    return { ok: false, action: "force-push", code: "invalid-lease", message: "Remote 기준점을 확인할 수 없어 Push를 중단했습니다." };
+    return { ok: false, action: "force-push", code: "invalid-lease", message: "원격 브랜치의 최신 Commit을 확인할 수 없어 안전을 위해 Push를 중단했습니다." };
   }
   const result = await run(cwd, ["push", `--force-with-lease=${remoteRef}:${expected}`, remote, `HEAD:${remoteRef}`]);
   const stale = /stale info|remote ref updated since checkout/i.test(result.detail);
@@ -107,7 +107,7 @@ export async function pushWithForceWithLease(cwd, remote, remoteRef, expected) {
     action: "force-push",
     code: stale ? "lease-mismatch" : result.ok ? null : "push-failed",
     message: result.ok
-      ? `확인한 원격 기준점(${expected.slice(0, 8)})에 Force-with-lease Push를 완료했습니다.`
+      ? `확인한 원격 최신 Commit(${expected.slice(0, 8)})을 기준으로 안전한 강제 Push를 완료했습니다.`
       : stale
         ? "원격 기준점이 바뀌어 Push를 취소했습니다. 최신 상태를 확인한 뒤 다시 비교하세요."
         : explainGitError("push", result.detail),
@@ -133,8 +133,8 @@ export async function fetchPruneRemote(cwd, remote) {
     ...result,
     action: "fetch-prune",
     message: result.ok
-      ? `Remote '${remote}'의 추적 정보를 갱신하고 사라진 참조를 정리했습니다.`
-      : "Remote 추적 정보를 갱신하지 못했습니다. Remote 연결과 네트워크를 확인한 뒤 다시 시도하세요.",
+      ? `원격 저장소 '${remote}'의 브랜치 정보를 갱신하고 이미 사라진 항목을 정리했습니다.`
+      : "원격 저장소 정보를 갱신하지 못했습니다. 연결과 네트워크를 확인한 뒤 다시 시도해주세요.",
   };
 }
 

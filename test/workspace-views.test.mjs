@@ -70,21 +70,36 @@ test("branch and stash workspaces use visual selection instead of raw picker-onl
     branch: "main",
     refs: [
       { name: "main", kind: "local", upstream: "origin/main" },
+      { name: "main2", kind: "local", upstream: "origin/main" },
       { name: "feature", kind: "local", upstream: null },
       { name: "origin/main", kind: "remote", upstream: null },
+      { name: "origin/HEAD", kind: "remote", upstream: null },
     ],
   });
   assert.match(branch, /branch-card/);
-  assert.match(branch, />Local</);
-  assert.match(branch, />Remote</);
+  assert.match(branch, /Local · 내 작업 공간/);
+  assert.match(branch, /Remote 보호 영역/);
+  assert.match(branch, /여기는 로컬에서 직접 수정하지 않아요/);
+  assert.match(branch, /Push하면 원격에 반영됩니다/);
   assert.match(branch, /origin\/main/);
-  assert.match(branch, /tracking-link/);
-  assert.match(branch, /tracking-signal/);
-  assert.match(branch, /prefers-reduced-motion/);
+  assert.equal((branch.match(/data-branch="origin\/main"/g) ?? []).length, 1);
+  assert.doesNotMatch(branch, /data-branch="origin\/HEAD"/);
+  assert.match(branch, /branch-links/);
+  assert.match(branch, /tracking-path/);
+  assert.match(branch, /tracking-dot/);
+  assert.match(branch, /class="card branch-card local-card current/);
+  assert.match(branch, /현재 작업/);
+  assert.match(branch, /data-action="create">\+ 브랜치<\/button>/);
+  assert.match(branch, /data-action="sync"/);
+  assert.match(branch, /data-action="refresh-remote"/);
+  assert.match(branch, /draggable="true"/);
   assert.match(branch, /data-action="track"/);
-  assert.match(branch, /data-action="compare"/);
   assert.match(branch, /data-action="switch"/);
-  assert.match(branch, /data-action="remote-settings"/);
+  assert.doesNotMatch(branch, /data-action="compare"/);
+  assert.match(branch, /선택한 브랜치/);
+  assert.match(branch, /원격에 보관된 브랜치/);
+  assert.doesNotMatch(branch, /data-action="remote-settings"/);
+  assert.doesNotMatch(branch, /data-action="cleanup"/);
 
   const stash = renderStashWorkspace(
     [{ ref: "stash@{0}", message: "wip", relative: "1 minute ago" }],

@@ -111,8 +111,8 @@ export function getPullRequestReadiness({ branch, upstream, tracking, changes = 
     nextActions.push("브랜치 상태를 확인하세요.");
   }
   if (!upstream) {
-    blockers.push("현재 브랜치에 연결된 Upstream이 없습니다.");
-    nextActions.push("첫 Push에서 Remote와 브랜치를 연결하세요.");
+    blockers.push("현재 브랜치에 연결된 원격 브랜치가 없습니다.");
+    nextActions.push("첫 Push에서 현재 브랜치를 원격 브랜치와 연결해주세요.");
   } else if (["behind", "diverged", "unknown"].includes(tracking?.kind)) {
     blockers.push(tracking.kind === "diverged"
       ? "로컬과 원격 기록이 갈라졌습니다."

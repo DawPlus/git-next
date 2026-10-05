@@ -34,15 +34,25 @@ export function renderSidebarHtml(state, notice = null) {
   const tracking = state.tracking
     ? trackingLabels[state.tracking.kind] ?? state.tracking.kind
     : "추적 상태 확인 불가";
-  const safeLevel = notice?.level ?? (notice?.ok === false ? "blocked" : "safe");
-  const safeLabel = notice
-    ? ({
-        safe: "안전",
-        warning: "주의",
-        blocked: "차단",
-      }[safeLevel] ?? "상태")
-    : "확인 전";
   const nextAction = state.nextAction ?? null;
+  const inferredSafeLevel = ({
+    clean: "safe",
+    push: "safe",
+    dirty: "warning",
+    "push-dirty": "warning",
+    pull: "warning",
+    "first-push": "warning",
+    unknown: "warning",
+    diverged: "blocked",
+    operation: "blocked",
+  })[nextAction?.kind] ?? "idle";
+  const safeLevel = notice?.level ?? (notice?.ok === false ? "blocked" : inferredSafeLevel);
+  const safeLabel = ({
+    safe: "안전",
+    warning: "주의",
+    blocked: "차단",
+    idle: "확인 전",
+  })[safeLevel] ?? "상태";
   const changes = Array.isArray(state.changes) ? state.changes : [];
   const pullRisk = getActionRisk("pull", state);
   const pushRisk = getActionRisk("push", state);
@@ -180,7 +190,7 @@ export function renderSidebarHtml(state, notice = null) {
     ${otherWorktrees.length ? `<div class="worktree-note">다른 작업 폴더 ${otherWorktrees.length}개 · ${otherWorktrees.map((item) => `${item.branch ?? "분리된 HEAD"} · ${item.path}`).map(escapeHtml).join(" / ")}</div>` : ""}
     ${relaxedRules.length ? `<div class="worktree-note" role="status">세션 동안 완화된 보호: ${relaxedRules.map(escapeHtml).join(", ")}</div>` : ""}
     <section class="status-hints">
-      <div class="guard-summary ${notice ? safeLevel : "idle"}" aria-label="Safe Guard 상태: ${escapeHtml(safeLabel)}">
+      <div class="guard-summary ${safeLevel}" aria-label="Safe Guard 상태: ${escapeHtml(safeLabel)}">
         <span class="guard-summary-main">
           <span class="guard-mark" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3 19 6v5c0 4.5-2.8 8-7 10-4.2-2-7-5.5-7-10V6z"></path><path d="m9 12 2 2 4-4"></path></svg></span>
           <span class="guard-title">Safe Guard</span>

@@ -13,7 +13,6 @@ function createPanelHandlers(core, getMenus) {
     guardWorkingState,
   } = core;
   const askName = (...args) => getMenus().askName(...args);
-  const openMarkdown = (...args) => getMenus().openMarkdown(...args);
   async function promptStashMessage() {
     const choice = await vscode.window.showQuickPick([
       { label: "메모 작성", id: "custom", description: "나중에 알아보기 쉬운 내용을 입력합니다." },
@@ -147,7 +146,7 @@ async function openChangesPanel(context) {
     if (message?.type === "undo-commit") {
       const undo = await workflows.getUndoContext(cwd);
       if (undo.headIsInUpstream) {
-        notice = { ok: false, message: "마지막 Commit이 이미 Remote에 포함되어 있습니다. Commit 취소 대신 Revert를 사용하세요." };
+        notice = { ok: false, message: "마지막 Commit이 이미 원격에 올라가 있어 바로 취소하면 기록이 꼬일 수 있어요. 기존 기록은 남기고 ‘되돌리기(Revert)’를 사용해주세요." };
         return refresh();
       }
       const ok = await confirmMutation({
@@ -261,18 +260,64 @@ async function openBranchWorkspace(context) {
   const { renderBranchWorkspace } = await import("./workspace-views.mjs");
   const actions = await import("./git-actions.mjs");
   const workflows = await import("./git-workflows.mjs");
+  const safety = await import("./git-safety.mjs");
   const { panel, created } = getOrCreateWebviewPanel(
     "gitNext.branches",
     "Git Next · Branch",
     { enableScripts: true, retainContextWhenHidden: true },
   );
   if (!created) return;
+  let branchMutationRunning = false;
+  const runBranchMutation = async (action) => {
+    if (branchMutationRunning) {
+      void vscode.window.showInformationMessage("다른 브랜치 작업을 처리 중이에요. 잠시 후 다시 시도해주세요.");
+      return { skipped: true };
+    }
+    branchMutationRunning = true;
+    try {
+      return await action();
+    } finally {
+      branchMutationRunning = false;
+    }
+  };
   const refresh = async () => {
     const cwd = getCwd();
     const state = cwd ? await getState(cwd) : { refs: [], branch: null };
     setWebviewHtml(panel.webview, renderBranchWorkspace(state));
   };
+
+  let branchRefreshTimer = null;
+  let gitStateDisposable = null;
+  try {
+    const extension = vscode.extensions.getExtension("vscode.git");
+    const exports = extension?.isActive ? extension.exports : await extension?.activate();
+    const api = exports?.getAPI?.(1);
+    const cwd = getCwd();
+    const repository = (api?.repositories ?? []).find((item) => item.rootUri?.fsPath === cwd);
+    if (repository?.state?.onDidChange) {
+      gitStateDisposable = repository.state.onDidChange(() => {
+        if (branchRefreshTimer) clearTimeout(branchRefreshTimer);
+        branchRefreshTimer = setTimeout(() => {
+          branchRefreshTimer = null;
+          void refresh();
+        }, 80);
+      });
+    }
+  } catch {
+    // Manual refresh after Git Next actions still keeps this view usable.
+  }
+
+  panel.onDidDispose(() => {
+    if (branchRefreshTimer) clearTimeout(branchRefreshTimer);
+    gitStateDisposable?.dispose?.();
+  });
   const createTrackingBranchFromRemote = async (cwd, remoteRef) => {
+    const operation = await safety.getInProgressOperation(cwd);
+    if (operation) {
+      await vscode.window.showWarningMessage(`현재 ${operation.operation} 작업이 진행 중이에요. 먼저 그 작업을 끝낸 뒤 브랜치를 만들어주세요.`);
+      return false;
+    }
+    const changes = await safety.getWorkingTreeChanges(cwd);
     const defaultName = remoteRef.includes("/") ? remoteRef.slice(remoteRef.indexOf("/") + 1) : remoteRef;
     const name = await vscode.window.showInputBox({
       prompt: "추적할 로컬 브랜치 이름",
@@ -284,44 +329,124 @@ async function openBranchWorkspace(context) {
       },
     });
     if (!name) return false;
-    const ok = await confirmMutation({ action: "Remote 브랜치 전환", target: `${remoteRef} → ${name}`, effect: "추적 로컬 브랜치를 만들고 전환합니다.", confirmLabel: "전환" });
+    const ok = await confirmMutation({
+      action: "원격 브랜치를 로컬로 가져오기",
+      target: `${remoteRef} → ${name}`,
+      effect: "원격 브랜치를 기준으로 새 로컬 브랜치를 만들고 서로 연결합니다. 생성 후 이 로컬 브랜치로 이동합니다.",
+      risk: changes.length
+        ? `커밋하지 않은 변경 ${changes.length}개도 새 브랜치로 함께 이동합니다. 대상 브랜치의 파일과 겹쳐 덮어쓸 위험이 있으면 Git이 자동으로 이동을 중단합니다.`
+        : "",
+      confirmLabel: "로컬 브랜치 만들기",
+    });
     if (!ok) return false;
-    const result = await workflows.runWithGitStateDelta(cwd, () => actions.createTrackingBranch(cwd, name, remoteRef));
-    vscode.window.showInformationMessage(result.message);
+    const result = await runBranchMutation(() => workflows.runWithGitStateDelta(cwd, () => actions.createTrackingBranch(cwd, name, remoteRef)));
+    if (result?.skipped) return false;
+    void (result.ok ? vscode.window.showInformationMessage(result.message) : vscode.window.showWarningMessage(result.message));
     return result.ok;
+  };
+
+  const syncCurrentBranch = async (cwd, state, selectedBranch = null, selectedKind = null) => {
+    if (selectedKind === "local" && selectedBranch && selectedBranch !== state.branch) {
+      await vscode.window.showInformationMessage(`동기화는 현재 작업 중인 브랜치 '${state.branch ?? "없음"}'에서 진행합니다. '${selectedBranch}'을 동기화하려면 먼저 그 브랜치로 이동해주세요.`);
+      return;
+    }
+
+    const tracking = state.tracking ?? await safety.getTrackingStatus(cwd);
+    if (tracking.kind === "up-to-date") {
+      await vscode.window.showInformationMessage("현재 로컬 브랜치와 원격 브랜치가 이미 같은 상태예요.");
+      return;
+    }
+    if (tracking.kind === "diverged") {
+      const choice = await vscode.window.showWarningMessage(
+        "로컬과 원격에 서로 다른 새 Commit이 있어 자동 동기화하지 않았어요. 먼저 차이를 확인한 뒤 Merge 또는 Rebase가 필요합니다.",
+        "비교 열기",
+      );
+      if (choice === "비교 열기") await openComparePanel(context);
+      return;
+    }
+    if (tracking.kind === "unknown") {
+      await vscode.window.showWarningMessage("원격 상태를 확인할 수 없어요. 먼저 원격 새로고침을 실행해주세요.");
+      return;
+    }
+
+    if (tracking.kind === "no-upstream") {
+      const remotes = await workflows.listRemotes(cwd);
+      if (!remotes.length) {
+        await vscode.window.showWarningMessage("연결된 원격 저장소가 없어요. 먼저 원격 저장소를 등록해주세요.");
+        return;
+      }
+      const selected = remotes.length === 1
+        ? remotes[0]
+        : (await vscode.window.showQuickPick(remotes.map((remote) => ({ label: remote.name, description: remote.pushUrl ?? remote.fetchUrl, remote })), { placeHolder: "첫 Push를 보낼 원격 저장소를 선택하세요." }))?.remote;
+      if (!selected || !state.branch) return;
+      const ok = await confirmMutation({
+        action: "첫 Push",
+        target: `${selected.name}/${state.branch}`,
+        effect: "현재 로컬 브랜치를 원격에도 만들고 서로 연결합니다. 이후에는 Push/Pull 대상이 자동으로 정해집니다.",
+        confirmLabel: "원격에도 만들기",
+      });
+      if (!ok) return;
+      const result = await workflows.runWithGitStateDelta(cwd, () => actions.pushWithUpstream(cwd, selected.name, state.branch));
+      await vscode.window.showInformationMessage(result.message);
+      return;
+    }
+
+    const action = tracking.kind === "ahead" ? "push" : tracking.kind === "behind" ? "pull" : null;
+    if (!action) {
+      await vscode.window.showInformationMessage("현재 상태에서는 자동 동기화할 작업이 없습니다.");
+      return;
+    }
+
+    const preflight = action === "push"
+      ? await safety.preflightPushSafety(cwd)
+      : await safety.preflightPullSafety(cwd);
+    if (preflight.level === "blocked") {
+      await vscode.window.showWarningMessage(preflight.message ?? "안전 검사를 통과하지 못해 동기화를 중단했습니다.", { modal: true });
+      return;
+    }
+
+    const count = action === "push" ? tracking.ahead : tracking.behind;
+    const ok = await confirmMutation({
+      action: action === "push" ? "동기화 · Push" : "동기화 · Pull",
+      target: state.upstream ?? state.branch ?? "현재 브랜치",
+      effect: action === "push"
+        ? `로컬에만 있는 Commit ${count}개를 원격에 보냅니다.`
+        : `원격에만 있는 Commit ${count}개를 현재 로컬 브랜치로 받아옵니다.`,
+      confirmLabel: action === "push" ? "Push" : "Pull",
+    });
+    if (!ok) return;
+
+    const result = await workflows.runWithGitStateDelta(
+      cwd,
+      () => action === "push" ? actions.pushRepository(cwd) : actions.pullRepository(cwd),
+    );
+    await vscode.window.showInformationMessage(result.message);
+  };
+
+  const refreshRemoteBranches = async (cwd) => {
+    const remotes = await workflows.listRemotes(cwd);
+    if (!remotes.length) {
+      await vscode.window.showWarningMessage("연결된 원격 저장소가 없어요.");
+      return;
+    }
+    const remote = remotes.length === 1
+      ? remotes[0]
+      : (await vscode.window.showQuickPick(remotes.map((item) => ({ label: item.name, description: item.fetchUrl, item })), { placeHolder: "새로고침할 원격 저장소를 선택하세요." }))?.item;
+    if (!remote) return;
+    const result = await actions.fetchPruneRemote(cwd, remote.name);
+    await vscode.window.showInformationMessage(result.message);
   };
 
   panel.webview.onDidReceiveMessage(async (message) => {
     const cwd = getCwd();
     if (!cwd) return;
     const state = await getState(cwd);
-    if (message?.type === "remote-settings") {
-      await getMenus().remoteMenu(panel, "graph", {});
+    if (message?.type === "sync") {
+      await syncCurrentBranch(cwd, state, message.branch, message.kind);
       return refresh();
     }
-    if (message?.type === "cleanup") {
-      const review = await actions.getBranchCleanupCandidates(cwd);
-      if (!review.ok) return vscode.window.showWarningMessage(review.message);
-      if (!review.candidates.length) return vscode.window.showInformationMessage("검토할 브랜치 정리 후보가 없습니다.");
-      const candidate = await vscode.window.showQuickPick(review.candidates.map((item) => ({
-        label: item.name,
-        description: `${item.safe ? "안전 후보" : "확인 필요"} · ${item.reasons.join(" · ")}`,
-        item,
-      })), { placeHolder: "브랜치 정리 후보를 검토하세요." });
-      if (!candidate) return;
-      const info = await actions.getBranchDeleteInfo(cwd, candidate.item.name);
-      const ok = await confirmMutation({
-        action: "브랜치 정리",
-        target: candidate.item.name,
-        effect: "선택한 로컬 브랜치를 삭제합니다.",
-        risk: info.merged
-          ? candidate.item.reasons.join(" · ")
-          : `${candidate.item.reasons.join(" · ")} · 병합되지 않은 커밋 ${info.uniqueCommitCount ?? "알 수 없음"}개가 남아 있을 수 있습니다.`,
-        level: "warning",
-        confirmLabel: info.merged ? "삭제" : "강제 삭제",
-      });
-      if (!ok) return;
-      await actions.deleteBranch(cwd, candidate.item.name, !info.merged);
+    if (message?.type === "refresh-remote") {
+      await refreshRemoteBranches(cwd);
       return refresh();
     }
     if (message?.type === "create") {
@@ -330,26 +455,14 @@ async function openBranchWorkspace(context) {
         return check.ok ? null : check.message;
       });
       if (!name) return;
-      const ok = await confirmMutation({ action: "브랜치 만들기", target: name, effect: "현재 HEAD에서 새 로컬 브랜치를 만듭니다.", confirmLabel: "브랜치 만들기" });
+      const ok = await confirmMutation({ action: "브랜치 만들기", target: name, effect: "현재 로컬에 새로운 브랜치를 생성합니다. (원격에는 생성되지 않아요)\nPush할 때 원격에도 브랜치가 생성됩니다.", confirmLabel: "브랜치 만들기" });
       if (!ok) return;
-      await actions.createBranch(cwd, name, "HEAD");
+      const result = await runBranchMutation(() => actions.createBranch(cwd, name, "HEAD"));
+      if (result?.skipped) return;
+      void (result.ok ? vscode.window.showInformationMessage(result.message) : vscode.window.showWarningMessage(result.message));
       return refresh();
     }
     if (!message.branch) return;
-    if (message?.type === "compare") {
-      const current = state.branch;
-      if (!current) return;
-      const comparison = await workflows.compareBranches(cwd, current, message.branch);
-      const files = comparison.files.map((f) => `- \`${f.status}\` ${f.path}`).join("\n") || "- 없음";
-      await openMarkdown(`브랜치 비교 · ${current} ↔ ${message.branch}`, [
-        `**${current}에만 있는 커밋:** ${comparison.baseCount}개`,
-        `**${message.branch}에만 있는 커밋:** ${comparison.otherCount}개`,
-        "",
-        "## 변경 파일",
-        files,
-      ].join("\n"));
-      return;
-    }
     if (message?.type === "merge") {
       if (!state.branch || message.branch === state.branch) {
         vscode.window.showInformationMessage("현재 브랜치는 자기 자신과 Merge할 수 없습니다.");
@@ -380,8 +493,9 @@ async function openBranchWorkspace(context) {
         confirmLabel: "Merge 실행",
       });
       if (!ok) return;
-      const result = await workflows.runWithGitStateDelta(cwd, () => workflows.mergeIntoCurrent(cwd, message.branch));
-      vscode.window.showInformationMessage(result.message);
+      const result = await runBranchMutation(() => workflows.runWithGitStateDelta(cwd, () => workflows.mergeIntoCurrent(cwd, message.branch)));
+      if (result?.skipped) return;
+      void (result.ok ? vscode.window.showInformationMessage(result.message) : vscode.window.showWarningMessage(result.message));
       return refresh();
     }
     if (message?.type === "track" && message.kind === "remote") {
@@ -394,24 +508,38 @@ async function openBranchWorkspace(context) {
         vscode.window.showInformationMessage("이미 현재 브랜치입니다.");
         return;
       }
-      const guard = await guardWorkingState(cwd, "switch-branch");
-      if (!guard.ok) {
-        if (guard.code === "operation-in-progress") {
-          await getMenus().conflictHelper(panel, "graph", {});
-        } else {
-          vscode.window.showWarningMessage(guard.message);
-        }
+
+      const operation = await safety.getInProgressOperation(cwd);
+      if (operation) {
+        void vscode.window.showWarningMessage(`현재 ${operation.operation} 작업이 진행 중이에요. 먼저 그 작업을 끝낸 뒤 브랜치를 이동해주세요.`);
         return;
       }
-      if (message.kind === "remote") {
-        const created = await createTrackingBranchFromRemote(cwd, message.branch);
-        if (!created) return;
-      } else {
-        const ok = await confirmMutation({ action: "브랜치 전환", target: message.branch, effect: "작업 위치를 선택한 브랜치로 변경합니다.", confirmLabel: "전환" });
-        if (!ok) return;
+
+      const changes = await safety.getWorkingTreeChanges(cwd);
+      const ok = await confirmMutation({
+        action: "브랜치 전환",
+        target: message.branch,
+        effect: "작업 위치를 선택한 브랜치로 변경합니다.",
+        risk: changes.length
+          ? `커밋하지 않은 변경 ${changes.length}개도 함께 이동합니다. 대상 브랜치의 파일과 겹쳐 덮어쓸 위험이 있으면 Git이 자동으로 이동을 중단합니다.`
+          : "",
+        confirmLabel: "전환",
+      });
+      if (!ok) return;
+
+      const switched = await runBranchMutation(async () => {
         const result = await workflows.runWithGitStateDelta(cwd, () => actions.checkoutBranch(cwd, message.branch));
-        vscode.window.showInformationMessage(result.message);
-      }
+        const after = await getState(cwd);
+        if (!result.ok || after.branch !== message.branch) {
+          const detail = result.detail ? `\n${result.detail}` : "";
+          void vscode.window.showWarningMessage(`${result.message}${detail}`);
+          return false;
+        }
+        void vscode.window.showInformationMessage(`'${message.branch}' 브랜치로 이동했어요. 커밋하지 않은 변경도 그대로 유지됩니다.`);
+        return true;
+      });
+
+      if (switched?.skipped) return;
       return refresh();
     }
     if (message?.type === "rename") {
@@ -419,7 +547,9 @@ async function openBranchWorkspace(context) {
       if (!next || next === message.branch) return;
       const ok = await confirmMutation({ action: "브랜치 이름 변경", target: `${message.branch} → ${next}`, effect: "로컬 브랜치 이름을 변경합니다.", confirmLabel: "이름 변경" });
       if (!ok) return;
-      await actions.renameBranch(cwd, message.branch, next);
+      const result = await runBranchMutation(() => actions.renameBranch(cwd, message.branch, next));
+      if (result?.skipped) return;
+      void (result.ok ? vscode.window.showInformationMessage(result.message) : vscode.window.showWarningMessage(result.message));
       return refresh();
     }
     if (message?.type === "delete") {
@@ -431,7 +561,7 @@ async function openBranchWorkspace(context) {
         vscode.workspace.getConfiguration("gitNext").get("protectedBranches", ["main", "master", "release/*"]),
       );
       const baseRisk = info.merged
-        ? "현재 HEAD에 병합된 브랜치입니다."
+        ? "현재 브랜치에 이미 합쳐진 브랜치입니다."
         : `병합되지 않은 커밋 ${info.uniqueCommitCount ?? "알 수 없음"}개가 남아 있을 수 있습니다.`;
       const ok = await confirmMutation({
         action: protectedGuard.protected ? "보호 브랜치 삭제" : "브랜치 삭제",
@@ -444,7 +574,9 @@ async function openBranchWorkspace(context) {
           : (info.merged ? "삭제" : "강제 삭제"),
       });
       if (!ok) return;
-      await actions.deleteBranch(cwd, message.branch, !info.merged);
+      const result = await runBranchMutation(() => actions.deleteBranch(cwd, message.branch, !info.merged));
+      if (result?.skipped) return;
+      void (result.ok ? vscode.window.showInformationMessage(result.message) : vscode.window.showWarningMessage(result.message));
       return refresh();
     }
   });

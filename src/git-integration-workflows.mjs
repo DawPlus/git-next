@@ -46,7 +46,7 @@ export async function getIntegrationPreview(cwd, target) {
 export async function getDivergedIntegrationPreview(cwd) {
   const upstream = await runGit(cwd, ["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"]);
   if (!upstream.ok) {
-    return { ok: false, message: "현재 브랜치의 Upstream을 확인할 수 없습니다." };
+    return { ok: false, message: "현재 브랜치에 연결된 원격 브랜치를 확인할 수 없습니다." };
   }
   return getIntegrationPreview(cwd, upstream.detail);
 }

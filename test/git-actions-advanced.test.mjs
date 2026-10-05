@@ -62,6 +62,17 @@ test("creates, switches, renames, and deletes local branches", async () => {
   assert.equal((await deleteBranch(repo, "feature/renamed")).ok, true);
 });
 
+test("switch keeps non-conflicting uncommitted changes", async () => {
+  const repo = makeRepo();
+  assert.equal((await createBranch(repo, "feature/dirty", "HEAD")).ok, true);
+  writeFileSync(join(repo, "base.txt"), "base\nlocal change\n");
+
+  const result = await checkoutBranch(repo, "feature/dirty");
+  assert.equal(result.ok, true);
+  assert.equal(git(repo, ["branch", "--show-current"]), "feature/dirty");
+  assert.match(git(repo, ["status", "--short"]), /base\.txt/);
+});
+
 test("reviews merged, gone-upstream, and stale branches without marking uncertain branches safe", async () => {
   const repo = makeRepo();
   git(repo, ["branch", "merged"]);

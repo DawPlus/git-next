@@ -50,13 +50,13 @@ export function evaluatePracticeStep(step, state = {}) {
   }
   if (check === "has-upstream") {
     return state.upstream
-      ? pass(`Upstream이 ${state.upstream}로 연결되어 있습니다.`)
-      : fail("아직 Upstream이 연결되지 않았습니다.");
+      ? pass(`현재 브랜치가 원격 브랜치 ${state.upstream}와 연결되어 있습니다.`)
+      : fail("현재 브랜치에 연결된 원격 브랜치가 아직 없습니다.");
   }
   if (check === "branch-attached") {
     return state.branch
       ? pass(`현재 ${state.branch} 브랜치에 연결되어 있습니다.`)
-      : fail("아직 Detached HEAD 상태입니다.");
+      : fail("현재 브랜치에 들어가 있지 않은 커밋을 보고 있습니다.");
   }
   return fail("지원하지 않는 상태 확인 단계입니다.");
 }

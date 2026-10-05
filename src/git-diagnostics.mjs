@@ -2,27 +2,78 @@ export function recommendNextAction({ tracking, changes = [], operation = null }
   if (operation) {
     return {
       kind: "operation",
-      title: `${operation.operation} 작업을 먼저 끝내세요`,
-      detail: "계속하거나 취소하기 전에는 다른 Git 작업을 이어가지 않는 게 안전합니다.",
+      title: `${operation.operation} 작업을 먼저 끝내주세요.`,
+      detail: "Continue 또는 Abort로 현재 작업을 정리한 뒤 다음 Git 작업을 진행하세요.",
     };
   }
+
+  if (tracking?.kind === "diverged") {
+    return {
+      kind: "diverged",
+      title: "로컬과 원격이 갈라졌어요. Push 전에 정리가 필요해요.",
+      detail: "Merge 또는 Rebase로 기록을 먼저 합쳐주세요.",
+    };
+  }
+
+  if (tracking?.kind === "behind") {
+    return {
+      kind: "pull",
+      title: changes.length
+        ? "Commit 전에 Pull을 먼저 진행해주세요."
+        : "원격에 새 Commit이 있어요. Pull을 먼저 진행해주세요.",
+      detail: `원격이 ${tracking.behind}커밋 앞서 있습니다.`,
+    };
+  }
+
+  if (tracking?.kind === "ahead") {
+    return changes.length
+      ? {
+          kind: "push-dirty",
+          title: "Push하지 않은 Commit이 있어요. 새 변경도 확인해주세요.",
+          detail: `Push 대기 ${tracking.ahead}개 · 현재 변경 ${changes.length}개`,
+        }
+      : {
+          kind: "push",
+          title: `Commit 완료! 아직 Push하지 않은 Commit이 ${tracking.ahead}개 있어요.`,
+          detail: "Push해도 됩니다.",
+        };
+  }
+
+  if (tracking?.kind === "no-upstream") {
+    return changes.length
+      ? {
+          kind: "dirty",
+          title: "변경 내용을 Commit해주세요.",
+          detail: "첫 Push에서 Remote 브랜치를 연결할 수 있어요.",
+        }
+      : {
+          kind: "first-push",
+          title: "아직 Remote에 연결되지 않았어요. 첫 Push가 필요해요.",
+          detail: "Push하면 Remote와 현재 브랜치를 연결할 수 있어요.",
+        };
+  }
+
+  if (tracking?.kind === "unknown") {
+    return {
+      kind: "unknown",
+      title: "원격 상태를 확인할 수 없어요.",
+      detail: "Remote 연결을 확인하고 새로고침해주세요.",
+    };
+  }
+
   if (changes.length) {
     return {
       kind: "dirty",
-      title: "로컬 변경을 먼저 Commit 또는 Stash하세요",
-      detail: "",
+      title: "변경 내용을 확인하고 Commit해주세요.",
+      detail: "아직 Commit하지 않은 변경이 있습니다.",
     };
   }
-  if (tracking?.kind === "behind") {
-    return { kind: "pull", title: "원격 변경을 먼저 Pull하세요", detail: `원격이 ${tracking.behind}커밋 앞서 있습니다.` };
-  }
-  if (tracking?.kind === "diverged") {
-    return { kind: "diverged", title: "브랜치 차이를 먼저 확인하세요", detail: "로컬과 원격 양쪽에 서로 다른 커밋이 있습니다." };
-  }
-  if (tracking?.kind === "ahead") {
-    return { kind: "push", title: "Push할 변경이 있습니다", detail: `로컬이 ${tracking.ahead}커밋 앞서 있습니다.` };
-  }
-  return { kind: "clean", title: "현재 특별히 필요한 Git 작업이 없습니다", detail: "로컬과 원격 상태가 정리되어 있습니다." };
+
+  return {
+    kind: "clean",
+    title: "로컬과 원격이 최신 상태예요.",
+    detail: "지금은 추가로 필요한 Git 작업이 없습니다.",
+  };
 }
 
 export function getGitDoctorFindings({ head, tracking, upstreamState = null, changes = [], operation = null, remoteRewrite = null } = {}) {
@@ -41,9 +92,9 @@ export function getGitDoctorFindings({ head, tracking, upstreamState = null, cha
   if (head?.detached) {
     add({
       id: "detached-head",
-      state: "Detached HEAD",
-      risk: "새 커밋이 브랜치에 연결되지 않을 수 있습니다.",
-      recommendation: "작업을 유지하려면 브랜치를 만들고, 아니면 기존 브랜치로 돌아가세요.",
+      state: "현재 브랜치에 들어가 있지 않은 커밋을 보고 있음",
+      risk: "여기서 만든 새 Commit은 나중에 찾기 어려워질 수 있습니다.",
+      recommendation: "작업을 유지하려면 새 브랜치를 만들고, 아니라면 기존 브랜치로 돌아가세요.",
       action: "branch",
       guideKey: "detached-head",
     });
@@ -52,9 +103,9 @@ export function getGitDoctorFindings({ head, tracking, upstreamState = null, cha
   const trackingFindings = {
     "no-upstream": {
       id: "no-upstream",
-      state: "Upstream 없음",
-      risk: "Pull 또는 Push의 대상 브랜치를 확인할 수 없습니다.",
-      recommendation: "Remote와 추적 브랜치를 확인하세요.",
+      state: "연결된 원격 브랜치가 없음",
+      risk: "Pull하거나 Push할 원격 브랜치를 정할 수 없습니다.",
+      recommendation: "첫 Push에서 현재 브랜치를 원격 브랜치와 연결해주세요.",
       action: "remote",
       guideKey: "no-upstream",
     },
@@ -62,7 +113,7 @@ export function getGitDoctorFindings({ head, tracking, upstreamState = null, cha
       id: "tracking-unknown",
       state: "원격 추적 상태 확인 불가",
       risk: "로컬과 원격 중 어느 쪽이 앞섰는지 알 수 없습니다.",
-      recommendation: "Remote 연결을 확인한 뒤 새로고침하세요.",
+      recommendation: "원격 저장소 연결을 확인한 뒤 새로고침해주세요.",
       action: "refresh",
     },
     diverged: {
@@ -91,30 +142,30 @@ export function getGitDoctorFindings({ head, tracking, upstreamState = null, cha
   const upstreamFindings = {
     "remote-branch-missing": {
       id: "upstream-gone",
-      state: `Remote 브랜치를 찾을 수 없음 · ${upstreamState?.upstream ?? "현재 브랜치"}`,
-      risk: "Remote 브랜치가 삭제됐을 수 있습니다. 로컬 브랜치는 아직 남아 있습니다.",
-      recommendation: "Branch 정리 후보를 검토하세요. 로컬 브랜치는 자동 삭제하지 않았습니다.",
+      state: `연결된 원격 브랜치를 찾을 수 없음 · ${upstreamState?.upstream ?? "현재 브랜치"}`,
+      risk: "원격 브랜치가 삭제됐을 수 있습니다. 내 로컬 브랜치는 아직 남아 있습니다.",
+      recommendation: "브랜치 정리 후보를 확인해주세요. 로컬 브랜치는 자동으로 삭제하지 않습니다.",
       action: "branch",
     },
     "tracking-ref-missing": {
       id: "tracking-ref-missing",
-      state: `로컬 Remote 추적 정보가 없음 · ${upstreamState?.upstream ?? "현재 브랜치"}`,
-      risk: "Remote 브랜치가 남아 있어도 로컬 추적 정보가 오래됐을 수 있습니다.",
-      recommendation: "Remote 관리에서 Fetch 및 정리를 실행하세요.",
+      state: `원격 브랜치 연결 정보가 오래되었거나 없음 · ${upstreamState?.upstream ?? "현재 브랜치"}`,
+      risk: "원격 브랜치가 남아 있어도 내 컴퓨터의 정보가 오래됐을 수 있습니다.",
+      recommendation: "원격 저장소 관리에서 Fetch를 실행해 최신 상태를 다시 확인해주세요.",
       action: "fetch",
     },
     "remote-missing": {
       id: "upstream-remote-missing",
-      state: `Upstream Remote '${upstreamState?.remote ?? "-"}'을 찾을 수 없음`,
-      risk: "연결된 Remote 설정이 제거됐을 수 있습니다.",
-      recommendation: "Remote 설정을 확인하거나 다시 추가하세요.",
+      state: `연결해 둔 원격 저장소 '${upstreamState?.remote ?? "-"}'을 찾을 수 없음`,
+      risk: "원격 저장소 설정이 삭제되었거나 이름이 바뀌었을 수 있습니다.",
+      recommendation: "원격 저장소 설정을 확인하거나 다시 추가해주세요.",
       action: "remote",
     },
     unknown: {
       id: "upstream-unverified",
-      state: `Upstream 상태 확인 불가 · ${upstreamState?.upstream ?? "현재 브랜치"}`,
-      risk: "Remote에 연결하지 못해 브랜치 존재 여부를 확인할 수 없습니다.",
-      recommendation: "Remote 연결을 확인한 뒤 Fetch 및 정리를 실행하세요.",
+      state: `연결된 원격 브랜치 상태를 확인할 수 없음 · ${upstreamState?.upstream ?? "현재 브랜치"}`,
+      risk: "원격 저장소에 연결하지 못해 브랜치가 남아 있는지 확인할 수 없습니다.",
+      recommendation: "원격 저장소 연결을 확인한 뒤 Fetch를 다시 실행해주세요.",
       action: "remote",
     },
   };
@@ -159,12 +210,12 @@ export function getGitDoctorFindings({ head, tracking, upstreamState = null, cha
 export function getRetryCheck(activity = {}) {
   const code = String(activity.code ?? "");
   if (/dirty-working-tree|dirty-incoming-overlap/.test(code)) return "로컬 변경을 Commit 또는 Stash했는지 확인하세요.";
-  if (/no-upstream/.test(code)) return "Push할 Remote와 Upstream이 연결되어 있는지 확인하세요.";
+  if (/no-upstream/.test(code)) return "현재 브랜치가 Push할 원격 브랜치와 연결되어 있는지 확인해주세요.";
   if (/diverged|behind|non-fast-forward/.test(code)) return "Remote에서 새로 온 커밋과 로컬 커밋을 비교하세요.";
   if (/(?:merge|rebase|cherry-pick|revert|operation)-in-progress/.test(code)) return "진행 중인 Merge/Rebase 작업을 계속하거나 취소하세요.";
   const checks = {
     pull: "작업 폴더와 진행 중 Git 작업을 확인한 뒤 Pull하세요.",
-    push: "Upstream과 로컬/원격 커밋 차이를 확인한 뒤 Push하세요.",
+    push: "현재 브랜치와 연결된 원격 브랜치의 차이를 확인한 뒤 Push해주세요.",
     commit: "Staged 파일과 Commit 메시지를 다시 확인하세요.",
     "stash-push": "보관할 변경 파일과 Stash 메모를 다시 확인하세요.",
   };
@@ -195,18 +246,18 @@ export function getUndoRecommendation(activity) {
     },
     pull: {
       id: "reflog",
-      label: "Reflog에서 이전 위치 보존",
-      reason: "Pull 전 커밋 위치를 새 브랜치로 보존하면 현재 기록을 덮지 않습니다.",
+      label: "Pull 전 위치에서 복구 브랜치 만들기",
+      reason: "Pull 전 Commit 위치를 새 브랜치로 보존해두면 필요할 때 돌아갈 수 있습니다.",
     },
     "switch-branch": {
       id: "reflog",
-      label: "Reflog에서 이전 위치 보존",
-      reason: "전환 전 HEAD를 새 브랜치로 보존하면 커밋을 잃지 않습니다.",
+      label: "브랜치 이동 전 위치에서 복구 브랜치 만들기",
+      reason: "이동 전 Commit 위치를 새 브랜치로 보존하면 나중에 다시 찾을 수 있습니다.",
     },
     "delete-branch": {
       id: "reflog",
-      label: "Reflog에서 삭제 브랜치 복구",
-      reason: "삭제된 브랜치의 마지막 커밋 위치를 찾아 새 브랜치로 보존합니다.",
+      label: "삭제한 브랜치 복구하기",
+      reason: "삭제된 브랜치의 마지막 Commit 위치를 찾아 새 브랜치로 다시 보존합니다.",
     },
   };
   return recommendations[activity.action] ?? null;

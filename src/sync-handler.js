@@ -105,9 +105,9 @@ async function offerForceWithLease(host, mode, options, cwd, reason) {
   }
   const protectedGuard = await getProtectedBranchWarning(cwd, "force-push");
   const confirm = await vscode.window.showWarningMessage(
-    `${reason}\n\nForce-with-lease 대상: ${preview.remote}/${preview.branch}\n현재 원격 기준점: ${preview.expected.slice(0, 12)}\n이 커밋이 실행 시점에도 같을 때만 로컬 기록으로 원격을 덮어씁니다. 그 사이 원격 기준점이 바뀌면 Git이 Push를 취소합니다.${protectedGuard.protected ? `\n\n${protectedGuard.message}` : ""}`,
+    `${reason}\n\n안전한 강제 Push 대상: ${preview.remote}/${preview.branch}\n확인한 원격 최신 Commit: ${preview.expected.slice(0, 12)}\n실행 직전까지 이 Commit이 그대로일 때만 원격 기록을 로컬 기록으로 바꿉니다. 그 사이 누군가 원격을 변경하면 Git이 자동으로 Push를 취소합니다.${protectedGuard.protected ? `\n\n${protectedGuard.message}` : ""}`,
     { modal: true },
-    protectedGuard.protected ? "보호 브랜치 Force-with-lease 실행" : "Force-with-lease 실행",
+    protectedGuard.protected ? "보호 브랜치 안전한 강제 Push" : "안전한 강제 Push",
   );
   if (!confirm) return;
   const actions = await import("./git-actions.mjs");

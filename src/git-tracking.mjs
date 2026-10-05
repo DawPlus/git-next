@@ -37,9 +37,9 @@ export function getPushGuidance(status) {
   if (status.kind === "no-upstream") {
     return result(
       false,
-      "현재 브랜치에 Upstream이 없습니다.",
-      "Push 대상을 확실히 판단할 수 없습니다.",
-      "먼저 Remote와 Upstream을 연결한 뒤 다시 Push하세요.",
+      "현재 브랜치에 연결된 원격 브랜치가 없습니다.",
+      "어느 원격 브랜치로 Push할지 정할 수 없습니다.",
+      "첫 Push에서 현재 브랜치를 원격 브랜치와 연결해주세요.",
     );
   }
 

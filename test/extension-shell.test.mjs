@@ -156,12 +156,33 @@ test("relaxes only the session-scoped overlap check and protects history rewrite
   assert.match(source, /모든 규칙 기본값으로 복원/);
 });
 
+test("serializes branch mutations and explains dirty branch switching", () => {
+  const source = runtimeSource;
+  assert.match(source, /let branchMutationRunning = false/);
+  assert.match(source, /다른 브랜치 작업을 처리 중이에요/);
+  assert.match(source, /커밋하지 않은 변경 .*개도 함께 이동합니다/);
+  assert.match(source, /Git이 자동으로 이동을 중단합니다/);
+  assert.match(source, /after\.branch !== message\.branch/);
+  assert.match(source, /runBranchMutation\(\(\) => actions\.createBranch/);
+  assert.match(source, /runBranchMutation\(\(\) => actions\.renameBranch/);
+  assert.match(source, /runBranchMutation\(\(\) => actions\.deleteBranch/);
+  assert.match(source, /runBranchMutation\(\(\) => workflows\.runWithGitStateDelta\(cwd, \(\) => workflows\.mergeIntoCurrent/);
+  assert.match(source, /void vscode\.window\.showInformationMessage\(`\'\$\{message\.branch\}\' 브랜치로 이동했어요/);
+});
+
+test("branch workspace refreshes when VS Code Git branch state changes", () => {
+  const source = runtimeSource;
+  assert.match(source, /repository\.state\.onDidChange/);
+  assert.match(source, /branchRefreshTimer = setTimeout/);
+  assert.match(source, /gitStateDisposable\?\.dispose/);
+});
+
 test("offers Force-with-lease only after a rejected or blocked regular Push", () => {
   const source = runtimeSource;
   assert.match(source, /async function offerForceWithLease\(/);
   assert.match(source, /getForceWithLeasePreview\(cwd\)/);
-  assert.match(source, /현재 원격 기준점: \$\{preview\.expected\.slice\(0, 12\)\}/);
-  assert.match(source, /원격 기준점이 바뀌면 Git이 Push를 취소합니다/);
+  assert.match(source, /확인한 원격 최신 Commit: \$\{preview\.expected\.slice\(0, 12\)\}/);
+  assert.match(source, /누군가 원격을 변경하면 Git이 자동으로 Push를 취소합니다/);
   assert.match(source, /actions\.pushWithForceWithLease\(cwd, preview\.remote, preview\.remoteRef, preview\.expected\)/);
   assert.match(source, /preflight\.code === "diverged"/);
   assert.match(source, /offerDivergedResolution/);

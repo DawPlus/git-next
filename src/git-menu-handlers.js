@@ -34,13 +34,13 @@ async function tagMenu(host, mode, options) {
   const tags = state.refs.filter((ref) => ref.kind === "tag");
 
   const action = await vscode.window.showQuickPick([
-    { label: "태그 만들기", id: "create", description: "현재 HEAD에 가벼운 태그를 붙입니다." },
+    { label: "태그 만들기", id: "create", description: "현재 커밋에 로컬 태그를 붙입니다. 원격에는 아직 생성되지 않습니다." },
     { label: "태그 삭제", id: "delete", description: "로컬 태그만 삭제합니다. 원격 태그는 건드리지 않습니다." },
   ], { placeHolder: "태그 작업을 선택하세요." });
   if (!action) return;
 
   if (action.id === "create") {
-    const name = await askName("현재 HEAD에 붙일 태그 이름을 입력하세요.", async (value) => {
+    const name = await askName("현재 커밋에 붙일 태그 이름을 입력하세요.", async (value) => {
       const result = await actions.validateTagName(cwd, value);
       if (!result.ok) return result.message;
       if (tags.some((ref) => ref.name === value.trim())) return "이미 존재하는 태그입니다.";
@@ -50,8 +50,8 @@ async function tagMenu(host, mode, options) {
     if (!await confirmMutation({
       action: "태그 만들기",
       target: name,
-      effect: "현재 HEAD에 로컬 태그를 추가합니다.",
-      risk: "Remote 태그는 아직 바뀌지 않습니다.",
+      effect: "현재 커밋에 로컬 태그를 추가합니다. 원격에는 생성되지 않습니다.",
+      risk: "원격에도 같은 태그를 올리려면 별도의 Push가 필요합니다.",
       confirmLabel: "태그 만들기",
     })) return;
     await showResult(host, mode, options, await actions.createTag(cwd, name, "HEAD"));
@@ -89,7 +89,7 @@ async function commitMenu(host, mode, options, commit) {
   if (selected.id === "containment") {
     const workflows = await import("./git-workflows.mjs");
     const refs = [
-      { label: `현재 브랜치 (${state.branch ?? "Detached HEAD"})`, ref: "HEAD" },
+      { label: `현재 위치 (${state.branch ?? "브랜치 없음 · 특정 커밋"})`, ref: "HEAD" },
       ...state.refs.map((ref) => ({ label: ref.name, description: ref.kind, ref: ref.fullName })),
     ];
     const target = await vscode.window.showQuickPick(refs, { placeHolder: "포함 여부를 확인할 브랜치 또는 ref 선택" });
@@ -273,7 +273,7 @@ async function undoMenu(host, mode, options, preferredId = null, recoveryPoint =
   if (choice.id === "commit") {
     const context = await workflows.getUndoContext(cwd);
     if (context.headIsInUpstream) {
-      vscode.window.showWarningMessage("마지막 커밋이 이미 원격 기록에 포함된 것 같습니다. Reset 대신 Revert를 사용하세요.");
+      vscode.window.showWarningMessage("마지막 Commit이 이미 원격에 올라가 있어 바로 취소하면 기록이 꼬일 수 있어요. 기존 기록은 남기고 반대 변경을 추가하는 ‘되돌리기(Revert)’를 사용해주세요.");
       return;
     }
     const confirm = await vscode.window.showWarningMessage(
@@ -340,9 +340,9 @@ async function undoMenu(host, mode, options, preferredId = null, recoveryPoint =
 
   if (choice.id === "pushed") {
     const confirm = await vscode.window.showWarningMessage(
-      "현재 HEAD를 지우지 않고 반대 변경의 Revert 커밋을 새로 만듭니다.",
+      "이미 원격에 공유한 Commit은 삭제하지 않고, 내용을 되돌리는 새 Commit을 추가합니다.",
       { modal: true },
-      "HEAD Revert",
+      "되돌리기 실행",
     );
     if (!confirm) return;
     await showStatefulResult(host, mode, options, cwd, () => actions.revertCommit(cwd, "HEAD"));
@@ -613,7 +613,7 @@ async function detachedHeadGuide(host, mode, options) {
   const choice = await vscode.window.showQuickPick([
     { label: "현재 커밋을 브랜치로 보존", id: "keep", description: `${head.slice(0, 7)}에서 새 로컬 브랜치를 만듭니다.` },
     { label: "기존 브랜치로 돌아가기", id: "return", description: "현재 커밋을 보존하지 않고 선택한 브랜치로 이동합니다." },
-  ], { placeHolder: "Detached HEAD에서 작업을 이어갈 방법을 선택하세요." });
+  ], { placeHolder: "현재 브랜치에 들어가 있지 않은 커밋입니다. 작업을 어떻게 이어갈까요?" });
   if (!choice) return;
 
   if (choice.id === "keep") {
@@ -625,7 +625,7 @@ async function detachedHeadGuide(host, mode, options) {
     });
     if (!name) return;
     if (!await confirmMutation({
-      action: "Detached HEAD 커밋 보존",
+      action: "현재 커밋을 브랜치로 보존",
       target: name,
       effect: `현재 커밋 ${head.slice(0, 7)}에서 로컬 브랜치를 만듭니다.`,
       confirmLabel: "커밋 보존",
@@ -655,7 +655,7 @@ async function detachedHeadGuide(host, mode, options) {
   if (!await confirmMutation({
     action: "기존 브랜치로 돌아가기",
     target: selected.ref.name,
-    effect: `Detached HEAD에서 ${selected.ref.name}로 전환합니다.`,
+    effect: `현재 보고 있는 커밋을 떠나 ${selected.ref.name} 브랜치로 이동합니다.`,
     risk,
     confirmLabel: "브랜치로 돌아가기",
   })) return;

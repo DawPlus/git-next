@@ -30,7 +30,7 @@ export async function compareBranches(cwd, base, other) {
 
 export async function getForceWithLeasePreview(cwd) {
   const branch = await runGit(cwd, ["symbolic-ref", "--quiet", "--short", "HEAD"]);
-  if (!branch.ok) return { ok: false, code: "detached-head", message: "브랜치에 연결된 HEAD에서만 제안할 수 있습니다." };
+  if (!branch.ok) return { ok: false, code: "detached-head", message: "현재 브랜치에 들어가 있지 않은 커밋에서는 이 Push 방법을 사용할 수 없습니다. 먼저 브랜치를 선택하거나 새로 만들어주세요." };
   const [remoteResult, mergeResult] = await Promise.all([
     runGit(cwd, ["config", "--get", `branch.${branch.detail}.remote`]),
     runGit(cwd, ["config", "--get", `branch.${branch.detail}.merge`]),
@@ -38,12 +38,12 @@ export async function getForceWithLeasePreview(cwd) {
   const remote = remoteResult.detail;
   const remoteRef = mergeResult.detail;
   if (!remoteResult.ok || !mergeResult.ok || !remote || !/^refs\/heads\//.test(remoteRef)) {
-    return { ok: false, code: "no-upstream", message: "Force-with-lease를 확인하려면 유효한 Upstream이 필요합니다." };
+    return { ok: false, code: "no-upstream", message: "안전하게 원격 기록을 덮어쓰려면 현재 브랜치가 원격 브랜치와 연결되어 있어야 합니다." };
   }
   const tip = await runGit(cwd, ["ls-remote", "--heads", remote, remoteRef]);
   const [expected = "", returnedRef = ""] = tip.detail.split(/\s+/);
   if (!tip.ok || !/^[0-9a-f]{40,64}$/i.test(expected) || returnedRef !== remoteRef) {
-    return { ok: false, code: "remote-tip-unavailable", message: "Remote의 현재 커밋 기준점을 확인하지 못해 Force-with-lease를 제안할 수 없습니다.", detail: tip.detail };
+    return { ok: false, code: "remote-tip-unavailable", message: "원격 브랜치의 최신 Commit을 확인하지 못해 안전한 강제 Push를 진행할 수 없습니다.", detail: tip.detail };
   }
   return { ok: true, branch: branch.detail, remote, remoteRef, expected };
 }
