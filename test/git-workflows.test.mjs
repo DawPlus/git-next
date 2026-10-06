@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
-import { mkdtemp } from "node:fs/promises";
+import { appendFile, mkdir, mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
@@ -50,7 +50,21 @@ import {
   unstageFile,
 } from "../src/git-workflows.mts";
 
-const exec = promisify(execFile);
+const execFileAsync = promisify(execFile);
+
+async function exec(command, args, options = {}) {
+  if (
+    command === "sh"
+    && args?.[0] === "-c"
+    && args?.[1] === "printf 'change\n' >> app.txt && printf 'new\n' > extra.txt"
+  ) {
+    const cwd = options.cwd;
+    await appendFile(join(cwd, "app.txt"), "change\n");
+    await writeFile(join(cwd, "extra.txt"), "new\n");
+    return { stdout: "", stderr: "" };
+  }
+  return execFileAsync(command, args, options);
+}
 
 test("impact preview separates changed, added, and deleted file counts", () => {
   const text = formatImpactPreview({ action: "push", upstream: "origin/main", summary: "커밋 1개", commits: [], files: [
@@ -99,7 +113,7 @@ test("state delta reports only changed branch, tracking, and working tree values
 test("wrapped Git action returns the actual working tree state change", async () => {
   const cwd = await repo();
   const result = await runWithGitStateDelta(cwd, async () => {
-    await exec("sh", ["-c", "printf 'changed\\n' >> app.txt"], { cwd });
+    await appendFile(join(cwd, "app.txt"), "changed\n");
     return { ok: true, message: "완료" };
   });
   assert.equal(result.message, "완료 상태 변화: 작업 폴더 깨끗함 → 변경 있음");
@@ -121,7 +135,7 @@ async function repo() {
   await git(cwd, "init", "-q", "-b", "main");
   await git(cwd, "config", "user.email", "test@example.com");
   await git(cwd, "config", "user.name", "Git Next Test");
-  await exec("sh", ["-c", "printf 'base\n' > app.txt"], { cwd });
+  await writeFile(join(cwd, "app.txt"), "base\n");
   await git(cwd, "add", ".");
   await git(cwd, "commit", "-qm", "base");
   return cwd;
@@ -284,7 +298,7 @@ test("reports whether a commit is reachable from a selected ref", async () => {
   assert.equal(result.ref, "main");
 
   await git(cwd, "switch", "-qc", "feature");
-  await exec("sh", ["-c", "printf 'feature\\n' >> app.txt"], { cwd });
+  await appendFile(join(cwd, "app.txt"), "feature\n");
   await git(cwd, "commit", "-qam", "feature change");
   const feature = await git(cwd, "rev-parse", "HEAD");
   assert.equal((await getCommitContainment(cwd, feature, "main")).contained, false);
@@ -293,7 +307,7 @@ test("reports whether a commit is reachable from a selected ref", async () => {
 test("compares branches, reads reflog, and suggests commit message", async () => {
   const cwd = await repo();
   await git(cwd, "switch", "-qc", "feature");
-  await exec("sh", ["-c", "printf 'feature\n' >> app.txt"], { cwd });
+  await appendFile(join(cwd, "app.txt"), "feature\n");
   await git(cwd, "add", ".");
   await git(cwd, "commit", "-qm", "feature work");
   await git(cwd, "switch", "-q", "main");
@@ -305,7 +319,7 @@ test("compares branches, reads reflog, and suggests commit message", async () =>
   assert.match(comparison.otherOnly[0].subject, /feature work/);
   assert.equal(comparison.files[0].path, "app.txt");
 
-  await exec("sh", ["-c", "printf 'local\n' >> app.txt"], { cwd });
+  await appendFile(join(cwd, "app.txt"), "local\n");
   const unstagedSuggestion = await getCommitSuggestion(cwd);
   assert.equal(unstagedSuggestion.subject, "");
   await git(cwd, "add", "app.txt");
@@ -364,7 +378,9 @@ test("stages and unstages all changes without touching file contents", async () 
 
 test("stages and unstages every changed file under a folder", async () => {
   const cwd = await repo();
-  await exec("sh", ["-c", "mkdir -p src/nested && printf 'one\\n' > src/a.js && printf 'two\\n' > src/nested/b.js"], { cwd });
+  await mkdir(join(cwd, "src", "nested"), { recursive: true });
+  await writeFile(join(cwd, "src", "a.js"), "one\n");
+  await writeFile(join(cwd, "src", "nested", "b.js"), "two\n");
 
   assert.equal((await stageFile(cwd, "src")).ok, true);
   assert.deepEqual((await getStagedFiles(cwd)).map(({ path }) => path), ["src/a.js", "src/nested/b.js"]);
@@ -376,7 +392,8 @@ test("stages and unstages every changed file under a folder", async () => {
 
 test("reverts a staged new file", async () => {
   const cwd = await repo();
-  await exec("sh", ["-c", "mkdir -p src && printf 'new\\n' > src/new.js"], { cwd });
+  await mkdir(join(cwd, "src"), { recursive: true });
+  await writeFile(join(cwd, "src", "new.js"), "new\n");
   await git(cwd, "add", "src/new.js");
 
   const result = await discardFile(cwd, "src/new.js", { added: true });
@@ -388,10 +405,10 @@ test("reverts a staged new file", async () => {
 test("detects and resolves a merge conflict side", async () => {
   const cwd = await repo();
   await git(cwd, "switch", "-qc", "feature");
-  await exec("sh", ["-c", "printf 'feature\n' > app.txt"], { cwd });
+  await writeFile(join(cwd, "app.txt"), "feature\n");
   await git(cwd, "commit", "-qam", "feature change");
   await git(cwd, "switch", "-q", "main");
-  await exec("sh", ["-c", "printf 'main\n' > app.txt"], { cwd });
+  await writeFile(join(cwd, "app.txt"), "main\n");
   await git(cwd, "commit", "-qam", "main change");
 
   await assert.rejects(() => git(cwd, "merge", "feature"));
@@ -451,9 +468,10 @@ test("creates a local recovery ref before risky history changes", async () => {
 
 test("previews file-level Stash overlap without claiming a certain conflict", async () => {
   const cwd = await repo();
-  await exec("sh", ["-c", "printf 'stashed change\\n' >> app.txt"], { cwd });
+  await appendFile(join(cwd, "app.txt"), "stashed change\n");
   await git(cwd, "stash", "push", "-m", "overlap case");
-  await exec("sh", ["-c", "printf 'local change\\n' >> app.txt && printf 'separate\\n' > other.txt"], { cwd });
+  await appendFile(join(cwd, "app.txt"), "local change\n");
+  await writeFile(join(cwd, "other.txt"), "separate\n");
 
   const details = await getStashDetails(cwd, "stash@{0}");
 
@@ -464,10 +482,10 @@ test("previews file-level Stash overlap without claiming a certain conflict", as
 
 test("file history returns a bounded list of matching commits and handles empty history", async () => {
   const cwd = await repo();
-  await exec("sh", ["-c", "printf 'first\n' > 'file with spaces.txt'"], { cwd });
+  await writeFile(join(cwd, "file with spaces.txt"), "first\n");
   await git(cwd, "add", "--", "file with spaces.txt");
   await git(cwd, "commit", "-qm", "add spaced file");
-  await exec("sh", ["-c", "printf 'second\n' >> 'file with spaces.txt'"], { cwd });
+  await appendFile(join(cwd, "file with spaces.txt"), "second\n");
   await git(cwd, "add", "--", "file with spaces.txt");
   await git(cwd, "commit", "-qm", "update spaced file");
   const history = await getFileHistory(cwd, "file with spaces.txt", 1);
@@ -520,7 +538,7 @@ test("force-with-lease preview names the exact current upstream tip", async () =
 test("previews and merges another branch into the current branch", async () => {
   const cwd = await repo();
   await git(cwd, "switch", "-c", "feature");
-  await exec("sh", ["-c", "printf 'feature\n' > feature.txt"], { cwd });
+  await writeFile(join(cwd, "feature.txt"), "feature\n");
   await git(cwd, "add", ".");
   await git(cwd, "commit", "-qm", "feature work");
   const featureTip = await git(cwd, "rev-parse", "HEAD");
@@ -540,12 +558,12 @@ test("previews and merges another branch into the current branch", async () => {
 test("rebases diverged local work onto the reviewed target", async () => {
   const cwd = await repo();
   await git(cwd, "switch", "-c", "remote");
-  await exec("sh", ["-c", "printf 'remote\n' > remote.txt"], { cwd });
+  await writeFile(join(cwd, "remote.txt"), "remote\n");
   await git(cwd, "add", ".");
   await git(cwd, "commit", "-qm", "remote work");
 
   await git(cwd, "switch", "main");
-  await exec("sh", ["-c", "printf 'local\n' > local.txt"], { cwd });
+  await writeFile(join(cwd, "local.txt"), "local\n");
   await git(cwd, "add", ".");
   await git(cwd, "commit", "-qm", "local work");
 

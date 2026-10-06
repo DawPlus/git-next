@@ -138,7 +138,7 @@ test("shows advisory message hints beside editable commit drafts", () => {
 
 test("records blocked actions with retry checks and re-runs guarded flows", () => {
   const source = runtimeSource;
-  assert.match(source, /retryCheck,\n      recoveryPoint/);
+  assert.match(source, /retryCheck,\r?\n      recoveryPoint/);
   assert.match(source, /if \(notice\?\.ok === false\) await recordActivity\(notice\)/);
   assert.match(source, /async function retryTimelineAction\(/);
   assert.match(source, /return runSyncAction\(host, item\.action, mode, options\)/);
