@@ -1,18 +1,12 @@
-import { TERMS, SCENARIOS, getMatchingScenarios, getLiveTermExample } from "./glossary-view.mjs";
-import { GUIDES } from "./git-guide.mjs";
+import { TERMS, SCENARIOS, getMatchingScenarios, getLiveTermExample, getGlossaryTerms, getScenarios } from "./glossary-view.mjs";
+import { GUIDES, getGuides } from "./git-guide.mjs";
+import { escapeHtml, t, getLocale, getFixedT } from "./view-shared.mjs";
 
-function esc(value) {
-  return String(value ?? "")
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
-}
+const esc = escapeHtml;
 
-function shell(title, body, script = "") {
+function shell(title, body, script = "", locale = "ko") {
   return `<!doctype html>
-<html lang="ko">
+<html lang="${esc(locale)}">
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
@@ -22,9 +16,9 @@ function shell(title, body, script = "") {
 body{margin:0;color:var(--vscode-foreground);background:var(--vscode-editor-background);font-family:var(--vscode-font-family);font-size:14px}
 main{max-width:1080px;margin:0 auto;padding:22px 24px 56px}
 header{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:16px}
-h1,h2,h3,p{margin:0}h1{font-size:20px}.sub{margin-top:5px;color:var(--vscode-descriptionForeground);font-size:13px;line-height:1.5}
-.toolbar{display:flex;gap:7px;flex-wrap:wrap}.btn{border:1px solid var(--vscode-button-border,var(--vscode-panel-border));border-radius:6px;padding:7px 10px;color:var(--vscode-foreground);background:var(--vscode-list-inactiveSelectionBackground);cursor:pointer;font:inherit;font-size:13px}.btn:hover{background:var(--vscode-list-hoverBackground)}.btn.primary{color:var(--vscode-button-foreground);background:var(--vscode-button-background)}.btn.primary:hover{background:var(--vscode-button-hoverBackground)}.btn.danger{color:var(--vscode-errorForeground)}.btn:active{transform:scale(.98)}
-.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.card{border:1px solid color-mix(in srgb,var(--vscode-panel-border) 82%,transparent);border-radius:8px;padding:14px;background:color-mix(in srgb,var(--vscode-editorWidget-background,var(--vscode-editor-background)) 72%,transparent);transition:background 130ms ease,border-color 130ms ease,transform 130ms ease}.card:hover{background:color-mix(in srgb,var(--vscode-list-hoverBackground) 55%,var(--vscode-editor-background))}.card.selected{border-color:var(--vscode-focusBorder);background:color-mix(in srgb,var(--vscode-focusBorder) 9%,var(--vscode-editor-background));transform:translateY(-1px)}.card h2,.card h3{font-size:15px}.meta{margin-top:5px;color:var(--vscode-descriptionForeground);font-size:12px;line-height:1.45}.row{display:flex;align-items:center;gap:9px}.row .grow{min-width:0;flex:1}.badge{display:inline-block;border:1px solid var(--vscode-panel-border);border-radius:999px;padding:2px 7px;font-size:11px;color:var(--vscode-descriptionForeground)}.badge.warn{color:var(--vscode-editorWarning-foreground)}.badge.danger{color:var(--vscode-errorForeground)}
+h1,h2,h3,p{margin:0;overflow-wrap:break-word;word-break:break-word}h1{font-size:20px}.sub{margin-top:5px;color:var(--vscode-descriptionForeground);font-size:13px;line-height:1.5;overflow-wrap:break-word}
+.toolbar{display:flex;gap:7px;flex-wrap:wrap}.btn{border:1px solid var(--vscode-button-border,var(--vscode-panel-border));border-radius:6px;padding:7px 10px;color:var(--vscode-foreground);background:var(--vscode-list-inactiveSelectionBackground);cursor:pointer;font:inherit;font-size:13px;overflow-wrap:break-word}.btn:hover{background:var(--vscode-list-hoverBackground)}.btn.primary{color:var(--vscode-button-foreground);background:var(--vscode-button-background)}.btn.primary:hover{background:var(--vscode-button-hoverBackground)}.btn.danger{color:var(--vscode-errorForeground)}.btn:active{transform:scale(.98)}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.card{border:1px solid color-mix(in srgb,var(--vscode-panel-border) 82%,transparent);border-radius:8px;padding:14px;background:color-mix(in srgb,var(--vscode-editorWidget-background,var(--vscode-editor-background)) 72%,transparent);transition:background 130ms ease,border-color 130ms ease,transform 130ms ease}.card:hover{background:color-mix(in srgb,var(--vscode-list-hoverBackground) 55%,var(--vscode-editor-background))}.card.selected{border-color:var(--vscode-focusBorder);background:color-mix(in srgb,var(--vscode-focusBorder) 9%,var(--vscode-editor-background));transform:translateY(-1px)}.card h2,.card h3{font-size:15px;overflow-wrap:break-word}.meta{margin-top:5px;color:var(--vscode-descriptionForeground);font-size:12px;line-height:1.45;overflow-wrap:break-word}.row{display:flex;align-items:center;gap:9px}.row .grow{min-width:0;flex:1}.badge{display:inline-block;border:1px solid var(--vscode-panel-border);border-radius:999px;padding:2px 7px;font-size:11px;color:var(--vscode-descriptionForeground)}.badge.warn{color:var(--vscode-editorWarning-foreground)}.badge.danger{color:var(--vscode-errorForeground)}
 .list{display:grid;gap:7px}.file{display:flex;align-items:center;gap:9px;border-bottom:1px solid color-mix(in srgb,var(--vscode-panel-border) 68%,transparent);padding:9px 2px}.file:last-child{border-bottom:0}.compact-list{gap:0;max-height:52vh;overflow:auto}.compact-file{min-height:28px;padding:3px 2px;gap:7px}.compact-file .badge{min-width:34px;text-align:center;font-size:10px}.badge.new{color:var(--vscode-gitDecoration-untrackedResourceForeground,var(--vscode-gitDecoration-addedResourceForeground))}.compact-action{padding:4px 7px;font-size:11px}.commit-file{width:100%;border-left:0;border-right:0;border-top:0;color:inherit;background:transparent;text-align:left;cursor:pointer;font:inherit}.commit-file:hover{background:var(--vscode-list-hoverBackground)}.path{min-width:0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.actions{display:flex;gap:4px}.icon{width:26px;height:26px;padding:0;display:grid;place-items:center}
 .section{margin-top:16px}.section-title{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px}.section-title h2{font-size:15px}.empty{padding:22px;border:1px dashed var(--vscode-panel-border);border-radius:8px;text-align:center;color:var(--vscode-descriptionForeground)}
 .input{width:100%;border:1px solid var(--vscode-input-border,var(--vscode-panel-border));border-radius:6px;padding:9px 10px;background:var(--vscode-input-background);color:var(--vscode-input-foreground);font:inherit;font-size:14px;outline:none}.input:focus{border-color:var(--vscode-focusBorder)}
@@ -138,29 +132,33 @@ h1,h2,h3,p{margin:0}h1{font-size:20px}.sub{margin-top:5px;color:var(--vscode-des
 <body><main>${body}</main><script>${script}</script></body></html>`;
 }
 
-export function renderChangesWorkspace(data, notice = null) {
+export function renderChangesWorkspace(data, notice = null, options: { locale?: string } = {}) {
+  const locale = options?.locale ?? getLocale();
+  const tFn = getFixedT(locale);
   const renderFile = (file, area) => {
-    const statusLabel = file.status === "??" ? "신규" : file.status || "수정";
+    const statusLabel = file.status === "??"
+      ? tFn("workspace.changes.statusNew")
+      : file.status || tFn("workspace.changes.statusModified");
     return `<div class="file compact-file">
       <span class="badge ${file.status === "??" ? "new" : ""}">${esc(statusLabel)}</span>
       <span class="path" title="${esc(file.path)}">${esc(file.path)}</span>
       <div class="actions">
         ${area === "staged"
-          ? `<button class="btn icon" data-action="unstage" data-path="${esc(file.path)}" title="Staging에서 빼기">−</button>`
-          : `<button class="btn icon" data-action="stage" data-path="${esc(file.path)}" title="Staging에 넣기">+</button>`}
-        <button class="btn compact-action" data-action="compare-file" data-path="${esc(file.path)}">비교</button>
-        <button class="btn danger compact-action" data-action="discard" data-path="${esc(file.path)}" data-untracked="${file.untracked ? "1" : "0"}">되돌리기</button>
+          ? `<button class="btn icon" data-action="unstage" data-path="${esc(file.path)}" title="${esc(tFn("workspace.changes.unstageTitle"))}">−</button>`
+          : `<button class="btn icon" data-action="stage" data-path="${esc(file.path)}" title="${esc(tFn("workspace.changes.stageTitle"))}">+</button>`}
+        <button class="btn compact-action" data-action="compare-file" data-path="${esc(file.path)}">${esc(tFn("workspace.changes.compareFile"))}</button>
+        <button class="btn danger compact-action" data-action="discard" data-path="${esc(file.path)}" data-untracked="${file.untracked ? "1" : "0"}">${esc(tFn("workspace.changes.discardFile"))}</button>
       </div>
     </div>`;
   };
   const staged = data.staged.map((f) => renderFile(f, "staged")).join("");
   const unstaged = data.unstaged.map((f) => renderFile(f, "unstaged")).join("");
   const body = `
-<header><div><h1>변경사항 · Commit</h1><div class="sub">Commit에 넣을 파일을 + / −로 직접 고르고, 실행 전 최종 내용을 확인합니다.</div></div><div class="toolbar"><button class="btn" data-action="refresh">새로고침</button><button class="btn" data-action="compare-remote">Local ↔ Remote</button></div></header>
+<header><div><h1>${esc(tFn("workspace.changes.headerTitle"))}</h1><div class="sub">${esc(tFn("workspace.changes.headerSub"))}</div></div><div class="toolbar"><button class="btn" data-action="refresh">${esc(tFn("common.refresh"))}</button><button class="btn" data-action="compare-remote">${esc(tFn("workspace.changes.compareRemote"))}</button></div></header>
 ${notice ? `<div class="card"><strong>${esc(notice.message)}</strong>${notice.detail ? `<div class="meta">${esc(notice.detail)}</div>` : ""}</div>` : ""}
-<section class="section"><div class="section-title"><h2>Staged · Commit에 포함</h2><div class="toolbar"><span class="badge">${data.staged.length}</span>${data.staged.length ? '<button class="btn compact-action" data-action="unstage-all">전체 −</button>' : ""}</div></div><div class="card list compact-list">${staged || '<div class="empty">아직 Staging된 파일이 없습니다.</div>'}</div></section>
-<section class="section"><div class="section-title"><h2>변경사항 · 아직 미포함</h2><div class="toolbar"><span class="badge">${data.unstaged.length}</span>${data.unstaged.length ? '<button class="btn compact-action" data-action="stage-all">전체 +</button>' : ""}</div></div><div class="card list compact-list">${unstaged || '<div class="empty">추가로 선택할 변경사항이 없습니다.</div>'}</div></section>
-<section class="section"><div class="section-title"><h2>Commit</h2><span class="badge">Local only</span></div><div class="card"><input class="input" id="message" placeholder="Commit message 입력" /><div class="toolbar" style="margin-top:10px"><button class="btn primary" data-action="commit">Commit 만들기</button><button class="btn" data-action="undo-commit">마지막 로컬 Commit 취소</button></div><div class="meta">Commit은 현재 Staged 파일만 포함합니다. Push는 별도 작업입니다.</div></div></section>`;
+<section class="section"><div class="section-title"><h2>${esc(tFn("workspace.changes.stagedHeading"))}</h2><div class="toolbar"><span class="badge">${data.staged.length}</span>${data.staged.length ? `<button class="btn compact-action" data-action="unstage-all">${esc(tFn("workspace.changes.unstageAll"))}</button>` : ""}</div></div><div class="card list compact-list">${staged || `<div class="empty">${esc(tFn("workspace.changes.stagedEmpty"))}</div>`}</div></section>
+<section class="section"><div class="section-title"><h2>${esc(tFn("workspace.changes.unstagedHeading"))}</h2><div class="toolbar"><span class="badge">${data.unstaged.length}</span>${data.unstaged.length ? `<button class="btn compact-action" data-action="stage-all">${esc(tFn("workspace.changes.stageAll"))}</button>` : ""}</div></div><div class="card list compact-list">${unstaged || `<div class="empty">${esc(tFn("workspace.changes.unstagedEmpty"))}</div>`}</div></section>
+<section class="section"><div class="section-title"><h2>${esc(tFn("workspace.changes.commitHeading"))}</h2><span class="badge">${esc(tFn("workspace.changes.localOnlyBadge"))}</span></div><div class="card"><input class="input" id="message" placeholder="${esc(tFn("workspace.changes.inputPlaceholder"))}" /><div class="toolbar" style="margin-top:10px"><button class="btn primary" data-action="commit">${esc(tFn("workspace.changes.commitBtn"))}</button><button class="btn" data-action="undo-commit">${esc(tFn("workspace.changes.undoBtn"))}</button></div><div class="meta">${esc(tFn("workspace.changes.commitMeta"))}</div></div></section>`;
   const script = `
 const vscode=acquireVsCodeApi();
 document.addEventListener("click",(event)=>{
@@ -168,26 +166,30 @@ document.addEventListener("click",(event)=>{
  if(!btn)return;
  vscode.postMessage({type:btn.dataset.action,path:btn.dataset.path,untracked:btn.dataset.untracked==="1",message:document.querySelector("#message")?.value??""});
 });`;
-  return shell("Git Next · 변경사항", body, script);
+  return shell(tFn("workspace.changes.shellTitle"), body, script, locale);
 }
 
-export function renderCompareWorkspace(comparison) {
-  if (!comparison.ok) return shell("Git Next · Compare", `<header><div><h1>Local ↔ Remote</h1><div class="sub">${esc(comparison.message)}</div></div></header><div class="empty">${esc(comparison.detail || "")}</div>`);
+export function renderCompareWorkspace(comparison, options: { locale?: string } = {}) {
+  const locale = options?.locale ?? getLocale();
+  const tFn = getFixedT(locale);
+  if (!comparison.ok) return shell(tFn("workspace.compare.shellTitle"), `<header><div><h1>Local ↔ Remote</h1><div class="sub">${esc(comparison.message)}</div></div></header><div class="empty">${esc(comparison.detail || "")}</div>`, "", locale);
   const groups = [
-    ["both","양쪽에서 변경","warn"],
-    ["local","로컬에서만 변경",""],
-    ["remote","Remote에서만 변경",""],
+    ["both", tFn("workspace.compare.groupBoth"), "warn"],
+    ["local", tFn("workspace.compare.groupLocal"), ""],
+    ["remote", tFn("workspace.compare.groupRemote"), ""],
   ];
-  const bodyRows = groups.map(([scope,title,tone])=>{
-    const rows = comparison.files.filter((f)=>f.scope===scope).map((f)=>`<div class="file"><span class="badge ${tone}">${scope==="both"?"양쪽":"변경"}</span><span class="path">${esc(f.path)}</span><span class="meta">${esc(f.localStatus||"-")} / ${esc(f.remoteStatus||"-")}</span><button class="btn" data-action="open-diff" data-path="${esc(f.path)}">Diff</button></div>`).join("");
-    return `<section class="section"><div class="section-title"><h2>${title}</h2><span class="badge">${comparison.files.filter((f)=>f.scope===scope).length}</span></div><div class="card list">${rows||'<div class="empty">없음</div>'}</div></section>`;
+  const bodyRows = groups.map(([scope, title, tone]) => {
+    const rows = comparison.files.filter((f) => f.scope === scope).map((f) => `<div class="file"><span class="badge ${tone}">${esc(scope === "both" ? tFn("workspace.compare.badgeBoth") : tFn("workspace.compare.badgeChanged"))}</span><span class="path">${esc(f.path)}</span><span class="meta">${esc(f.localStatus || "-")} / ${esc(f.remoteStatus || "-")}</span><button class="btn" data-action="open-diff" data-path="${esc(f.path)}">Diff</button></div>`).join("");
+    return `<section class="section"><div class="section-title"><h2>${esc(title)}</h2><span class="badge">${comparison.files.filter((f) => f.scope === scope).length}</span></div><div class="card list">${rows || `<div class="empty">${esc(tFn("workspace.compare.empty"))}</div>`}</div></section>`;
   }).join("");
-  const body=`<header><div><h1>Local ↔ Remote Compare</h1><div class="sub">최신 ${esc(comparison.upstream)}과 현재 로컬 상태를 읽기 전용으로 비교합니다.</div></div><button class="btn" data-action="refresh">Remote 새로고침</button></header>${bodyRows}`;
-  const script=`const vscode=acquireVsCodeApi();for(const b of document.querySelectorAll("[data-action]"))b.addEventListener("click",()=>vscode.postMessage({type:b.dataset.action,path:b.dataset.path}));`;
-  return shell("Git Next · Compare",body,script);
+  const body = `<header><div><h1>${esc(tFn("workspace.compare.headerTitle"))}</h1><div class="sub">${esc(tFn("workspace.compare.headerSub", { upstream: comparison.upstream }))}</div></div><button class="btn" data-action="refresh">${esc(tFn("workspace.compare.refreshRemote"))}</button></header>${bodyRows}`;
+  const script = `const vscode=acquireVsCodeApi();for(const b of document.querySelectorAll("[data-action]"))b.addEventListener("click",()=>vscode.postMessage({type:b.dataset.action,path:b.dataset.path}));`;
+  return shell(tFn("workspace.compare.shellTitle"), body, script, locale);
 }
 
-export function renderBranchWorkspace(state) {
+export function renderBranchWorkspace(state, options: { locale?: string } = {}) {
+  const locale = options?.locale ?? getLocale();
+  const tFn = getFixedT(locale);
   const locals = state.refs.filter((ref) => ref.kind === "local" && ref.name !== "HEAD");
   const remoteMap = new Map();
   for (const ref of state.refs) {
@@ -200,13 +202,13 @@ export function renderBranchWorkspace(state) {
   const currentLocal = locals.find((ref) => ref.name === currentBranch);
   const currentUpstream = currentLocal?.upstream ?? state.upstream ?? null;
   const syncLabel = ({
-    ahead: "동기화 · Push 필요",
-    behind: "동기화 · Pull 필요",
-    diverged: "동기화 · 확인 필요",
-    "up-to-date": "동기화 완료",
-    "no-upstream": "동기화 · 첫 Push",
-    unknown: "동기화 · 상태 확인",
-  })[state.tracking?.kind] ?? "동기화";
+    ahead: tFn("workspace.branch.sync.ahead"),
+    behind: tFn("workspace.branch.sync.behind"),
+    diverged: tFn("workspace.branch.sync.diverged"),
+    "up-to-date": tFn("workspace.branch.sync.upToDate"),
+    "no-upstream": tFn("workspace.branch.sync.noUpstream"),
+    unknown: tFn("workspace.branch.sync.unknown"),
+  })[state.tracking?.kind] ?? tFn("workspace.branch.sync.default");
 
   const localCards = locals.map((ref) => `
     <button class="card branch-card local-card ${ref.name === state.branch ? "current" : ""}"
@@ -217,9 +219,9 @@ export function renderBranchWorkspace(state) {
       <div class="row">
         <div class="grow">
           <h2>${esc(ref.name)}</h2>
-          <div class="meta">${ref.upstream ? `원격 브랜치 ${esc(ref.upstream)}와 연결됨` : "로컬에만 있는 브랜치"}</div>
+          <div class="meta">${ref.upstream ? esc(tFn("workspace.branch.localConnected", { upstream: ref.upstream })) : esc(tFn("workspace.branch.localOnly"))}</div>
         </div>
-        ${ref.name === state.branch ? '<span class="badge">현재 작업</span>' : ""}
+        ${ref.name === state.branch ? `<span class="badge">${esc(tFn("workspace.branch.currentWorkBadge"))}</span>` : ""}
       </div>
     </button>
   `).join("");
@@ -233,9 +235,9 @@ export function renderBranchWorkspace(state) {
       <div class="row">
         <div class="grow">
           <h2>${esc(ref.name)}</h2>
-          <div class="meta">원격 저장소의 브랜치</div>
+          <div class="meta">${esc(tFn("workspace.branch.remoteBranchMeta"))}</div>
         </div>
-        ${ref.name === currentUpstream ? '<span class="badge">현재 연결</span>' : ""}
+        ${ref.name === currentUpstream ? `<span class="badge">${esc(tFn("workspace.branch.currentConnectedBadge"))}</span>` : ""}
       </div>
     </button>
   `).join("");
@@ -246,10 +248,10 @@ export function renderBranchWorkspace(state) {
 .local-pocket{background:color-mix(in srgb,var(--vscode-editor-background) 92%,var(--vscode-textLink-foreground) 8%)}
 .remote-pocket{border-color:color-mix(in srgb,var(--vscode-editorWarning-foreground) 42%,transparent);background:color-mix(in srgb,var(--vscode-editorWarning-foreground) 9%,var(--vscode-editor-background))}
 .pocket-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:10px}
-.pocket-title{font-size:12px;font-weight:750}
-.remote-guard-title{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:750}
+.pocket-title{font-size:12px;font-weight:750;overflow-wrap:break-word}
+.remote-guard-title{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:750;overflow-wrap:break-word}
 .remote-guard-title svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:1.7}
-.remote-copy{margin-top:4px;line-height:1.45}
+.remote-copy{margin-top:4px;line-height:1.45;overflow-wrap:break-word}
 .branch-stack{display:grid;gap:8px}
 .branch-card{width:100%}
 .branch-card.current{border-color:var(--vscode-textLink-foreground)}
@@ -262,60 +264,60 @@ export function renderBranchWorkspace(state) {
 #selection[hidden]{display:none}
 .branch-detail{margin-top:14px;padding:0;overflow:hidden}
 .detail-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:14px 16px;border-bottom:1px solid var(--vscode-widget-border);background:color-mix(in srgb,var(--vscode-editor-background) 88%,var(--vscode-textLink-foreground) 12%)}
-.detail-kicker{font-size:11px;font-weight:750;text-transform:uppercase;letter-spacing:.08em;color:var(--vscode-descriptionForeground)}
-.detail-head h2{margin:3px 0 0}
+.detail-kicker{font-size:11px;font-weight:750;text-transform:uppercase;letter-spacing:.08em;color:var(--vscode-descriptionForeground);overflow-wrap:break-word}
+.detail-head h2{margin:3px 0 0;overflow-wrap:break-word}
 .detail-status{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
 .detail-body{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:14px;align-items:center;padding:14px 16px}
 .detail-copy{display:grid;gap:5px}
 .detail-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end}
-.detail-primary{min-width:150px}
+.detail-primary{min-width:0;flex:1 1 140px}
 .detail-secondary{display:flex;gap:6px;flex-wrap:wrap}
 .detail-secondary .btn{opacity:.9}
 @media(max-width:720px){.branch-layout{grid-template-columns:1fr;gap:18px}.branch-links{display:none}.detail-body{grid-template-columns:1fr}.detail-actions{justify-content:flex-start}.detail-status{justify-content:flex-start}}
 </style>
-<header><div><h1>Branch</h1><div class="sub">Local에서 작업하고 Push하면 Remote 보호 영역에 반영됩니다.</div></div><div class="toolbar"><button class="btn primary" data-action="sync">${syncLabel}</button><button class="btn" data-action="refresh-remote" title="원격 브랜치 목록만 새로 확인합니다. 내 작업 파일은 바뀌지 않아요.">원격 새로고침</button></div></header>
+<header><div><h1>Branch</h1><div class="sub">${esc(tFn("workspace.branch.headerSub"))}</div></div><div class="toolbar"><button class="btn primary" data-action="sync">${esc(syncLabel)}</button><button class="btn" data-action="refresh-remote" title="${esc(tFn("workspace.branch.refreshRemoteTitle"))}">${esc(tFn("workspace.branch.refreshRemoteBtn"))}</button></div></header>
 <div class="branch-layout">
   <svg class="branch-links" id="branch-links" aria-hidden="true"></svg>
   <section class="branch-pocket local-pocket" data-drop-zone="local">
     <div class="pocket-head">
-      <div><div class="pocket-title">Local · 내 작업 공간</div><div class="meta">브랜치를 만들고 이동하며 실제 작업하는 곳입니다.</div></div>
-      <button class="btn" data-action="create">+ 브랜치</button>
+      <div><div class="pocket-title">${esc(tFn("workspace.branch.localPocketTitle"))}</div><div class="meta">${esc(tFn("workspace.branch.localPocketMeta"))}</div></div>
+      <button class="btn" data-action="create">${esc(tFn("workspace.branch.createBtn"))}</button>
     </div>
-    <div class="branch-stack">${localCards || '<div class="empty">로컬 브랜치가 없습니다.</div>'}</div>
+    <div class="branch-stack">${localCards || `<div class="empty">${esc(tFn("workspace.branch.localEmpty"))}</div>`}</div>
   </section>
   <section class="branch-pocket remote-pocket">
     <div class="pocket-head">
       <div>
-        <div class="remote-guard-title"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 19 6v5c0 4.5-2.8 8-7 10-4.2-2-7-5.5-7-10V6z"></path><path d="m9 12 2 2 4-4"></path></svg><span>Remote 보호 영역</span></div>
-        <div class="meta remote-copy">여기는 로컬에서 직접 수정하지 않아요.<br>Local에서 작업한 뒤 Push하면 원격에 반영됩니다.</div>
+        <div class="remote-guard-title"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 19 6v5c0 4.5-2.8 8-7 10-4.2-2-7-5.5-7-10V6z"></path><path d="m9 12 2 2 4-4"></path></svg><span>${esc(tFn("workspace.branch.remoteGuardTitle"))}</span></div>
+        <div class="meta remote-copy">${tFn("workspace.branch.remoteGuardCopy")}</div>
       </div>
     </div>
-    <div class="branch-stack">${remoteCards || '<div class="empty">표시할 원격 브랜치가 없습니다.</div>'}</div>
+    <div class="branch-stack">${remoteCards || `<div class="empty">${esc(tFn("workspace.branch.remoteEmpty"))}</div>`}</div>
   </section>
 </div>
 <section class="card branch-detail" id="selection" hidden>
   <div class="detail-head">
     <div>
-      <div class="detail-kicker">선택한 브랜치</div>
-      <h2>브랜치를 선택하세요</h2>
+      <div class="detail-kicker">${esc(tFn("workspace.branch.detailKicker"))}</div>
+      <h2>${esc(tFn("workspace.branch.detailDefaultH2"))}</h2>
     </div>
     <div class="detail-status">
       <span class="badge" id="detail-kind">Local</span>
-      <span class="badge" id="detail-current" hidden>현재 작업</span>
+      <span class="badge" id="detail-current" hidden>${esc(tFn("workspace.branch.currentWorkBadge"))}</span>
     </div>
   </div>
   <div class="detail-body">
     <div class="detail-copy">
-      <strong id="detail-title">브랜치 상태</strong>
-      <div class="meta" id="detail-summary">브랜치를 선택하면 연결 상태와 가능한 작업을 보여줍니다.</div>
+      <strong id="detail-title">${esc(tFn("workspace.branch.detailStatusTitle"))}</strong>
+      <div class="meta" id="detail-summary">${esc(tFn("workspace.branch.detailDefaultSummary"))}</div>
     </div>
     <div class="detail-actions">
-      <button class="btn primary detail-primary" data-action="switch">이 브랜치로 이동</button>
-      <button class="btn primary detail-primary" data-action="track">로컬로 가져오기</button>
+      <button class="btn primary detail-primary" data-action="switch">${esc(tFn("workspace.branch.switchBtn"))}</button>
+      <button class="btn primary detail-primary" data-action="track">${esc(tFn("workspace.branch.trackBtn"))}</button>
       <div class="detail-secondary">
-        <button class="btn" data-action="merge">현재 브랜치에 합치기</button>
-        <button class="btn" data-action="rename">이름 변경</button>
-        <button class="btn danger" data-action="delete">삭제</button>
+        <button class="btn" data-action="merge">${esc(tFn("workspace.branch.mergeBtn"))}</button>
+        <button class="btn" data-action="rename">${esc(tFn("workspace.branch.renameBtn"))}</button>
+        <button class="btn danger" data-action="delete">${esc(tFn("workspace.branch.deleteBtn"))}</button>
       </div>
     </div>
   </div>
@@ -328,6 +330,17 @@ const selectionButtons=[...selection.querySelectorAll("[data-action]")];
 const layout=document.querySelector(".branch-layout");
 const localPocket=document.querySelector(".local-pocket");
 const links=document.querySelector("#branch-links");
+const I18N=${JSON.stringify({
+  remoteTitle: tFn("workspace.branch.script.remoteTitle"),
+  currentTitle: tFn("workspace.branch.script.currentTitle"),
+  connectedTitle: tFn("workspace.branch.script.connectedTitle"),
+  localOnlyTitle: tFn("workspace.branch.script.localOnlyTitle"),
+  remoteSummary: tFn("workspace.branch.script.remoteSummary"),
+  currentConnectedSummary: tFn("workspace.branch.script.currentConnectedSummary"),
+  currentNoUpstreamSummary: tFn("workspace.branch.script.currentNoUpstreamSummary"),
+  connectedSummary: tFn("workspace.branch.script.connectedSummary"),
+  noUpstreamSummary: tFn("workspace.branch.script.noUpstreamSummary"),
+})};
 
 function drawTrackingLinks(){
   if(!layout||!links)return;
@@ -369,13 +382,13 @@ function selectCard(card){
   selection.querySelector("#detail-kind").textContent=kind==="remote"?"Remote":"Local";
   selection.querySelector("#detail-current").hidden=!isCurrent;
   selection.querySelector("#detail-title").textContent=kind==="remote"
-    ?"원격에 보관된 브랜치"
-    :(isCurrent?"지금 작업 중인 브랜치":upstream?"원격과 연결된 로컬 브랜치":"로컬에만 있는 브랜치");
+    ?I18N.remoteTitle
+    :(isCurrent?I18N.currentTitle:upstream?I18N.connectedTitle:I18N.localOnlyTitle);
   selection.querySelector("#detail-summary").textContent=kind==="remote"
-    ?"직접 수정하지 않고 로컬로 가져온 뒤 작업합니다."
+    ?I18N.remoteSummary
     :(isCurrent
-      ?(upstream?"현재 작업 중이며 "+upstream+"과 연결되어 있습니다.":"현재 작업 중이며 아직 원격 브랜치와 연결되지 않았습니다.")
-      :(upstream?upstream+"과 연결되어 있습니다. 이동하면 작업 위치가 이 브랜치로 바뀝니다.":"아직 원격 브랜치와 연결되지 않았습니다."));
+      ?(upstream?I18N.currentConnectedSummary.replace("{upstream}",upstream):I18N.currentNoUpstreamSummary)
+      :(upstream?I18N.connectedSummary.replace("{upstream}",upstream):I18N.noUpstreamSummary));
   for(const b of selectionButtons)b.hidden=false;
   selection.querySelector('[data-action="track"]').hidden=kind!=="remote";
   selection.querySelector('[data-action="switch"]').hidden=kind!=="local"||isCurrent;
@@ -399,27 +412,29 @@ for(const b of document.querySelectorAll("[data-action]"))b.addEventListener("cl
 drawTrackingLinks();
 window.addEventListener("resize",drawTrackingLinks);
 `;
-  return shell("Git Next · Branch",body,script);
+  return shell(tFn("workspace.branch.shellTitle"),body,script,locale);
 }
 
-export function renderStashWorkspace(stashes, selectedDetails = null, notice = null) {
+export function renderStashWorkspace(stashes, selectedDetails = null, notice = null, options: { locale?: string } = {}) {
+  const locale = options?.locale ?? getLocale();
+  const tFn = getFixedT(locale);
   const cards=stashes.map((s)=>`<button class="card stash-card ${selectedDetails?.ref===s.ref?"selected":""}" data-ref="${esc(s.ref)}" style="text-align:left;color:inherit;cursor:pointer"><div class="row"><div class="grow"><h2>${esc(s.ref)}</h2><div class="meta">${esc(s.message)}${s.relative ? ` · ${esc(s.relative)}` : ""}</div></div></div></button>`).join("");
-  const overlap=selectedDetails?.overlap?.length?`<div class="notice warning">현재 변경과 겹치는 파일 ${selectedDetails.overlap.length}개: ${selectedDetails.overlap.map(esc).join(", ")}<br>파일 단위 겹침이며 실제 충돌이 확정된 것은 아닙니다.</div>`:`<div class="notice">현재 변경과 파일 경로가 겹치지 않습니다. Apply/Pop 전 확인창에서 다시 확인합니다.</div>`;
-  const actionGuide=`<div class="card" style="margin-top:12px"><h3>Apply / Pop / Drop 차이</h3><div class="meta"><strong>Apply</strong> · 변경을 작업 폴더에 꺼내지만 Stash는 그대로 남깁니다.<br><strong>Pop</strong> · 변경을 꺼내고, 성공하면 그 Stash를 목록에서 제거합니다.<br><strong>Drop</strong> · 변경을 꺼내지 않고 Stash만 영구 삭제합니다.</div><div class="meta" style="margin-top:8px">Pop 후에도 <code>stash@{0}</code>이 보일 수 있어요. Pop이 충돌로 실패하면 안전을 위해 원래 Stash를 남깁니다. Pop이 성공했더라도 다른 오래된 Stash가 있었다면 번호가 당겨져 그 항목이 새 <code>stash@{0}</code>이 됩니다.</div></div>`;
-  const detail=selectedDetails?`<section class="section card"><h2>${esc(selectedDetails.ref)}</h2><div class="meta">${esc(selectedDetails.stat||"")}</div>${overlap}<div class="list" style="margin-top:10px">${selectedDetails.files.map((f)=>`<div class="file"><span class="badge">${esc(f.status)}</span><span class="path">${esc(f.path)}</span></div>`).join("")||'<div class="empty">표시할 파일이 없습니다.</div>'}</div><div class="toolbar" style="margin-top:10px"><button class="btn" data-action="apply" data-ref="${esc(selectedDetails.ref)}">Apply · 복원 후 보관 유지</button><button class="btn primary" data-action="pop" data-ref="${esc(selectedDetails.ref)}">Pop · 복원 후 제거</button><button class="btn danger" data-action="drop" data-ref="${esc(selectedDetails.ref)}">Drop · 보관본 삭제</button></div></section>`:"";
-  const body=`<header><div><h1>Stash</h1><div class="sub">임시 보관함입니다. 보통 Pull 전에 넣어둔 작업은 Pull이 끝난 뒤 Pop으로 다시 꺼냅니다.</div></div><button class="btn" data-action="push">현재 변경 Stash</button></header>${notice ? `<div class="notice ${notice.ok === false ? "warning" : ""}"><strong>${esc(notice.message)}</strong>${notice.detail ? `<div class="meta">${esc(notice.detail)}</div>` : ""}</div>` : ""}${actionGuide}<div class="grid" style="margin-top:12px">${cards||'<div class="empty">저장된 Stash가 없습니다.</div>'}</div>${detail}`;
+  const overlap=selectedDetails?.overlap?.length?`<div class="notice warning">${tFn("workspace.stash.overlapWarning", { count: selectedDetails.overlap.length, files: selectedDetails.overlap.map(esc).join(", ") })}</div>`:`<div class="notice">${esc(tFn("workspace.stash.noOverlapNotice"))}</div>`;
+  const actionGuide=`<div class="card" style="margin-top:12px"><h3>${esc(tFn("workspace.stash.guideHeading"))}</h3><div class="meta">${tFn("workspace.stash.guideApply")}<br>${tFn("workspace.stash.guidePop")}<br>${tFn("workspace.stash.guideDrop")}</div><div class="meta" style="margin-top:8px">${tFn("workspace.stash.guideRenumberNotice")}</div></div>`;
+  const detail=selectedDetails?`<section class="section card"><h2>${esc(selectedDetails.ref)}</h2><div class="meta">${esc(selectedDetails.stat||"")}</div>${overlap}<div class="list" style="margin-top:10px">${selectedDetails.files.map((f)=>`<div class="file"><span class="badge">${esc(f.status)}</span><span class="path">${esc(f.path)}</span></div>`).join("")||`<div class="empty">${esc(tFn("workspace.stash.emptyFiles"))}</div>`}</div><div class="toolbar" style="margin-top:10px"><button class="btn" data-action="apply" data-ref="${esc(selectedDetails.ref)}">${esc(tFn("workspace.stash.applyBtn"))}</button><button class="btn primary" data-action="pop" data-ref="${esc(selectedDetails.ref)}">${esc(tFn("workspace.stash.popBtn"))}</button><button class="btn danger" data-action="drop" data-ref="${esc(selectedDetails.ref)}">${esc(tFn("workspace.stash.dropBtn"))}</button></div></section>`:"";
+  const body=`<header><div><h1>Stash</h1><div class="sub">${esc(tFn("workspace.stash.headerSub"))}</div></div><button class="btn" data-action="push">${esc(tFn("workspace.stash.pushBtn"))}</button></header>${notice ? `<div class="notice ${notice.ok === false ? "warning" : ""}"><strong>${esc(notice.message)}</strong>${notice.detail ? `<div class="meta">${esc(notice.detail)}</div>` : ""}</div>` : ""}${actionGuide}<div class="grid" style="margin-top:12px">${cards||`<div class="empty">${esc(tFn("workspace.stash.empty"))}</div>`}</div>${detail}`;
   const script=`const vscode=acquireVsCodeApi();for(const c of document.querySelectorAll(".stash-card"))c.addEventListener("click",()=>vscode.postMessage({type:"select",ref:c.dataset.ref}));for(const b of document.querySelectorAll("[data-action]"))b.addEventListener("click",()=>vscode.postMessage({type:b.dataset.action,ref:b.dataset.ref}));`;
-  return shell("Git Next · Stash",body,script);
+  return shell(tFn("workspace.stash.shellTitle"),body,script,locale);
 }
 
 function knowledgeNodeKind(label) {
   const value = String(label).toLowerCase();
-  if (/원격|origin/.test(value)) return "remote";
+  if (/원격|origin|remote/.test(value)) return "remote";
   if (/stash/.test(value)) return "stash";
   if (/branch|브랜치|main|feature/.test(value)) return "branch";
   if (/tag|v\d/.test(value)) return "tag";
-  if (/commit|커밋|기록|head|현재|이전/.test(value)) return "commit";
-  if (/작업|파일|변경/.test(value)) return "work";
+  if (/commit|커밋|기록|head|현재|이전|history|current|previous|base|picked|revert|original/.test(value)) return "commit";
+  if (/작업|파일|변경|work|file|change|edit/.test(value)) return "work";
   return "local";
 }
 
@@ -436,12 +451,15 @@ function knowledgeNodeIcon(kind) {
   return icons[kind] ?? icons.local;
 }
 
-function renderKnowledgeFlow(flow, tone, animation = "push") {
+function renderKnowledgeFlow(flow, tone, animation = "push", tFn?: (key: string, params?: any) => string) {
   const [from, to] = flow;
   const node = (label) => { const kind = knowledgeNodeKind(label); return `<span class="flow-node ${kind}"><span class="flow-icon">${knowledgeNodeIcon(kind)}</span><span>${esc(label)}</span></span>`; };
   const fromKind = knowledgeNodeKind(from);
   const toKind = knowledgeNodeKind(to);
-  return `<div class="flow ${esc(tone)} semantic-${esc(animation)}" aria-label="${esc(from)}와 ${esc(to)}의 Git 관계">
+  const ariaLabel = tFn
+    ? tFn("glossary.flowAriaLabel", { from, to })
+    : `${esc(from)}와 ${esc(to)}의 Git 관계`;
+  return `<div class="flow ${esc(tone)} semantic-${esc(animation)}" aria-label="${esc(ariaLabel)}">
     ${node(from)}
     <span class="flow-track flow-stage" aria-hidden="true">
       <span class="flow-actor actor-a actor-${fromKind}">${knowledgeNodeIcon(fromKind)}</span>
@@ -480,10 +498,12 @@ function renderKnowledgeFlow(flow, tone, animation = "push") {
   </div>`;
 }
 
-export function renderCommitDetailsWorkspace(details) {
+export function renderCommitDetailsWorkspace(details, options: { locale?: string } = {}) {
+  const locale = options?.locale ?? getLocale();
+  const tFn = getFixedT(locale);
   const script = `const vscode=acquireVsCodeApi();for(const b of document.querySelectorAll("[data-action]"))b.addEventListener("click",()=>vscode.postMessage({type:b.dataset.action,path:b.dataset.path,oldPath:b.dataset.oldPath||null}));`;
   if (!details?.ok) {
-    return shell("Git Next · Commit", `<header><div><h1>Commit 상세</h1><div class="sub">${esc(details?.message ?? "커밋 정보를 읽지 못했습니다.")}</div></div><div class="toolbar"><button class="btn" type="button" data-action="back-to-graph">← 그래프로 돌아가기</button></div></header><div class="empty">${esc(details?.detail ?? "")}</div>`, script);
+    return shell(tFn("workspace.commitDetail.shellTitle"), `<header><div><h1>${esc(tFn("workspace.commitDetail.headerTitle"))}</h1><div class="sub">${esc(details?.message ?? tFn("workspace.commitDetail.loadFailed"))}</div></div><div class="toolbar"><button class="btn" type="button" data-action="back-to-graph">${esc(tFn("workspace.commitDetail.backToGraph"))}</button></div></header><div class="empty">${esc(details?.detail ?? "")}</div>`, script, locale);
   }
 
   const files = details.files.map((file) => `<button class="file commit-file" type="button" data-action="open-commit-diff" data-path="${esc(file.path)}" data-old-path="${esc(file.oldPath ?? "")}">
@@ -494,21 +514,21 @@ export function renderCommitDetailsWorkspace(details) {
 
   const parents = details.parents.length
     ? details.parents.map((parent) => `<code>${esc(parent.slice(0, 10))}</code>`).join(" · ")
-    : "Root commit";
+    : tFn("workspace.commitDetail.rootCommit");
 
-  const body = `<header><div><h1>Commit 상세</h1><div class="sub">그래프에서 선택한 Commit이 실제로 바꾼 파일을 확인합니다.</div></div><div class="toolbar"><button class="btn" type="button" data-action="back-to-graph">← 그래프로 돌아가기</button></div></header>
+  const body = `<header><div><h1>${esc(tFn("workspace.commitDetail.headerTitle"))}</h1><div class="sub">${esc(tFn("workspace.commitDetail.headerSub"))}</div></div><div class="toolbar"><button class="btn" type="button" data-action="back-to-graph">${esc(tFn("workspace.commitDetail.backToGraph"))}</button></div></header>
   <section class="card">
-    <h2>${esc(details.message.split("\n")[0] || "(메시지 없음)")}</h2>
+    <h2>${esc(details.message.split("\n")[0] || tFn("workspace.commitDetail.noMessage"))}</h2>
     <div class="meta" style="margin-top:8px">${esc(details.id)} · ${esc(details.author)} &lt;${esc(details.email)}&gt;</div>
     <div class="meta">${esc(details.authoredAt)}</div>
-    <div class="meta">Parent · ${parents}</div>
+    <div class="meta">${tFn("workspace.commitDetail.parentLabel", { parents })}</div>
   </section>
   <section class="section">
-    <div class="section-title"><h2>변경 파일</h2><span class="badge">${details.files.length}</span></div>
-    <div class="card list">${files || '<div class="empty">변경 파일이 없습니다.</div>'}</div>
+    <div class="section-title"><h2>${esc(tFn("workspace.commitDetail.changedFilesHeading"))}</h2><span class="badge">${details.files.length}</span></div>
+    <div class="card list">${files || `<div class="empty">${esc(tFn("workspace.commitDetail.noChangedFiles"))}</div>`}</div>
   </section>`;
 
-  return shell("Git Next · Commit 상세", body, script);
+  return shell(tFn("workspace.commitDetail.shellTitle"), body, script, locale);
 }
 
 function guideVisualKind(key) {
@@ -620,44 +640,62 @@ export function renderAiDiagnosisWorkspace({ diagnosis, provider = "AI" }: any =
   return shell("Git Next · AI 진단", body, script);
 }
 
-export function renderKnowledgeCenter({ tab = "terms", selected = null, state = null } = {}) {
-  const termCards = TERMS.map((t) => `<article class="term knowledge ${esc(t.tone)}" data-search="${esc([t.term,t.ko,t.summary,t.effect,t.example,...t.flow].join(" ").toLowerCase())}">
+export function renderKnowledgeCenter({ tab = "terms", selected = null, state = null } = {}, options: { locale?: string } = {}) {
+  const locale = options?.locale ?? getLocale();
+  const tFn = getFixedT(locale);
+  const terms = getGlossaryTerms(locale);
+  const guides = getGuides(locale);
+  const scenarios = getScenarios(locale);
+
+  const termCards = terms.map((t) => {
+    const toneLabel =
+      t.tone === "remote"
+        ? tFn("glossary.toneRemote")
+        : t.tone === "danger"
+        ? tFn("glossary.toneDanger")
+        : t.tone === "warning"
+        ? tFn("glossary.toneWarning")
+        : tFn("glossary.toneLocal");
+    const liveExample = getLiveTermExample(t.term, state, { locale });
+
+    return `<article class="term knowledge ${esc(t.tone)}" data-search="${esc([t.term,t.ko,t.summary,t.effect,t.example,...t.flow].join(" ").toLowerCase())}">
     <div class="term-head">
       <div><div class="term-ko">${esc(t.ko)}</div><h2>${esc(t.term)}</h2></div>
-      <span class="term-kind">${esc(t.tone === "remote" ? "원격" : t.tone === "danger" ? "주의" : t.tone === "warning" ? "확인" : "로컬")}</span>
+      <span class="term-kind">${esc(toneLabel)}</span>
     </div>
     <p class="summary">${esc(t.summary)}</p>
-    ${renderKnowledgeFlow(t.flow, t.tone, t.animation)}
+    ${renderKnowledgeFlow(t.flow, t.tone, t.animation, tFn)}
     <div class="effect">${esc(t.effect)}</div>
-    <div class="example"><span>예시</span>${esc(t.example)}</div>
-    ${getLiveTermExample(t.term, state) ? `<div class="live-example"><span>현재 저장소</span>${esc(getLiveTermExample(t.term, state))}</div>` : ""}
-  </article>`).join("");
+    <div class="example"><span>${esc(tFn("glossary.exampleLabel"))}</span>${esc(t.example)}</div>
+    ${liveExample ? `<div class="live-example"><span>${esc(tFn("glossary.liveExampleLabel"))}</span>${esc(liveExample)}</div>` : ""}
+  </article>`;
+  }).join("");
 
-  const guideCards = Object.entries(GUIDES).map(([key, g]) => `<article class="guide-card knowledge" id="${esc(key)}" data-search="${esc([g.title,g.summary,g.example,...g.steps,g.avoid].join(" ").toLowerCase())}">
+  const guideCards = Object.entries(guides).map(([key, g]) => `<article class="guide-card knowledge" id="${esc(key)}" data-search="${esc([g.title,g.summary,g.example,...g.steps,g.avoid].join(" ").toLowerCase())}">
     <h2>${esc(g.title)}</h2>
     <p>${esc(g.summary)}</p>
     ${renderGuideVisual(key)}
-    ${g.example ? `<div class="guide-example"><strong>이럴 때</strong>${esc(g.example)}</div>` : ""}
-    <div class="guide-steps-title">이렇게 해보세요</div>
+    ${g.example ? `<div class="guide-example"><strong>${esc(tFn("guide.exampleLabel"))}</strong>${esc(g.example)}</div>` : ""}
+    <div class="guide-steps-title">${esc(tFn("guide.stepsTitle"))}</div>
     <ol>${g.steps.map((s)=>`<li>${esc(s)}</li>`).join("")}</ol>
-    <div class="avoid"><strong>피할 것</strong> ${esc(g.avoid)}</div>
+    <div class="avoid"><strong>${esc(tFn("guide.avoidLabel"))}</strong> ${esc(g.avoid)}</div>
   </article>`).join("");
 
   const matchedScenarios = getMatchingScenarios(state);
-  const scenarioCards = SCENARIOS.map((scenario) => `<article class="guide-card knowledge scenario-card ${matchedScenarios.has(scenario.id) ? "matches-state" : ""}" id="scenario-${esc(scenario.id)}" data-search="${esc(Object.values(scenario).filter((value) => typeof value === "string").join(" ").toLowerCase())}">
-    <h2>${esc(scenario.title)}${matchedScenarios.has(scenario.id) ? ` <span class="scenario-match">현재 저장소와 비슷해요</span>` : ""}</h2>
-    <p><strong>상태</strong> ${esc(scenario.state)}</p>
-    <p><strong>위험</strong> ${esc(scenario.risk)}</p>
-    <p><strong>다음 행동</strong> ${esc(scenario.next)}</p>
+  const scenarioCards = scenarios.map((scenario) => `<article class="guide-card knowledge scenario-card ${matchedScenarios.has(scenario.id) ? "matches-state" : ""}" id="scenario-${esc(scenario.id)}" data-search="${esc(Object.values(scenario).filter((value) => typeof value === "string").join(" ").toLowerCase())}">
+    <h2>${esc(scenario.title)}${matchedScenarios.has(scenario.id) ? ` <span class="scenario-match">${esc(tFn("glossary.scenarioMatchHint"))}</span>` : ""}</h2>
+    <p><strong>${esc(tFn("glossary.labelState"))}</strong> ${esc(scenario.state)}</p>
+    <p><strong>${esc(tFn("glossary.labelRisk"))}</strong> ${esc(scenario.risk)}</p>
+    <p><strong>${esc(tFn("glossary.labelNext"))}</strong> ${esc(scenario.next)}</p>
   </article>`).join("");
   const activeTab = selected ? "guides" : tab;
   const body = `<input class="tab-radio" id="knowledge-tab-terms" name="knowledge-tab" type="radio" ${activeTab==="terms"?"checked":""} />
   <input class="tab-radio" id="knowledge-tab-guides" name="knowledge-tab" type="radio" ${activeTab==="guides"?"checked":""} />
-  <header><div><h1>Git 도움말</h1><div class="sub">용어의 흐름과 실제 상황 해결법을 한곳에서 봅니다.</div></div><div class="tabs"><label class="tab" for="knowledge-tab-terms">용어</label><label class="tab" for="knowledge-tab-guides">상황별 가이드</label></div></header>
-  <input id="q" class="input" type="search" placeholder="용어 또는 상황 검색" />
+  <header><div><h1>${esc(tFn("glossary.knowledgeHeaderTitle"))}</h1><div class="sub">${esc(tFn("glossary.knowledgeHeaderSub"))}</div></div><div class="tabs"><label class="tab" for="knowledge-tab-terms">${esc(tFn("glossary.tabTerms"))}</label><label class="tab" for="knowledge-tab-guides">${esc(tFn("glossary.tabGuides"))}</label></div></header>
+  <input id="q" class="input" type="search" placeholder="${esc(tFn("glossary.knowledgeSearchPlaceholder"))}" />
   <section id="terms" class="section knowledge-grid">${termCards}</section>
-  <section id="guides" class="section knowledge-grid"><h2 class="scenario-heading">상황별 시나리오</h2>${scenarioCards}${guideCards}</section>`;
+  <section id="guides" class="section knowledge-grid"><h2 class="scenario-heading">${esc(tFn("glossary.scenariosHeading"))}</h2>${scenarioCards}${guideCards}</section>`;
 
   const script = `const selected=${JSON.stringify(selected)};const q=document.querySelector("#q");function filter(){const s=q.value.trim().toLowerCase();for(const el of document.querySelectorAll(".knowledge"))el.hidden=Boolean(s)&&!el.dataset.search.includes(s);}q?.addEventListener("input",filter);if(selected){requestAnimationFrame(()=>document.getElementById(selected)?.scrollIntoView({block:"start"}));}`;
-  return shell("Git Next · 도움말", body, script);
+  return shell(tFn("glossary.knowledgeShellTitle"), body, script, locale);
 }

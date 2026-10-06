@@ -26,6 +26,10 @@ function createWebviewMessageHandler({
   conflictHelper,
   runInternalGitOperation,
   runSyncAction,
+  refreshWebviewHosts,
+  getLocale,
+  setLocale,
+  t,
 }) {
   const handlers = {
     refresh: async () => {
@@ -163,6 +167,20 @@ function createWebviewMessageHandler({
     branchMenu: async () => openBranchWorkspace(context),
     tagMenu: async () => tagMenu(host, mode, getOptions()),
     stashMenu: async () => openStashWorkspace(context),
+    changeLanguage: async () => {
+      const currentLocale = getLocale();
+      const selected = await vscode.window.showQuickPick(
+        [
+          { label: t("sidebar.languages.ko"), description: currentLocale === "ko" ? "✓" : "", locale: "ko" },
+          { label: t("sidebar.languages.en"), description: currentLocale === "en" ? "✓" : "", locale: "en" },
+        ],
+        { placeHolder: t("sidebar.languagePickerPlaceholder") },
+      );
+      if (!selected || selected.locale === currentLocale) return;
+      setLocale(selected.locale);
+      await context.globalState.update("gitNext.locale", selected.locale);
+      await refreshWebviewHosts();
+    },
     toolsMenu: async (message) => toolsMenu(host, mode, getOptions(), context, message.tool),
     commitMenu: async (message) => commitMenu(host, mode, getOptions(), message.commit),
     operationRecovery: async () => conflictHelper(host, mode, getOptions()),

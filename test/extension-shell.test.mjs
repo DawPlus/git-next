@@ -109,7 +109,7 @@ test("requires an explicit stash message choice and confirms included files", ()
 test("includes sibling worktree details in mutation confirmation", () => {
   const source = runtimeSource;
   assert.match(source, /const \{ getLinkedWorktrees \} = await import/);
-  assert.match(source, /다른 작업 폴더 \$\{others\.length\}개/);
+  assert.match(source, /dialog\.confirmMutation\.worktreeContext/);
   assert.match(source, /worktrees: await getLinkedWorktrees\(state\.root\)/);
 });
 

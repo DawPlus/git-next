@@ -1,0 +1,16 @@
+export const common = {
+  refresh: "Refresh",
+  pull: "Pull",
+  push: "Push",
+  confirm: "Confirm",
+  cancel: "Cancel",
+  execute: "Execute",
+  close: "Close",
+  save: "Save",
+  retry: "Retry",
+  loading: "Loading...",
+  empty: "No items",
+  greeting: "Hello, {name}!",
+  itemsCount: "{count} items",
+  worktreeCount: "{count} other worktrees",
+};

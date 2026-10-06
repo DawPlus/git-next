@@ -1,299 +1,151 @@
-export const TERMS = [
-  {
-    term: "Commit",
-    ko: "커밋",
-    summary: "파일 수정을 내 로컬 Git 기록에 저장해요.",
-    effect: "원격 저장소는 아직 안 바뀌어요.",
-    example: "login.tsx 수정 → Commit → 내 로컬에 기록",
-    flow: ["작업 파일", "내 로컬"],
-    tone: "local",
-    animation: "commit",
-  },
-  {
-    term: "Push",
-    ko: "푸시",
-    summary: "내 로컬 커밋을 원격 저장소로 올려요.",
-    effect: "이제 팀원도 원격에서 볼 수 있어요.",
-    example: "내 로컬 Commit → Push → origin/main",
-    flow: ["내 로컬", "원격"],
-    tone: "remote",
-    animation: "push",
-  },
-  {
-    term: "Pull",
-    ko: "풀",
-    summary: "원격의 최신 변경을 내 브랜치로 가져와요.",
-    effect: "내 작업 파일과 로컬 기록이 바뀔 수 있어요.",
-    example: "팀원 Push → Pull → 내 로컬에 반영",
-    flow: ["원격", "내 로컬"],
-    tone: "remote",
-    animation: "pull",
-  },
-  {
-    term: "Fetch",
-    ko: "페치",
-    summary: "원격 변경 정보만 가져와요.",
-    effect: "내 작업 파일은 아직 안 바뀌어요.",
-    example: "원격 확인 → Fetch → 상태만 최신화",
-    flow: ["원격", "원격 정보"],
-    tone: "remote",
-    animation: "fetch",
-  },
-  {
-    term: "Branch",
-    ko: "브랜치",
-    summary: "작업 줄기를 하나 더 만들어요.",
-    effect: "main을 건드리지 않고 따로 작업할 수 있어요.",
-    example: "main → feature/login에서 별도 작업",
-    flow: ["main", "feature"],
-    tone: "branch",
-    animation: "branch",
-  },
-  {
-    term: "HEAD",
-    ko: "헤드",
-    summary: "지금 내가 서 있는 Git 위치예요.",
-    effect: "보통 현재 브랜치의 최신 커밋을 가리켜요.",
-    example: "HEAD → main의 최신 커밋",
-    flow: ["현재 위치", "HEAD"],
-    tone: "local",
-    animation: "head",
-  },
-  {
-    term: "Detached HEAD",
-    ko: "분리된 HEAD",
-    summary: "브랜치가 아니라 특정 커밋에 직접 서 있는 상태예요.",
-    effect: "여기서 만든 커밋은 브랜치에 안 붙을 수 있어요.",
-    example: "과거 커밋 보기 → Detached HEAD",
-    flow: ["특정 커밋", "HEAD"],
-    tone: "warning",
-    animation: "detached",
-  },
-  {
-    term: "Merge",
-    ko: "머지",
-    summary: "두 브랜치의 작업을 하나로 합쳐요.",
-    effect: "같은 부분을 양쪽에서 바꿨으면 충돌이 날 수 있어요.",
-    example: "feature + main → Merge → 하나의 흐름",
-    flow: ["feature", "main"],
-    tone: "branch",
-    animation: "merge",
-  },
-  {
-    term: "Conflict",
-    ko: "충돌",
-    summary: "Git이 어느 변경을 선택할지 못 정한 상태예요.",
-    effect: "사람이 직접 파일을 보고 정리해야 해요.",
-    example: "같은 줄 수정 → Conflict → 직접 선택",
-    flow: ["변경 A", "변경 B"],
-    tone: "warning",
-    animation: "conflict",
-  },
-  {
-    term: "Rebase",
-    ko: "리베이스",
-    summary: "내 커밋들을 다른 최신 기준 위로 다시 올려요.",
-    effect: "커밋 기록이 다시 만들어져서 공유 브랜치에서는 주의해야 해요.",
-    example: "내 작업 → 최신 main 위로 다시 정렬",
-    flow: ["내 기록", "새 기준"],
-    tone: "warning",
-    animation: "rebase",
-  },
-  {
-    term: "Stash",
-    ko: "스태시",
-    summary: "커밋 전 변경을 잠깐 치워둬요.",
-    effect: "파일은 깨끗해지지만 변경은 Stash에 남아 있어요.",
-    example: "수정 중 → Stash → 브랜치 전환 → 다시 복원",
-    flow: ["작업 파일", "Stash"],
-    tone: "local",
-    animation: "stash",
-  },
-  {
-    term: "Cherry-pick",
-    ko: "체리픽",
-    summary: "다른 곳의 특정 커밋 하나만 가져와요.",
-    effect: "그 커밋의 변경만 현재 브랜치에 새로 적용돼요.",
-    example: "필요한 커밋 1개 → 현재 브랜치",
-    flow: ["선택 커밋", "현재 브랜치"],
-    tone: "branch",
-    animation: "cherry-pick",
-  },
-  {
-    term: "Revert",
-    ko: "리버트",
-    summary: "기존 커밋을 지우지 않고 반대 변경을 새로 만들어요.",
-    effect: "공유 기록을 보존하면서 되돌릴 수 있어요.",
-    example: "잘못된 Commit → Revert → 되돌림 Commit 생성",
-    flow: ["기존 커밋", "되돌림 커밋"],
-    tone: "local",
-    animation: "revert",
-  },
-  {
-    term: "Reset",
-    ko: "리셋",
-    summary: "브랜치 위치를 이전 커밋 쪽으로 옮겨요.",
-    effect: "옵션에 따라 커밋이나 파일 변경을 잃을 수 있어요.",
-    example: "현재 HEAD → 이전 커밋",
-    flow: ["현재", "이전"],
-    tone: "danger",
-    animation: "reset",
-  },
-  {
-    term: "Tag",
-    ko: "태그",
-    summary: "특정 커밋에 고정 이름표를 붙여요.",
-    effect: "브랜치처럼 움직이지 않고 그 커밋을 계속 가리켜요.",
-    example: "릴리스 커밋 → v1.0.0",
-    flow: ["커밋", "v1.0.0"],
-    tone: "local",
-    animation: "tag",
-  },
-  {
-    term: "Upstream",
-    ko: "업스트림",
-    summary: "내 로컬 브랜치가 기준으로 삼는 원격 브랜치예요.",
-    effect: "Pull/Push가 어디와 연결되는지 정해줘요.",
-    example: "main ↔ origin/main",
-    flow: ["내 main", "origin/main"],
-    tone: "remote",
-    animation: "upstream",
-  },
-  {
-    term: "Ahead / Behind",
-    ko: "앞섬 / 뒤처짐",
-    summary: "로컬과 원격 중 어느 쪽에 커밋이 더 있는지 보여줘요.",
-    effect: "Ahead면 보낼 것, Behind면 받아올 것이 있다는 뜻이에요.",
-    example: "Ahead 2 → Push할 커밋 2개",
-    flow: ["내 로컬", "원격"],
-    tone: "remote",
-    animation: "ahead-behind",
-  },
-  {
-    term: "Diverged",
-    ko: "분기됨",
-    summary: "로컬과 원격 양쪽에 서로 다른 커밋이 생겼어요.",
-    effect: "그냥 Push/Pull보다 먼저 두 흐름을 정리해야 해요.",
-    example: "내 커밋 있음 + 원격 새 커밋 있음 → Diverged",
-    flow: ["내 기록", "원격 기록"],
-    tone: "warning",
-    animation: "diverged",
-  },
-  {
-    term: "Force Push",
-    ko: "강제 푸시",
-    summary: "원격 기록을 내 로컬 기록 기준으로 강제로 덮어요.",
-    effect: "다른 사람의 원격 커밋이 사라질 수 있어요.",
-    example: "내 기록 → 강제로 원격 기록 교체",
-    flow: ["내 로컬", "원격 덮어쓰기"],
-    tone: "danger",
-    animation: "force-push",
-  },
-  {
-    term: "Repository",
-    ko: "저장소",
-    summary: "Git이 파일과 커밋 기록을 관리하는 하나의 프로젝트 공간이에요.",
-    effect: "Working Tree, Commit 기록, Branch 같은 Git 정보가 이 안에서 함께 관리돼요.",
-    example: "git-next 폴더 → 하나의 Git Repository",
-    flow: ["프로젝트", "Git 기록"],
-    tone: "local",
-    animation: "commit",
-  },
-  {
-    term: "Working Tree",
-    ko: "작업 영역",
-    summary: "지금 에디터에서 실제로 수정하고 있는 파일 상태예요.",
-    effect: "아직 Stage나 Commit하지 않은 변경도 여기에 있어요.",
-    example: "app.ts 수정 → Working Tree에 변경 발생",
-    flow: ["파일 수정", "작업 영역"],
-    tone: "local",
-    animation: "commit",
-  },
-  {
-    term: "Staging Area / Index",
-    ko: "스테이징 영역",
-    summary: "다음 Commit에 넣을 변경만 잠깐 골라두는 공간이에요.",
-    effect: "Stage한 파일만 다음 Commit에 포함돼요.",
-    example: "파일 3개 수정 → 2개만 Stage → 그 2개만 Commit",
-    flow: ["작업 파일", "Stage"],
-    tone: "local",
-    animation: "commit",
-  },
-  {
-    term: "Remote",
-    ko: "원격 저장소",
-    summary: "GitHub나 GitLab처럼 팀과 공유하는 저장소 위치예요.",
-    effect: "Push로 올리고 Fetch/Pull로 변경을 확인하거나 받아와요.",
-    example: "내 PC의 저장소 ↔ GitHub 원격 저장소",
-    flow: ["내 로컬", "원격"],
-    tone: "remote",
-    animation: "upstream",
-  },
-  {
-    term: "Origin",
-    ko: "오리진",
-    summary: "보통 Clone할 때 기본으로 붙는 원격 저장소 이름이에요.",
-    effect: "origin/main은 origin이라는 원격 저장소의 main 브랜치를 뜻해요.",
-    example: "origin/main → 원격 origin의 main",
-    flow: ["내 main", "origin/main"],
-    tone: "remote",
-    animation: "upstream",
-  },
-  {
-    term: "Clone",
-    ko: "클론",
-    summary: "원격 저장소를 처음 내 컴퓨터로 복사해 Git 작업 공간을 만들어요.",
-    effect: "파일과 커밋 기록을 받고 보통 origin 연결도 함께 만들어져요.",
-    example: "GitHub Repository → Clone → 내 PC에 프로젝트 생성",
-    flow: ["원격", "내 로컬"],
-    tone: "remote",
-    animation: "pull",
-  },
-  {
-    term: "Checkout / Switch",
-    ko: "브랜치 이동",
-    summary: "현재 작업 위치를 다른 브랜치나 커밋으로 바꿔요.",
-    effect: "Working Tree의 파일 내용도 선택한 위치에 맞게 바뀔 수 있어요.",
-    example: "main에서 작업 → Switch → feature/login으로 이동",
-    flow: ["main", "feature"],
-    tone: "branch",
-    animation: "branch",
-  },
-  {
-    term: "Stash Apply / Pop",
-    ko: "스태시 복원",
-    summary: "Stash에 보관한 변경을 다시 Working Tree로 가져와요.",
-    effect: "Apply는 Stash를 남기고, Pop은 적용에 성공하면 해당 Stash를 제거해요.",
-    example: "Stash → Apply: 보관 유지 / Pop: 적용 후 보관함에서 제거",
-    flow: ["Stash", "작업 파일"],
-    tone: "local",
-    animation: "pull",
-  },
-];
+import { getFixedT, getLocale, normalizeLocale } from "./i18n.mjs";
 
-export const SCENARIOS = [
+export interface TermDefinition {
+  key: string;
+  tone: string;
+  animation: string;
+}
+
+export interface GlossaryTerm {
+  term: string;
+  ko: string;
+  summary: string;
+  effect: string;
+  example: string;
+  flow: [string, string];
+  tone: string;
+  animation: string;
+}
+
+export interface ScenarioDefinition {
+  id: string;
+  key: string;
+  matches: (repo: any) => boolean;
+}
+
+export interface ScenarioItem {
+  id: string;
+  title: string;
+  state: string;
+  risk: string;
+  next: string;
+  matches: (repo: any) => boolean;
+}
+
+export const TERM_METADATA: readonly TermDefinition[] = [
+  { key: "commit", tone: "local", animation: "commit" },
+  { key: "push", tone: "remote", animation: "push" },
+  { key: "pull", tone: "remote", animation: "pull" },
+  { key: "fetch", tone: "remote", animation: "fetch" },
+  { key: "branch", tone: "branch", animation: "branch" },
+  { key: "head", tone: "local", animation: "head" },
+  { key: "detachedHead", tone: "warning", animation: "detached" },
+  { key: "merge", tone: "branch", animation: "merge" },
+  { key: "conflict", tone: "warning", animation: "conflict" },
+  { key: "rebase", tone: "warning", animation: "rebase" },
+  { key: "stash", tone: "local", animation: "stash" },
+  { key: "cherryPick", tone: "branch", animation: "cherry-pick" },
+  { key: "revert", tone: "local", animation: "revert" },
+  { key: "reset", tone: "danger", animation: "reset" },
+  { key: "tag", tone: "local", animation: "tag" },
+  { key: "upstream", tone: "remote", animation: "upstream" },
+  { key: "aheadBehind", tone: "remote", animation: "ahead-behind" },
+  { key: "diverged", tone: "warning", animation: "diverged" },
+  { key: "forcePush", tone: "danger", animation: "force-push" },
+  { key: "repository", tone: "local", animation: "commit" },
+  { key: "workingTree", tone: "local", animation: "commit" },
+  { key: "stagingArea", tone: "local", animation: "commit" },
+  { key: "remote", tone: "remote", animation: "upstream" },
+  { key: "origin", tone: "remote", animation: "upstream" },
+  { key: "clone", tone: "remote", animation: "pull" },
+  { key: "checkoutSwitch", tone: "branch", animation: "branch" },
+  { key: "stashApplyPop", tone: "local", animation: "pull" },
+] as const;
+
+export const SCENARIO_DEFINITIONS: readonly ScenarioDefinition[] = [
   {
-    id: "diverged", title: "로컬과 원격이 갈라짐", state: "양쪽에 서로 다른 새 커밋이 있어요.",
-    risk: "한쪽 기록을 덮으면 다른 변경을 잃을 수 있어요.",
-    next: "Branch 비교에서 차이를 확인하고 Merge 또는 Rebase를 선택해요.",
-    matches: (repo) => repo?.tracking?.kind === "diverged",
+    id: "diverged",
+    key: "diverged",
+    matches: (repo: any) => repo?.tracking?.kind === "diverged",
   },
   {
-    id: "push-rejected", title: "Push 거절 가능성", state: "원격에 로컬이 아직 받지 않은 커밋이 있어요.",
-    risk: "현재 상태로 Push하면 원격에서 거절될 수 있어요.",
-    next: "Fetch/Pull로 원격 변경을 확인하고 차이를 정리해요.",
-    matches: (repo) => Number(repo?.tracking?.behind) > 0,
+    id: "push-rejected",
+    key: "pushRejected",
+    matches: (repo: any) => Number(repo?.tracking?.behind) > 0,
   },
   {
-    id: "dirty-pull", title: "변경 중 Pull", state: "작업 폴더에 저장하지 않은 변경이 있어요.",
-    risk: "들어오는 변경과 겹치면 Pull이 멈추거나 충돌할 수 있어요.",
-    next: "현재 변경을 Commit하거나 Stash한 뒤 Pull해요.",
-    matches: (repo) => Boolean(repo?.changes?.length) && Number(repo?.tracking?.behind) > 0,
+    id: "dirty-pull",
+    key: "dirtyPull",
+    matches: (repo: any) => Boolean(repo?.changes?.length) && Number(repo?.tracking?.behind) > 0,
   },
   {
-    id: "gone-upstream", title: "원격 브랜치가 사라짐", state: "추적하던 원격 브랜치를 찾을 수 없어요.",
-    risk: "오래된 추적 정보로 잘못 Push하거나 로컬 작업을 잃을 수 있어요.",
-    next: "Fetch/prune으로 확인한 뒤 로컬 브랜치의 보존 여부를 검토해요.",
-    matches: (repo) => repo?.upstreamState?.kind === "remote-branch-missing",
+    id: "gone-upstream",
+    key: "goneUpstream",
+    matches: (repo: any) => repo?.upstreamState?.kind === "remote-branch-missing",
   },
-];
+] as const;
+
+export function getGlossaryTerms(localeCandidate?: string | null): GlossaryTerm[] {
+  const locale = normalizeLocale(localeCandidate);
+  const tFn = getFixedT(locale);
+  return TERM_METADATA.map((meta) => ({
+    term: tFn(`glossary.terms.${meta.key}.term`),
+    ko: tFn(`glossary.terms.${meta.key}.subLabel`),
+    summary: tFn(`glossary.terms.${meta.key}.summary`),
+    effect: tFn(`glossary.terms.${meta.key}.effect`),
+    example: tFn(`glossary.terms.${meta.key}.example`),
+    flow: [
+      tFn(`glossary.terms.${meta.key}.flowFrom`),
+      tFn(`glossary.terms.${meta.key}.flowTo`),
+    ],
+    tone: meta.tone,
+    animation: meta.animation,
+  }));
+}
+
+export function getScenarios(localeCandidate?: string | null): ScenarioItem[] {
+  const locale = normalizeLocale(localeCandidate);
+  const tFn = getFixedT(locale);
+  return SCENARIO_DEFINITIONS.map((def) => ({
+    id: def.id,
+    title: tFn(`glossary.scenarios.${def.key}.title`),
+    state: tFn(`glossary.scenarios.${def.key}.state`),
+    risk: tFn(`glossary.scenarios.${def.key}.risk`),
+    next: tFn(`glossary.scenarios.${def.key}.next`),
+    matches: def.matches,
+  }));
+}
+
+export const TERMS: GlossaryTerm[] = new Proxy([] as unknown as GlossaryTerm[], {
+  get(_target, prop: string | symbol) {
+    const list = getGlossaryTerms(getLocale());
+    if (prop === "length") return list.length;
+    if (prop === Symbol.iterator) return list[Symbol.iterator].bind(list);
+    const val = (list as any)[prop];
+    return typeof val === "function" ? val.bind(list) : val;
+  },
+  ownKeys() {
+    return Reflect.ownKeys(getGlossaryTerms(getLocale()));
+  },
+  getOwnPropertyDescriptor(_target, prop) {
+    const list = getGlossaryTerms(getLocale());
+    return Reflect.getOwnPropertyDescriptor(list, prop);
+  },
+});
+
+export const SCENARIOS: ScenarioItem[] = new Proxy([] as unknown as ScenarioItem[], {
+  get(_target, prop: string | symbol) {
+    const list = getScenarios(getLocale());
+    if (prop === "length") return list.length;
+    if (prop === Symbol.iterator) return list[Symbol.iterator].bind(list);
+    const val = (list as any)[prop];
+    return typeof val === "function" ? val.bind(list) : val;
+  },
+  ownKeys() {
+    return Reflect.ownKeys(getScenarios(getLocale()));
+  },
+  getOwnPropertyDescriptor(_target, prop) {
+    const list = getScenarios(getLocale());
+    return Reflect.getOwnPropertyDescriptor(list, prop);
+  },
+});

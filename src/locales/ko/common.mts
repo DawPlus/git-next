@@ -1,0 +1,16 @@
+export const common = {
+  refresh: "새로고침",
+  pull: "받기 (Pull)",
+  push: "보내기 (Push)",
+  confirm: "확인",
+  cancel: "취소",
+  execute: "실행",
+  close: "닫기",
+  save: "저장",
+  retry: "다시 시도",
+  loading: "불러오는 중...",
+  empty: "항목 없음",
+  greeting: "안녕하세요, {name}님!",
+  itemsCount: "{count}개 항목",
+  worktreeCount: "다른 작업 폴더 {count}개",
+};

@@ -1,10 +1,86 @@
 {
 	"version": 1,
 	"activeTicket": null,
-	"classification": "feature",
+	"classification": null,
 	"phase": null,
 	"next": null,
-	"agentVerification": "passed",
-	"qa": "passed",
-	"updatedAt": "2026-10-05T21:55:00+09:00"
+	"agentVerification": "pending",
+	"qa": "pending",
+	"updatedAt": "2026-10-06T20:02:11+09:00",
+	"automation": {
+		"status": "completed",
+		"ticketIds": [
+			"T-261006-01",
+			"T-261006-02",
+			"T-261006-03",
+			"T-261006-04",
+			"T-261006-05",
+			"T-261006-06"
+		],
+		"authorization": "User authorized sequential execution of T-261006-01 through T-261006-06 using Antigravity workers, with Coordinator review, AI QA, and ticket closeout.",
+		"runId": "run_793aa395582e",
+		"bindings": {
+			"T-261006-01": {
+				"taskId": "task_f4c0deb9231f",
+				"dispatchId": "ctx_232526acacbc",
+				"agent": "antigravity",
+				"workspace": "3c2ac41d-aed5-4ec0-bc04-127c3afa3501::/Users/doh/workspace/git-next"
+			},
+			"T-261006-02": {
+				"taskId": "task_ced46691f360",
+				"dispatchId": "ctx_8594dc90bd06",
+				"agent": "antigravity",
+				"workspace": "3c2ac41d-aed5-4ec0-bc04-127c3afa3501::/Users/doh/workspace/git-next"
+			},
+			"T-261006-03": {
+				"taskId": "task_c5a5e719a09e",
+				"dispatchId": "ctx_59662b029c2f",
+				"agent": "antigravity",
+				"workspace": "3c2ac41d-aed5-4ec0-bc04-127c3afa3501::/Users/doh/workspace/git-next",
+				"repairOf": {
+					"taskId": "task_8b8cca82f9a7",
+					"dispatchId": "ctx_97abab4c42d6"
+				}
+			},
+			"T-261006-04": {
+				"taskId": "task_573ea027231b",
+				"dispatchId": "ctx_7da40e879b8b",
+				"agent": "antigravity",
+				"workspace": "3c2ac41d-aed5-4ec0-bc04-127c3afa3501::/Users/doh/workspace/git-next"
+			},
+			"T-261006-05": {
+				"taskId": "task_0c312e9c95fc",
+				"dispatchId": "ctx_71cebe235956",
+				"agent": "antigravity",
+				"workspace": "3c2ac41d-aed5-4ec0-bc04-127c3afa3501::/Users/doh/workspace/git-next"
+			},
+			"T-261006-06": {
+				"taskId": "task_2fc977e1caf4",
+				"dispatchId": "ctx_82355f124ed9",
+				"agent": "antigravity",
+				"workspace": "3c2ac41d-aed5-4ec0-bc04-127c3afa3501::/Users/doh/workspace/git-next",
+				"repairOf": {
+					"taskId": "task_6193e5a122fb",
+					"dispatchId": "ctx_f22ccb0282bf"
+				}
+			}
+		},
+		"repairsUsed": {
+			"T-261006-01": 0,
+			"T-261006-02": 0,
+			"T-261006-03": 1,
+			"T-261006-04": 0,
+			"T-261006-05": 0,
+			"T-261006-06": 1
+		},
+		"lastAcceptedCompletion": {
+			"ticketId": "T-261006-06",
+			"taskId": "task_2fc977e1caf4",
+			"dispatchId": "ctx_82355f124ed9",
+			"outcome": "succeeded",
+			"qa": "passed",
+			"completedAt": "2026-10-06T20:01:41+09:00"
+		},
+		"nextAction": "No pending work; all six authorized tickets are closed and AI QA passed."
+	}
 }

@@ -1,3 +1,5 @@
+import { t } from "./i18n.mjs";
+
 export type GuardLevel = "safe" | "warning" | "blocked";
 
 export interface SafeGuardRuleDefinition {
@@ -28,40 +30,49 @@ export interface GuardDecision extends GuardDecisionOptions {
   overridable: boolean;
 }
 
-export const SAFE_GUARD_RULES: SafeGuardRuleDefinition[] = [
+const RULE_TEMPLATES = [
   {
     id: "dirty-incoming-overlap",
-    title: "Pull 전 겹치는 로컬 변경 차단",
-    purpose: "내 로컬 수정 파일과 Remote에서 들어올 파일이 겹치면 먼저 알려줘요.",
-    risk: "완화하면 Pull 중 충돌이 발생하거나 Git이 Pull을 멈출 수 있어요.",
+    key: "dirtyIncomingOverlap",
     relaxable: true,
   },
   {
     id: "no-upstream",
-    title: "Remote 연결이 없는 작업 중단",
-    purpose: "Pull/Push 대상 브랜치가 정해지지 않으면 실행을 멈춰요.",
-    risk: "올바른 대상을 알 수 없어 완화할 수 없어요.",
+    key: "noUpstream",
     relaxable: false,
   },
   {
     id: "remote-history-rewritten",
-    title: "원격 기록 재작성 감지",
-    purpose: "Remote 커밋 기록이 바뀐 경우 덮어쓰기 가능성을 알려줘요.",
-    risk: "공유 커밋이 사라질 수 있어 세션에서 완화할 수 없어요.",
+    key: "remoteHistoryRewritten",
     relaxable: false,
   },
   {
     id: "protected-branch",
-    title: "보호 브랜치 위험 작업 경고",
-    purpose: "main / master / release 같은 보호 브랜치에서 Force Push·삭제·Hard Reset을 한 번 더 막아요.",
-    risk: "공유 기본 브랜치를 덮거나 지울 수 있어 세션에서 완화할 수 없어요.",
+    key: "protectedBranch",
     relaxable: false,
   },
 ];
 
+export function getSafeGuardRules(): SafeGuardRuleDefinition[] {
+  return RULE_TEMPLATES.map((tpl) => ({
+    id: tpl.id,
+    title: t(`safeguard.rules.${tpl.key}.title`),
+    purpose: t(`safeguard.rules.${tpl.key}.purpose`),
+    risk: t(`safeguard.rules.${tpl.key}.risk`),
+    relaxable: tpl.relaxable,
+  }));
+}
+
+export const SAFE_GUARD_RULES: SafeGuardRuleDefinition[] = new Proxy([] as SafeGuardRuleDefinition[], {
+  get(target, prop, receiver) {
+    const rules = getSafeGuardRules();
+    return Reflect.get(rules, prop, receiver);
+  },
+});
+
 export function listSafeGuardRules(relaxedIds: string[] = []) {
   const relaxed = new Set(relaxedIds);
-  return SAFE_GUARD_RULES.map((rule) => ({ ...rule, relaxed: relaxed.has(rule.id) }));
+  return getSafeGuardRules().map((rule) => ({ ...rule, relaxed: relaxed.has(rule.id) }));
 }
 
 const PRIORITY: Record<GuardLevel, number> = {
@@ -112,7 +123,7 @@ export async function evaluateSafeguards({
 
   const highest = decisions.reduce(
     (current, decision) => PRIORITY[decision.level] > PRIORITY[current.level] ? decision : current,
-    createGuardDecision("safe", "안전 검사를 통과했습니다."),
+    createGuardDecision("safe", t("safeguard.passed")),
   );
 
   return {

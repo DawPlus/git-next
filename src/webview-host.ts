@@ -10,6 +10,9 @@ function createWebviewHost(core, panels, menus, sync) {
     recordActivity,
     confirmMutation,
     getOrCreateWebviewPanel,
+    getLocale,
+    setLocale,
+    t,
   } = core;
   const {
     openKnowledgePanel,
@@ -54,6 +57,13 @@ function createWebviewHost(core, panels, menus, sync) {
         if (!consumeExternalRefresh) scheduleExternalGitRefresh();
       }
     }
+  }
+
+  async function refreshWebviewHosts() {
+    await Promise.allSettled(
+      [...liveWebviewHosts].map(({ host, mode, getOptions }) =>
+        renderPanel(host, null, mode, getOptions())),
+    );
   }
 
   async function registerBuiltInGitStateRefresh(context) {
@@ -137,6 +147,10 @@ function createWebviewHost(core, panels, menus, sync) {
       conflictHelper,
       runInternalGitOperation,
       runSyncAction,
+      refreshWebviewHosts,
+      getLocale,
+      setLocale,
+      t,
     });
     const messages = host.webview.onDidReceiveMessage(handleMessage);
     context.subscriptions.push(messages);

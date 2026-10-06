@@ -1,16 +1,17 @@
-import { TERMS, SCENARIOS } from "./glossary-data.mjs";
+import { TERMS, SCENARIOS, getGlossaryTerms, getScenarios } from "./glossary-data.mjs";
 import { escapeHtml } from "./view-shared.mjs";
+import { getFixedT, getLocale } from "./view-shared.mjs";
 
-export { TERMS, SCENARIOS } from "./glossary-data.mjs";
+export { TERMS, SCENARIOS, getGlossaryTerms, getScenarios } from "./glossary-data.mjs";
 
 function nodeKind(label) {
   const value = String(label).toLowerCase();
-  if (/원격|origin/.test(value)) return "remote";
+  if (/원격|origin|remote/.test(value)) return "remote";
   if (/stash/.test(value)) return "stash";
   if (/branch|브랜치|main|feature/.test(value)) return "branch";
   if (/tag|v\d/.test(value)) return "tag";
-  if (/commit|커밋|기록|head|현재|이전/.test(value)) return "commit";
-  if (/작업|파일|변경/.test(value)) return "work";
+  if (/commit|커밋|기록|head|현재|이전|history|current|previous|base|picked|revert|original/.test(value)) return "commit";
+  if (/작업|파일|변경|work|file|change|edit/.test(value)) return "work";
   return "local";
 }
 
@@ -35,11 +36,14 @@ function renderFlowNode(label) {
   </span>`;
 }
 
-function renderFlow(flow, tone, animation = "push") {
+function renderFlow(flow, tone, animation = "push", tFn?: (key: string, params?: any) => string) {
   const [from, to] = flow;
   const fromKind = nodeKind(from);
   const toKind = nodeKind(to);
-  return `<div class="flow ${escapeHtml(tone)} semantic-${escapeHtml(animation)}" aria-label="${escapeHtml(from)}와 ${escapeHtml(to)}의 Git 관계">
+  const ariaLabel = tFn
+    ? tFn("glossary.flowAriaLabel", { from, to })
+    : `${escapeHtml(from)}와 ${escapeHtml(to)}의 Git 관계`;
+  return `<div class="flow ${escapeHtml(tone)} semantic-${escapeHtml(animation)}" aria-label="${escapeHtml(ariaLabel)}">
     ${renderFlowNode(from)}
     <span class="flow-track flow-stage" aria-hidden="true">
       <span class="flow-actor actor-a actor-${fromKind}">${nodeIcon(fromKind)}</span>
@@ -78,8 +82,11 @@ function renderFlow(flow, tone, animation = "push") {
   </div>`;
 }
 
-export function renderGlossaryHtml() {
-  const cards = TERMS.map((item) => {
+export function renderGlossaryHtml(options: { locale?: string } = {}) {
+  const locale = options?.locale ?? getLocale();
+  const tFn = getFixedT(locale);
+  const terms = getGlossaryTerms(locale);
+  const cards = terms.map((item) => {
     const search = [
       item.term,
       item.ko,
@@ -89,6 +96,15 @@ export function renderGlossaryHtml() {
       ...item.flow,
     ].join(" ").toLowerCase();
 
+    const toneLabel =
+      item.tone === "remote"
+        ? tFn("glossary.toneRemote")
+        : item.tone === "danger"
+        ? tFn("glossary.toneDanger")
+        : item.tone === "warning"
+        ? tFn("glossary.toneWarning")
+        : tFn("glossary.toneLocal");
+
     return `
       <article class="term ${escapeHtml(item.tone)}" data-search="${escapeHtml(search)}">
         <div class="term-head">
@@ -96,21 +112,21 @@ export function renderGlossaryHtml() {
             <div class="term-ko">${escapeHtml(item.ko)}</div>
             <h2>${escapeHtml(item.term)}</h2>
           </div>
-          <span class="term-kind">${escapeHtml(item.tone === "remote" ? "원격" : item.tone === "danger" ? "주의" : item.tone === "warning" ? "확인" : "로컬")}</span>
+          <span class="term-kind">${escapeHtml(toneLabel)}</span>
         </div>
         <p class="summary">${escapeHtml(item.summary)}</p>
-        ${renderFlow(item.flow, item.tone, item.animation)}
+        ${renderFlow(item.flow, item.tone, item.animation, tFn)}
         <div class="effect">${escapeHtml(item.effect)}</div>
-        <div class="example"><span>예시</span>${escapeHtml(item.example)}</div>
+        <div class="example"><span>${escapeHtml(tFn("glossary.exampleLabel"))}</span>${escapeHtml(item.example)}</div>
       </article>`;
   }).join("");
 
   return `<!doctype html>
-<html lang="ko">
+<html lang="${escapeHtml(locale)}">
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Git Next · 용어 설명</title>
+<title>${escapeHtml(tFn("glossary.shellTitle"))}</title>
 <style>
 *{box-sizing:border-box}
 body{margin:0;color:var(--vscode-foreground);background:var(--vscode-editor-background);font-family:var(--vscode-font-family)}
@@ -242,9 +258,9 @@ h1{font-size:19px}
 <body>
 <main>
   <header>
-    <h1>Git 용어 설명</h1>
-    <div class="intro">“이걸 하면 어디가 바뀌는지” 기준으로 보면 Git이 훨씬 쉬워져요.</div>
-    <input class="search" id="q" type="search" placeholder="Commit, Push, Stash 같은 용어 검색" />
+    <h1>${escapeHtml(tFn("glossary.headerTitle"))}</h1>
+    <div class="intro">${escapeHtml(tFn("glossary.headerSub"))}</div>
+    <input class="search" id="q" type="search" placeholder="${escapeHtml(tFn("glossary.searchPlaceholder"))}" />
   </header>
   <section class="grid">${cards}</section>
 </main>
@@ -267,16 +283,56 @@ export function getMatchingScenarios(state) {
 }
 
 
-export function getLiveTermExample(term, state) {
+export function getLiveTermExample(term, state, options: { locale?: string } = {}) {
   if (state?.kind !== "repository") return null;
+  const locale = options?.locale ?? getLocale();
+  const tFn = getFixedT(locale);
   const tracking = state.tracking;
-  const remote = state.upstream ?? "원격 브랜치";
-  if (term === "HEAD" && state.head) return `현재 HEAD ${state.head.slice(0, 8)} · ${state.branch ?? "Detached HEAD"}`;
-  if (term === "Branch" && state.branch) return `현재 브랜치 ${state.branch}`;
-  if (["Upstream", "Remote", "Origin"].includes(term)) return state.upstream ? `현재 연결: ${state.branch} ↔ ${state.upstream}` : tracking?.kind === "no-upstream" ? "현재 브랜치에 연결된 Upstream이 없습니다." : null;
-  if (term === "Push") return tracking?.kind === "no-upstream" ? `현재 ${state.branch ?? "브랜치"}는 보낼 Remote가 연결되지 않았습니다.` : tracking ? `현재 ${remote}로 보낼 커밋 ${tracking.ahead}개` : null;
-  if (term === "Pull") return tracking?.kind === "no-upstream" ? "현재 브랜치에 받을 Upstream이 연결되지 않았습니다." : tracking ? `현재 ${remote}에서 받을 커밋 ${tracking.behind}개` : null;
-  if (term === "Ahead / Behind") return tracking && tracking.kind !== "no-upstream" ? `현재 ${tracking.ahead}개 앞섬 · ${tracking.behind}개 뒤처짐` : null;
-  if (term === "Diverged") return tracking && tracking.kind !== "no-upstream" ? tracking.kind === "diverged" ? `현재 분기됨 · 로컬 ${tracking.ahead}개 / 원격 ${tracking.behind}개` : `현재 상태: ${tracking.kind}` : null;
+  const remote = state.upstream ?? tFn("glossary.live.defaultRemote");
+  const branchName = state.branch ?? tFn("glossary.live.defaultBranch");
+  const detachedHead = tFn("glossary.live.detachedHead");
+
+  if (term === "HEAD" && state.head) {
+    return tFn("glossary.live.head", {
+      head: state.head.slice(0, 8),
+      branch: state.branch ?? detachedHead,
+    });
+  }
+  if (term === "Branch" && state.branch) {
+    return tFn("glossary.live.branch", { branch: state.branch });
+  }
+  if (["Upstream", "Remote", "Origin"].includes(term)) {
+    return state.upstream
+      ? tFn("glossary.live.upstreamConnected", { branch: state.branch, upstream: state.upstream })
+      : tracking?.kind === "no-upstream"
+      ? tFn("glossary.live.upstreamMissing")
+      : null;
+  }
+  if (term === "Push") {
+    return tracking?.kind === "no-upstream"
+      ? tFn("glossary.live.pushNoRemote", { branch: branchName })
+      : tracking
+      ? tFn("glossary.live.pushWithRemote", { remote, ahead: tracking.ahead })
+      : null;
+  }
+  if (term === "Pull") {
+    return tracking?.kind === "no-upstream"
+      ? tFn("glossary.live.pullNoRemote")
+      : tracking
+      ? tFn("glossary.live.pullWithRemote", { remote, behind: tracking.behind })
+      : null;
+  }
+  if (term === "Ahead / Behind") {
+    return tracking && tracking.kind !== "no-upstream"
+      ? tFn("glossary.live.aheadBehind", { ahead: tracking.ahead, behind: tracking.behind })
+      : null;
+  }
+  if (term === "Diverged") {
+    return tracking && tracking.kind !== "no-upstream"
+      ? tracking.kind === "diverged"
+        ? tFn("glossary.live.diverged", { ahead: tracking.ahead, behind: tracking.behind })
+        : tFn("glossary.live.divergedFallback", { kind: tracking.kind })
+      : null;
+  }
   return null;
 }

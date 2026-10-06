@@ -1,3 +1,5 @@
+import { t } from "./i18n.mjs";
+
 export interface StateRiskNext {
   state?: unknown;
   risk?: unknown;
@@ -15,9 +17,9 @@ function clean(value: unknown, fallback: string): string {
 
 export function formatStateRiskNext({ state, risk, next }: StateRiskNext = {}): string {
   return [
-    `상태: ${clean(state, "현재 상태를 확인할 수 없습니다.")}`,
-    `위험: ${clean(risk, "확인된 위험 정보를 읽을 수 없습니다.")}`,
-    `다음: ${clean(next, "현재 저장소 상태를 다시 확인하세요.")}`,
+    t("guidance.labels.state", { value: clean(state, t("guidance.labels.stateFallback")) }),
+    t("guidance.labels.risk", { value: clean(risk, t("guidance.labels.riskFallback")) }),
+    t("guidance.labels.next", { value: clean(next, t("guidance.labels.nextFallback")) }),
   ].join("\n");
 }
 
@@ -25,9 +27,9 @@ export function guidanceNotice<T extends GuidanceNoticeInput = GuidanceNoticeInp
   { state, risk, next, ...rest }: T = {} as T,
 ): Omit<T, "state" | "risk" | "next"> & Required<StateRiskNext> & { message: string } {
   const normalized = {
-    state: clean(state, "현재 상태를 확인할 수 없습니다."),
-    risk: clean(risk, "확인된 위험 정보를 읽을 수 없습니다."),
-    next: clean(next, "현재 저장소 상태를 다시 확인하세요."),
+    state: clean(state, t("guidance.labels.stateFallback")),
+    risk: clean(risk, t("guidance.labels.riskFallback")),
+    next: clean(next, t("guidance.labels.nextFallback")),
   };
   return {
     ...rest,

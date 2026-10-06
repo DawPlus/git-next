@@ -1,193 +1,61 @@
 import { escapeHtml } from "./view-shared.mjs";
+import {
+  getFixedT,
+  getLocale,
+  getTranslations,
+  normalizeLocale,
+} from "./view-shared.mjs";
 
-export const GUIDES = {
-  "dirty-pull": {
-    title: "작업 중인데 Pull 해야 해요",
-    summary: "내 로컬 변경과 원격 변경이 부딪힐 수 있어서 바로 Pull하지 않는 게 안전해요.",
-    example: "다른 개발자가 수정한 내용을 받으라고 했는데, 나도 같은 파일을 수정 중이에요. 이 상태에서 Pull하면 충돌하거나 Pull이 막힐 수 있어요.",
-    steps: [
-      "지금 변경이 커밋 가능한 상태면 먼저 Commit해요.",
-      "아직 Commit하기 애매하면 Stash로 잠깐 보관해요.",
-      "그 다음 Pull해서 원격 변경을 받아요.",
-      "Stash했다면 Apply/Pop으로 내 작업을 다시 가져와요.",
-      "같은 파일의 같은 부분을 둘 다 바꿨다면 Conflict를 직접 정리해요.",
-    ],
-    avoid: "수정 파일이 많은 상태에서 무작정 Pull하거나 변경을 버리지 마세요.",
-  },
-  "pull-conflict": {
-    title: "Pull하면 충돌할 가능성이 높아요",
-    summary: "내 변경과 원격 변경이 같은 파일의 같은 부분을 건드린 것 같아요.",
-    example: "나도 app.js의 로그인 코드를 고쳤고, 원격에서도 같은 부분이 바뀌었어요. Pull하면 Git이 어느 쪽을 남길지 결정하지 못할 수 있어요.",
-    steps: [
-      "충돌 예상 파일 목록을 먼저 확인해요.",
-      "내 변경을 Commit 또는 Stash로 안전하게 보관해요.",
-      "Pull/Merge 후 충돌 편집기에서 내 변경과 서버 변경을 비교해요.",
-      "원하는 결과를 남기고 Conflict 표시를 제거한 뒤 Commit해요.",
-    ],
-    avoid: "어느 쪽이 맞는지 확인하지 않고 'Accept All'을 누르지 마세요.",
-  },
-  "push-rejected": {
-    title: "Push가 거절됐어요",
-    summary: "원격에 내가 아직 받지 않은 커밋이 있어서 내 기록을 바로 올릴 수 없어요.",
-    example: "내가 Commit까지 했는데 Push가 거절됐어요. 그 사이 팀원이 먼저 Push해서 원격이 내 로컬보다 앞서 있는 상황이에요.",
-    steps: [
-      "원격 변경을 Fetch/Pull로 먼저 확인해요.",
-      "작업 중 변경이 있다면 Commit 또는 Stash로 보관해요.",
-      "로컬과 원격 차이를 정리한 뒤 다시 Push해요.",
-    ],
-    avoid: "이유를 모른 채 Force Push로 덮어쓰지 마세요.",
-  },
-  diverged: {
-    title: "로컬과 원격 기록이 갈라졌어요",
-    summary: "내 쪽에도 새 커밋이 있고 원격에도 다른 새 커밋이 있어요.",
-    example: "아침에 main에서 작업해 Commit했는데, 그 사이 팀원도 main에 다른 Commit을 Push했어요. 이제 양쪽 기록이 서로 다른 방향으로 자란 상태예요.",
-    steps: [
-      "그래프에서 내 커밋과 원격 커밋을 먼저 확인해요.",
-      "Merge 또는 Rebase 중 어떤 방식으로 정리할지 선택해요.",
-      "충돌이 있다면 직접 정리한 뒤 Push해요.",
-    ],
-    avoid: "갈라진 이유를 확인하기 전 Force Push는 피하세요.",
-  },
-  "no-upstream": {
-    title: "이 브랜치는 원격과 연결되지 않았어요",
-    summary: "Push/Pull할 상대 원격 브랜치가 아직 정해지지 않았어요.",
-    example: "feature/login 브랜치를 새로 만들었는데 첫 Push를 아직 안 했어요. Git은 이 브랜치를 어느 원격 브랜치와 연결할지 모르는 상태예요.",
-    steps: [
-      "연결할 원격 브랜치를 정해요.",
-      "처음 Push할 때 upstream을 설정해요.",
-      "이후부터 Pull/Push 기준이 그 원격 브랜치가 돼요.",
-    ],
-    avoid: "어느 원격으로 보낼지 확인하지 않고 새 브랜치를 만들지 마세요.",
-  },
-  "remote-rewritten": {
-    title: "원격 기록이 다시 쓰인 것 같아요",
-    summary: "누군가 Rebase 또는 Force Push로 원격 커밋 흐름을 바꿨을 수 있어요.",
-    example: "어제 보던 origin/main의 Commit 줄이 오늘 갑자기 달라졌어요. 팀원이 Rebase 후 Force Push해서 원격 기록 자체가 바뀐 경우일 수 있어요.",
-    steps: [
-      "바로 Push하지 말고 그래프에서 이전 원격과 현재 원격 차이를 확인해요.",
-      "내 로컬 커밋이 어디에서 갈라졌는지 확인해요.",
-      "필요하면 새 기준에 Rebase하거나 안전하게 Merge해요.",
-    ],
-    avoid: "기존 원격 기록을 확인하지 않고 다시 Force Push하지 마세요.",
-  },
-  "merge-in-progress": {
-    title: "Merge가 아직 끝나지 않았어요",
-    summary: "Git이 파일을 합치다가 멈춘 상태예요. 먼저 충돌을 끝내거나 Merge를 취소해야 해요.",
-    example: "브랜치를 Merge했더니 몇몇 파일에 충돌 표시가 생기고 Git 작업이 멈췄어요. 합칠 내용을 결정하기 전까지는 Merge가 진행 중인 상태예요.",
-    steps: [
-      "충돌 파일을 열어요.",
-      "내 변경과 서버에서 들어온 변경을 비교해요.",
-      "원하는 최종 내용을 남겨요.",
-      "모든 충돌을 정리한 뒤 Merge를 계속하거나, 원치 않으면 Abort해요.",
-    ],
-    avoid: "충돌 중인 상태에서 다른 Pull/Push를 이어서 실행하지 마세요.",
-  },
-  "detached-head": {
-    title: "Detached HEAD 상태예요",
-    summary: "브랜치가 아니라 특정 커밋을 직접 보고 있어서 새 작업이 정상 브랜치 흐름에서 떨어질 수 있어요.",
-    example: "예전 Commit을 확인하려고 Checkout했는데 그 상태에서 파일까지 수정했어요. 지금 작업은 main이나 feature 같은 브랜치에 붙어 있지 않을 수 있어요.",
-    steps: ["유지할 변경이 있는지 확인해요.", "필요하면 현재 위치에서 새 브랜치를 만들어요.", "원래 작업할 브랜치로 이동한 뒤 Pull/Push를 다시 시도해요."],
-    avoid: "Detached HEAD에서 중요한 작업을 계속 쌓은 뒤 위치를 바꾸지 마세요.",
-  },
-  "operation-in-progress": {
-    title: "이전 Git 작업이 아직 진행 중이에요",
-    summary: "Merge, Rebase, Cherry-pick, Revert 중 하나가 끝나지 않은 상태일 수 있어요.",
-    example: "어제 Rebase 중 충돌이 나서 창을 닫았고 오늘 다시 Pull하려고 했어요. Git 입장에서는 어제 작업이 아직 끝나지 않은 상태예요.",
-    steps: ["현재 진행 중인 작업 종류를 확인해요.", "충돌이 있다면 먼저 해결해요.", "Continue 또는 Abort로 작업을 끝낸 뒤 다음 Git 작업을 시작해요."],
-    avoid: "진행 중인 작업 위에 Pull/Push나 다른 이력 변경 작업을 겹치지 마세요.",
-  },
-  "undo-local-commit": {
-    title: "방금 만든 로컬 Commit을 취소하고 싶어요",
-    summary: "아직 Push하지 않았다면 Commit만 취소하고 파일 변경은 그대로 남길 수 있어요.",
-    example: "Commit 메시지를 잘못 적었거나 파일 하나를 빼먹었는데 아직 Push 전이에요. Commit만 되돌리고 내용을 다시 정리하면 돼요.",
-    steps: ["마지막 Commit이 Remote에 올라가지 않았는지 확인해요.", "Commit 취소를 실행해요.", "변경은 Staged 상태로 남으므로 다시 정리해 Commit해요."],
-    avoid: "이미 Push한 Commit에 Reset을 사용하지 마세요. 공유 기록은 Revert가 더 안전해요.",
-  },
-  "pushed-recovery": {
-    title: "이미 Push한 Commit을 되돌리고 싶어요",
-    summary: "공유된 기록을 지우지 않고 반대 변경의 새 Commit을 만드는 Revert가 안전해요.",
-    example: "이미 팀원들이 받은 Commit에 버그가 있어서 되돌려야 해요. 기존 기록을 지우기보다 반대 변경을 담은 새 Commit을 만드는 편이 안전해요.",
-    steps: ["되돌릴 Commit을 확인해요.", "Revert가 만드는 반대 변경을 확인해요.", "새 Revert Commit을 Push해 공유해요."],
-    avoid: "팀이 쓰는 브랜치에서 이유 없이 Force Push로 기록을 지우지 마세요.",
-  },
-  "stash-before-risk": {
-    title: "작업 중 변경을 잠깐 치워두고 싶어요",
-    summary: "Commit하기 애매한 변경은 Stash로 보관한 뒤 브랜치 전환이나 Pull을 할 수 있어요.",
-    example: "아직 작업 중이라 Commit은 하기 싫은데 급하게 다른 브랜치로 가거나 Pull을 받아야 해요. 현재 변경을 잠깐 서랍에 넣듯 Stash하면 돼요.",
-    steps: ["현재 변경 파일을 확인해요.", "Stash에 메모와 함께 저장해요.", "필요한 Git 작업을 한 뒤 Apply 또는 Pop으로 복원해요."],
-    avoid: "Stash 내용을 확인하지 않고 Drop하지 마세요.",
-  },
-  "fetch-vs-pull": {
-    title: "Fetch와 Pull 중 뭘 써야 하나요?",
-    summary: "Fetch는 Remote 정보만 갱신하고, Pull은 그 변경을 현재 브랜치에 실제 반영해요.",
-    example: "팀원이 Push했다고 하는데 바로 내 파일을 바꾸고 싶진 않아요. Fetch로 먼저 원격 상태만 확인한 뒤, 내용을 보고 Pull할 수 있어요.",
-    steps: ["먼저 상태만 보고 싶으면 Fetch를 사용해요.", "Compare에서 들어올 변경을 확인해요.", "실제로 반영해도 안전할 때 Pull해요."],
-    avoid: "무슨 변경이 들어오는지 모른 채 바로 Pull할 필요는 없어요.",
-  },
-  "merge-vs-rebase": {
-    title: "Merge와 Rebase 중 어떤 걸 써야 하나요?",
-    summary: "Merge는 흐름을 합친 기록을 남기고, Rebase는 내 Commit의 기준을 새로 만들어 기록을 정리해요.",
-    example: "feature 브랜치 작업이 끝났고 main도 그 사이 바뀌었어요. 두 흐름을 그대로 합칠지, 내 작업을 최신 main 위에 다시 정렬할지 선택하는 상황이에요.",
-    steps: ["공유 브랜치인지 먼저 확인해요.", "기록 보존이 중요하면 Merge를 우선 고려해요.", "내 로컬 작업 정리가 목적이고 공유 전이라면 Rebase를 고려해요."],
-    avoid: "이미 여러 사람이 공유한 Commit을 이유 없이 Rebase하지 마세요.",
-  },
-  "partial-stage": {
-    title: "파일 일부만 Commit하고 싶어요",
-    summary: "필요한 줄만 다음 Commit에 넣고 나머지는 작업 폴더에 남겨둘 수 있어요.",
-    example: "한 파일에서 로그인 수정과 임시 로그가 함께 바뀌었어요. 로그인 수정만 먼저 Commit하고 싶어요.",
-    steps: [
-      "VS Code Source Control을 열어요.",
-      "변경 파일을 열어 diff에서 Commit할 줄만 선택해 Stage해요.",
-      "Staged Changes에 원하는 줄만 들어갔는지 확인해요.",
-      "VS Code Source Control에서 Commit해요. 선택하지 않은 변경은 작업 폴더에 남아요.",
-    ],
-    avoid: "Git Next에서 파일 전체를 Stage하지 말고, 줄 단위 선택은 VS Code Source Control에서 진행하세요.",
-  },
-  "wrong-staged-file": {
-    title: "잘못된 파일을 Stage했어요",
-    summary: "Stage는 파일 내용을 지우는 작업이 아니라 다음 Commit에 포함할 변경을 고르는 작업이에요.",
-    example: "login.ts만 Commit하려고 했는데 실수로 config.json까지 Stage했어요. Commit 전에 config.json만 Unstage하면 돼요.",
-    steps: ["Staged 목록에서 잘못 들어간 파일을 확인해요.", "그 파일만 Unstage해요.", "Working Tree에 변경이 그대로 남아 있는지 확인해요.", "원하는 파일만 남은 상태에서 Commit해요."],
-    avoid: "Stage를 취소하려고 파일 자체를 되돌리거나 삭제하지 마세요.",
-  },
-  "switch-with-changes": {
-    title: "다른 브랜치로 이동이 안 돼요",
-    summary: "현재 수정 중인 파일이 이동할 브랜치의 파일과 충돌할 수 있으면 Git이 안전을 위해 브랜치 이동을 막을 수 있어요.",
-    example: "feature/login으로 이동하려는데 'local changes would be overwritten' 같은 오류가 나왔어요. 아직 Commit하지 않은 변경이 남아 있는 상황일 수 있어요.",
-    steps: ["현재 변경 파일을 먼저 확인해요.", "완성된 작업이면 Commit해요.", "아직 작업 중이면 Stash로 잠깐 보관해요.", "브랜치를 이동한 뒤 필요하면 Stash를 다시 Apply/Pop해요."],
-    avoid: "이동하려고 현재 변경을 무작정 버리지 마세요.",
-  },
-  "stash-apply-vs-pop": {
-    title: "Stash Apply와 Pop 중 뭘 써야 하나요?",
-    summary: "둘 다 보관한 변경을 복원하지만 Stash 항목을 남기는지가 달라요.",
-    example: "복원 결과가 괜찮은지 먼저 확인하고 싶으면 Apply가 안전해요. 바로 복원하고 보관 목록도 정리하고 싶다면 Pop을 사용할 수 있어요.",
-    steps: ["복원 전에 Stash 내용을 확인해요.", "불확실하거나 충돌 가능성이 있으면 Apply를 먼저 사용해요.", "정상 복원된 것을 확인한 뒤 필요하면 해당 Stash를 Drop해요.", "Pop을 쓸 때는 충돌 가능성을 먼저 확인해요."],
-    avoid: "중요한 Stash를 확인하지 않고 바로 Pop이나 Drop하지 마세요.",
-  },
-  "worked-on-wrong-branch": {
-    title: "잘못된 브랜치에서 작업했어요",
-    summary: "아직 Commit 전인지 Commit 후인지에 따라 옮기는 방법이 달라져요.",
-    example: "feature/payment에서 해야 할 수정을 main에서 시작해버렸어요. 다행히 아직 Push는 하지 않은 상태예요.",
-    steps: ["먼저 현재 변경이 Commit 전인지 Commit 후인지 확인해요.", "Commit 전이라면 변경을 Stash한 뒤 올바른 브랜치로 이동해 복원할 수 있어요.", "이미 Commit했다면 필요한 Commit을 Cherry-pick하거나 안전한 브랜치 이동 방법을 선택해요.", "최종적으로 원래 브랜치에 불필요한 Commit이 남지 않았는지 확인해요."],
-    avoid: "상태를 확인하지 않고 Reset이나 Force Push부터 실행하지 마세요.",
-  },
-  "reset-mistake": {
-    title: "Reset을 잘못해서 Commit이 사라진 것 같아요",
-    summary: "Reset으로 브랜치 위치가 이동했어도 Git 내부 기록에 이전 Commit이 잠시 남아 있을 수 있어요.",
-    example: "Reset 대상을 잘못 골라 방금 만든 Commit이 그래프에서 안 보여요. 바로 새 작업을 많이 하지 않았다면 복구 가능성이 있어요.",
-    steps: ["추가 Reset이나 새 Commit을 잠시 멈춰요.", "Reflog에서 Reset 전 HEAD 위치를 확인해요.", "찾은 Commit이 맞는지 내용을 확인해요.", "복구 Branch를 만들거나 안전한 방법으로 해당 Commit을 다시 연결해요."],
-    avoid: "당황해서 Reset을 여러 번 반복하거나 reflog 확인 전에 기록을 더 크게 바꾸지 마세요.",
-  },
-  "remote-branch-gone": {
-    title: "원격 브랜치가 사라졌어요",
-    summary: "다른 사람이 원격 브랜치를 삭제했거나 이름을 바꿨는데 내 로컬에는 예전 추적 정보가 남아 있을 수 있어요.",
-    example: "어제까지 origin/feature가 있었는데 오늘은 팀에서 브랜치를 삭제했다고 해요. 내 로컬 feature 브랜치는 아직 남아 있어요.",
-    steps: ["Fetch와 prune으로 최신 원격 목록을 확인해요.", "내 로컬 브랜치에 남길 작업이 있는지 확인해요.", "필요한 작업이 있으면 다른 브랜치에 Merge/Cherry-pick하거나 새 원격 브랜치를 연결해요.", "더 이상 필요 없다면 로컬 브랜치 정리를 고려해요."],
-    avoid: "원격 브랜치가 사라졌다는 이유만으로 확인 없이 로컬 브랜치를 바로 삭제하지 마세요.",
-  },
-};
+export interface GuideItem {
+  title: string;
+  summary: string;
+  example: string;
+  steps: string[];
+  avoid: string;
+}
 
-export function classifyGuide({ action, code, detail = "", message = "" }: { action?: string; code?: string | null; detail?: string; message?: string } = {}) {
+export function getGuides(localeCandidate?: string | null): Record<string, GuideItem> {
+  const locale = normalizeLocale(localeCandidate);
+  const translations = getTranslations(locale);
+  const guideBundle = translations?.guide?.guides ?? getTranslations("ko")?.guide?.guides ?? {};
+  return guideBundle;
+}
+
+export const GUIDES: Record<string, GuideItem> = new Proxy({} as Record<string, GuideItem>, {
+  get(_target, prop: string) {
+    return getGuides(getLocale())[prop];
+  },
+  ownKeys() {
+    return Object.keys(getGuides(getLocale()));
+  },
+  getOwnPropertyDescriptor(_target, prop: string) {
+    const obj = getGuides(getLocale());
+    if (prop in obj) {
+      return {
+        value: obj[prop],
+        writable: false,
+        enumerable: true,
+        configurable: true,
+      };
+    }
+    return undefined;
+  },
+  has(_target, prop: string) {
+    return prop in getGuides(getLocale());
+  },
+});
+
+export function classifyGuide({
+  action,
+  code,
+  detail = "",
+  message = "",
+}: {
+  action?: string;
+  code?: string | null;
+  detail?: string;
+  message?: string;
+} = {}) {
   const text = `${code ?? ""} ${detail} ${message}`.toLowerCase();
 
   if (/dirty-working-tree|working-tree-dirty|dirty-incoming-overlap/.test(text) && action === "pull") return "dirty-pull";
@@ -203,42 +71,45 @@ export function classifyGuide({ action, code, detail = "", message = "" }: { act
   return null;
 }
 
-function renderMarkerGuide() {
+function renderMarkerGuide(tFn: (key: string) => string) {
   return `<section class="marker-card" id="merge-conflict">
-    <div class="eyebrow">Merge Conflict</div>
-    <h2>HEAD가 뭐고 서버 게 뭔지 헷갈릴 때</h2>
-    <p><code>HEAD</code>는 서버 이름이 아니라 <strong>지금 내가 체크아웃한 현재 브랜치 쪽</strong>이에요.</p>
+    <div class="eyebrow">${escapeHtml(tFn("guide.marker.eyebrow"))}</div>
+    <h2>${escapeHtml(tFn("guide.marker.title"))}</h2>
+    <p>${tFn("guide.marker.desc")}</p>
     <div class="marker-grid">
-      <div class="marker local"><span>내 변경</span><code>&lt;&lt;&lt;&lt;&lt;&lt;&lt; HEAD</code><pre>내가 수정한 내용</pre></div>
-      <div class="marker sep"><span>경계</span><code>=======</code><pre>위/아래 두 변경을 나누는 선</pre></div>
-      <div class="marker incoming"><span>서버에서 들어온 변경</span><code>&gt;&gt;&gt;&gt;&gt;&gt;&gt; origin/main</code><pre>Pull/Merge로 들어온 내용</pre></div>
+      <div class="marker local"><span>${escapeHtml(tFn("guide.marker.localLabel"))}</span><code>&lt;&lt;&lt;&lt;&lt;&lt;&lt; HEAD</code><pre>${escapeHtml(tFn("guide.marker.localDesc"))}</pre></div>
+      <div class="marker sep"><span>${escapeHtml(tFn("guide.marker.sepLabel"))}</span><code>=======</code><pre>${escapeHtml(tFn("guide.marker.sepDesc"))}</pre></div>
+      <div class="marker incoming"><span>${escapeHtml(tFn("guide.marker.incomingLabel"))}</span><code>&gt;&gt;&gt;&gt;&gt;&gt;&gt; origin/main</code><pre>${escapeHtml(tFn("guide.marker.incomingDesc"))}</pre></div>
     </div>
     <div class="choice-grid">
-      <div><strong>내 변경 사용</strong><span>내가 작업한 내용을 남겨요.</span></div>
-      <div><strong>서버 변경 사용</strong><span>원격에서 들어온 내용을 남겨요.</span></div>
-      <div><strong>둘 다 사용</strong><span>둘 다 필요하면 합친 뒤 직접 정리해요.</span></div>
-      <div><strong>직접 편집</strong><span>최종 결과를 원하는 형태로 손봐요.</span></div>
+      <div><strong>${escapeHtml(tFn("guide.marker.choiceLocalTitle"))}</strong><span>${escapeHtml(tFn("guide.marker.choiceLocalDesc"))}</span></div>
+      <div><strong>${escapeHtml(tFn("guide.marker.choiceIncomingTitle"))}</strong><span>${escapeHtml(tFn("guide.marker.choiceIncomingDesc"))}</span></div>
+      <div><strong>${escapeHtml(tFn("guide.marker.choiceBothTitle"))}</strong><span>${escapeHtml(tFn("guide.marker.choiceBothDesc"))}</span></div>
+      <div><strong>${escapeHtml(tFn("guide.marker.choiceEditTitle"))}</strong><span>${escapeHtml(tFn("guide.marker.choiceEditDesc"))}</span></div>
     </div>
   </section>`;
 }
 
-export function renderGuideHtml(selected = null) {
-  const entries = Object.entries(GUIDES);
+export function renderGuideHtml(selected = null, options: { locale?: string } = {}) {
+  const locale = options?.locale ?? getLocale();
+  const tFn = getFixedT(locale);
+  const guides = getGuides(locale);
+  const entries = Object.entries(guides);
   const cards = entries.map(([key, guide]) => `
     <article class="guide-card" id="${escapeHtml(key)}">
       <h2>${escapeHtml(guide.title)}</h2>
       <p>${escapeHtml(guide.summary)}</p>
       <ol>${guide.steps.map((step) => `<li>${escapeHtml(step)}</li>`).join("")}</ol>
-      <div class="avoid"><strong>피할 것</strong> ${escapeHtml(guide.avoid)}</div>
+      <div class="avoid"><strong>${escapeHtml(tFn("guide.avoidLabel"))}</strong> ${escapeHtml(guide.avoid)}</div>
     </article>`
   ).join("");
 
   return `<!doctype html>
-<html lang="ko">
+<html lang="${escapeHtml(locale)}">
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Git Next · 상황별 가이드</title>
+<title>${escapeHtml(tFn("guide.shellTitle"))}</title>
 <style>
 *{box-sizing:border-box}
 html{scroll-behavior:smooth}
@@ -263,9 +134,9 @@ header{margin-bottom:14px}h1,h2,p{margin:0}h1{font-size:20px}.intro{margin-top:5
 </head>
 <body>
 <main>
-<header><h1>상황별 Git 가이드</h1><div class="intro">에러 문구 대신 “지금 무슨 상황이고 뭘 하면 되는지” 기준으로 설명해요.</div></header>
+<header><h1>${escapeHtml(tFn("guide.headerTitle"))}</h1><div class="intro">${escapeHtml(tFn("guide.headerIntro"))}</div></header>
 <section class="grid">${cards}</section>
-${renderMarkerGuide()}
+${renderMarkerGuide(tFn)}
 </main>
 <script>
 const selected=${JSON.stringify(selected)};

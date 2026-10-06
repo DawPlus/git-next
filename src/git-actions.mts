@@ -1,5 +1,6 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
+import { t } from "./i18n.mjs";
 
 const execFileAsync = promisify(execFile);
 
@@ -7,28 +8,28 @@ export function explainGitError(action, detail) {
   const text = String(detail ?? "");
 
   if (/non-fast-forward|rejected/i.test(text)) {
-    return "원격 브랜치에 아직 받지 않은 변경이 있습니다. 먼저 받기(Pull)한 뒤 결과를 확인하고 다시 보내세요.";
+    return t("actions.explain.nonFastForward");
   }
 
   if (/no tracking information|no upstream branch|set-upstream/i.test(text)) {
-    return "현재 브랜치가 원격 브랜치와 연결되어 있지 않습니다.";
+    return t("actions.explain.noTracking");
   }
 
   if (/not a git repository/i.test(text)) {
-    return "현재 폴더에서 Git 저장소를 찾지 못했습니다.";
+    return t("actions.explain.notGitRepo");
   }
 
   if (/conflict|automatic merge failed|unmerged/i.test(text)) {
-    return "충돌이 발생했습니다. 충돌 파일을 직접 정리한 뒤 다시 시도하세요.";
+    return t("actions.explain.conflict");
   }
 
   if (action === "pull" && /fast-forward|diverg/i.test(text)) {
-    return "로컬과 원격의 커밋 흐름이 갈라졌습니다. 양쪽 변경을 확인한 뒤 정리하세요.";
+    return t("actions.explain.diverged");
   }
 
   return action === "pull"
-    ? "변경 내용을 받아오지 못했습니다. Git 상세 정보를 열어 저장소 상태를 확인하세요."
-    : "변경 내용을 보내지 못했습니다. Git 상세 정보를 열어 저장소 상태를 확인하세요.";
+    ? t("actions.explain.pullFailed")
+    : t("actions.explain.pushFailed");
 }
 
 async function run(cwd, args) {
@@ -70,12 +71,12 @@ export function isSafeStashRef(ref) {
 
 export async function validateCommitish(cwd, value) {
   if (!isSafePositionalValue(value)) {
-    return { ok: false, message: "Git 대상을 안전하게 확인할 수 없습니다." };
+    return { ok: false, message: t("actions.commitish.unsafe") };
   }
   const result = await run(cwd, ["rev-parse", "--verify", "--quiet", "--end-of-options", `${value}^{commit}`]);
   return result.ok
     ? { ok: true, value, commit: result.detail }
-    : { ok: false, message: "존재하는 커밋 또는 Ref를 확인할 수 없습니다.", detail: result.detail };
+    : { ok: false, message: t("actions.commitish.notFound"), detail: result.detail };
 }
 
 export async function pullRepository(cwd) {
@@ -84,7 +85,7 @@ export async function pullRepository(cwd) {
     ...result,
     action: "pull",
     message: result.ok
-      ? "원격 변경 내용을 Merge 방식으로 받아왔습니다."
+      ? t("actions.pull.success")
       : explainGitError("pull", result.detail),
   };
 }
@@ -94,13 +95,13 @@ export async function pushRepository(cwd) {
   return {
     ...result,
     action: "push",
-    message: result.ok ? "로컬 변경 내용을 원격에 보냈습니다." : explainGitError("push", result.detail),
+    message: result.ok ? t("actions.push.success") : explainGitError("push", result.detail),
   };
 }
 
 export async function pushWithForceWithLease(cwd, remote, remoteRef, expected) {
   if (!/^refs\/heads\//.test(remoteRef) || !/^[0-9a-f]{40,64}$/i.test(expected)) {
-    return { ok: false, action: "force-push", code: "invalid-lease", message: "원격 브랜치의 최신 Commit을 확인할 수 없어 안전을 위해 Push를 중단했습니다." };
+    return { ok: false, action: "force-push", code: "invalid-lease", message: t("actions.push.invalidLease") };
   }
   const result = await run(cwd, ["push", `--force-with-lease=${remoteRef}:${expected}`, remote, `HEAD:${remoteRef}`]);
   const stale = /stale info|remote ref updated since checkout/i.test(result.detail);
@@ -109,9 +110,9 @@ export async function pushWithForceWithLease(cwd, remote, remoteRef, expected) {
     action: "force-push",
     code: stale ? "lease-mismatch" : result.ok ? null : "push-failed",
     message: result.ok
-      ? `확인한 원격 최신 Commit(${expected.slice(0, 8)})을 기준으로 안전한 강제 Push를 완료했습니다.`
+      ? t("actions.push.forceWithLeaseSuccess", { commit: expected.slice(0, 8) })
       : stale
-        ? "원격 기준점이 바뀌어 Push를 취소했습니다. 최신 상태를 확인한 뒤 다시 비교하세요."
+        ? t("actions.push.leaseMismatch")
         : explainGitError("push", result.detail),
   };
 }
@@ -122,9 +123,9 @@ export async function pushWithUpstream(cwd, remote, branch) {
     ...result,
     action: "push",
     message: result.ok
-      ? `첫 Push를 완료했습니다. 이후에는 ${remote}/${branch}를 기본 Remote로 사용합니다.`
+      ? t("actions.push.pushWithUpstreamSuccess", { remote, branch })
       : /no tracking information|no upstream branch|set-upstream/i.test(result.detail)
-        ? "첫 Push에 실패했습니다. 선택한 Remote와 브랜치 이름을 확인한 뒤 다시 시도하세요."
+        ? t("actions.push.pushWithUpstreamFailed")
         : explainGitError("push", result.detail),
   };
 }
@@ -135,32 +136,32 @@ export async function fetchPruneRemote(cwd, remote) {
     ...result,
     action: "fetch-prune",
     message: result.ok
-      ? `원격 저장소 '${remote}'의 브랜치 정보를 갱신하고 이미 사라진 항목을 정리했습니다.`
-      : "원격 저장소 정보를 갱신하지 못했습니다. 연결과 네트워크를 확인한 뒤 다시 시도해주세요.",
+      ? t("actions.fetchPrune.success", { remote })
+      : t("actions.fetchPrune.failed"),
   };
 }
 
 export async function validateBranchName(cwd, name) {
   if (!name?.trim()) {
-    return { ok: false, message: "브랜치 이름을 입력하세요." };
+    return { ok: false, message: t("actions.branch.enterName") };
   }
 
   const result = await run(cwd, ["check-ref-format", "--branch", name.trim()]);
   return result.ok
     ? { ok: true, name: name.trim() }
-    : { ok: false, message: "사용할 수 없는 브랜치 이름입니다.", detail: result.detail };
+    : { ok: false, message: t("actions.branch.invalidName"), detail: result.detail };
 }
 
 export async function validateTagName(cwd, name) {
   if (!name?.trim()) {
-    return { ok: false, message: "태그 이름을 입력하세요." };
+    return { ok: false, message: t("actions.tag.enterName") };
   }
 
   const clean = name.trim();
   const result = await run(cwd, ["check-ref-format", `refs/tags/${clean}`]);
   return result.ok
     ? { ok: true, name: clean }
-    : { ok: false, message: "사용할 수 없는 태그 이름입니다.", detail: result.detail };
+    : { ok: false, message: t("actions.tag.invalidName"), detail: result.detail };
 }
 
 export async function createTag(cwd, name, target = "HEAD") {
@@ -174,8 +175,8 @@ export async function createTag(cwd, name, target = "HEAD") {
     ...result,
     action: "create-tag",
     message: result.ok
-      ? `태그 '${name}'를 만들었습니다. 대상: ${target}`
-      : "태그를 만들지 못했습니다. 이름 중복 여부와 대상 커밋을 확인하세요.",
+      ? t("actions.tag.createSuccess", { name, target })
+      : t("actions.tag.createFailed"),
   };
 }
 
@@ -187,8 +188,8 @@ export async function deleteTag(cwd, name) {
     ...result,
     action: "delete-tag",
     message: result.ok
-      ? `로컬 태그 '${name}'를 삭제했습니다. 원격 태그는 변경하지 않았습니다.`
-      : "태그를 삭제하지 못했습니다.",
+      ? t("actions.tag.deleteSuccess", { name })
+      : t("actions.tag.deleteFailed"),
   };
 }
 
@@ -203,8 +204,8 @@ export async function createBranch(cwd, name, target = "HEAD") {
     ...result,
     action: "create-branch",
     message: result.ok
-      ? `브랜치 '${name}'를 만들었습니다. 현재 브랜치는 바뀌지 않았습니다.`
-      : "브랜치를 만들지 못했습니다. 이름 중복 여부와 대상 커밋을 확인하세요.",
+      ? t("actions.branch.createSuccess", { name })
+      : t("actions.branch.createFailed"),
   };
 }
 
@@ -216,8 +217,8 @@ export async function checkoutBranch(cwd, name) {
     ...result,
     action: "switch-branch",
     message: result.ok
-      ? `브랜치 '${name}'로 전환했습니다.`
-      : "브랜치를 전환하지 못했습니다. Git 상세 정보를 확인하세요.",
+      ? t("actions.branch.checkoutSuccess", { name })
+      : t("actions.branch.checkoutFailed"),
   };
 }
 
@@ -232,8 +233,8 @@ export async function createTrackingBranch(cwd, localName, remoteRef) {
     ...result,
     action: "create-tracking-branch",
     message: result.ok
-      ? `원격 '${remoteRef}'를 추적하는 로컬 브랜치 '${localName}'를 만들고 전환했습니다.`
-      : "원격 추적 브랜치를 만들지 못했습니다.",
+      ? t("actions.branch.createTrackingSuccess", { name: localName, remoteRef })
+      : t("actions.branch.createTrackingFailed"),
   };
 }
 
@@ -250,8 +251,8 @@ export async function renameBranch(cwd, oldName, newName) {
     ...result,
     action: "rename-branch",
     message: result.ok
-      ? `브랜치 '${oldName}'의 이름을 '${newName}'로 바꿨습니다. 원격 브랜치 이름은 자동으로 바뀌지 않습니다.`
-      : "브랜치 이름을 바꾸지 못했습니다.",
+      ? t("actions.branch.renameSuccess", { oldName, newName })
+      : t("actions.branch.renameFailed"),
   };
 }
 
@@ -272,7 +273,7 @@ export async function getBranchCleanupCandidates(cwd, { now = Date.now(), staleA
     run(cwd, ["branch", "--merged", "HEAD", "--format=%(refname:short)"]),
   ]);
   if (!current.ok || !refs.ok || !merged.ok) {
-    return { ok: false, candidates: [], message: "브랜치 상태를 확인하지 못해 정리 후보를 표시하지 않았습니다." };
+    return { ok: false, candidates: [], message: t("actions.branch.cleanupCandidatesFailed") };
   }
 
   const currentName = current.detail.trim();
@@ -288,9 +289,9 @@ export async function getBranchCleanupCandidates(cwd, { now = Date.now(), staleA
     const isStale = Number.isFinite(timestamp) && timestamp > 0 && timestamp < cutoff;
     if (!isMerged && !isGone && !isStale) continue;
     const reasons = [];
-    if (isMerged) reasons.push("현재 브랜치에 병합됨");
-    if (isGone) reasons.push(`원격 추적 브랜치가 사라짐${upstream ? ` (${upstream})` : ""}`);
-    if (isStale) reasons.push(`${staleAfterDays}일 동안 커밋이 없음`);
+    if (isMerged) reasons.push(t("actions.branch.reasonMerged"));
+    if (isGone) reasons.push(upstream ? t("actions.branch.reasonGoneWithUpstream", { upstream }) : t("actions.branch.reasonGone"));
+    if (isStale) reasons.push(t("actions.branch.reasonStale", { days: staleAfterDays }));
     candidates.push({ name, safe: isMerged, reasons, upstream: upstream || null, lastCommitAt: timestamp ? new Date(timestamp * 1000).toISOString() : null });
   }
   return { ok: true, currentBranch: currentName, candidates };
@@ -304,8 +305,8 @@ export async function deleteBranch(cwd, name, force = false) {
     ...result,
     action: "delete-branch",
     message: result.ok
-      ? `브랜치 '${name}'를 삭제했습니다.`
-      : "브랜치를 삭제하지 못했습니다.",
+      ? t("actions.branch.deleteSuccess", { name })
+      : t("actions.branch.deleteFailed"),
   };
 }
 
@@ -324,50 +325,51 @@ export async function listStashes(cwd) {
     });
 }
 
-export async function stashPush(cwd, message = "Git Next 임시 저장") {
-  const result = await run(cwd, ["stash", "push", "-u", "-m", message]);
+export async function stashPush(cwd, message) {
+  const stashMessage = message ?? t("actions.stash.defaultMessage");
+  const result = await run(cwd, ["stash", "push", "-u", "-m", stashMessage]);
   return {
     ...result,
     action: "stash-push",
     message: result.ok
-      ? "커밋하지 않은 변경을 Stash에 임시 저장했습니다. 일반 커밋은 생성되지 않았습니다."
-      : "변경 내용을 Stash에 저장하지 못했습니다.",
+      ? t("actions.stash.pushSuccess")
+      : t("actions.stash.pushFailed"),
   };
 }
 
 export async function stashApply(cwd, ref) {
-  if (!isSafeStashRef(ref)) return { ok: false, action: "stash-apply", message: "올바른 Stash 대상을 확인할 수 없습니다." };
+  if (!isSafeStashRef(ref)) return { ok: false, action: "stash-apply", message: t("actions.stash.invalidRef") };
   const result = await run(cwd, ["stash", "apply", "--", ref]);
   return {
     ...result,
     action: "stash-apply",
     message: result.ok
-      ? `${ref}의 변경을 작업 폴더에 적용했습니다. Stash 항목은 그대로 남아 있습니다.`
-      : "Stash를 적용하지 못했습니다. 충돌이 발생했을 수 있습니다.",
+      ? t("actions.stash.applySuccess", { ref })
+      : t("actions.stash.applyFailed"),
   };
 }
 
 export async function stashPop(cwd, ref) {
-  if (!isSafeStashRef(ref)) return { ok: false, action: "stash-pop", message: "올바른 Stash 대상을 확인할 수 없습니다." };
+  if (!isSafeStashRef(ref)) return { ok: false, action: "stash-pop", message: t("actions.stash.invalidRef") };
   const result = await run(cwd, ["stash", "pop", "--", ref]);
   return {
     ...result,
     action: "stash-pop",
     message: result.ok
-      ? `${ref}의 변경을 적용하고 Stash 목록에서 제거했습니다.`
-      : "Stash Pop을 완료하지 못했습니다. 충돌이 발생했다면 먼저 파일을 정리하세요.",
+      ? t("actions.stash.popSuccess", { ref })
+      : t("actions.stash.popFailed"),
   };
 }
 
 export async function stashDrop(cwd, ref) {
-  if (!isSafeStashRef(ref)) return { ok: false, action: "stash-drop", message: "올바른 Stash 대상을 확인할 수 없습니다." };
+  if (!isSafeStashRef(ref)) return { ok: false, action: "stash-drop", message: t("actions.stash.invalidRef") };
   const result = await run(cwd, ["stash", "drop", "--", ref]);
   return {
     ...result,
     action: "stash-drop",
     message: result.ok
-      ? `${ref}를 삭제했습니다. 이 Stash는 더 이상 목록에서 복원할 수 없습니다.`
-      : "Stash를 삭제하지 못했습니다.",
+      ? t("actions.stash.dropSuccess", { ref })
+      : t("actions.stash.dropFailed"),
   };
 }
 
@@ -379,8 +381,8 @@ export async function cherryPickCommit(cwd, commit) {
     ...result,
     action: "cherry-pick",
     message: result.ok
-      ? `커밋 ${commit.slice(0, 7)}의 변경을 현재 브랜치에 복사했습니다.`
-      : "Cherry-pick을 완료하지 못했습니다. 충돌이 있다면 계속/취소 전에 상태를 확인하세요.",
+      ? t("actions.cherryPick.success", { commit: commit.slice(0, 7) })
+      : t("actions.cherryPick.failed"),
   };
 }
 
@@ -392,7 +394,7 @@ export async function revertCommit(cwd, commit) {
     ...result,
     action: "revert",
     message: result.ok
-      ? `커밋 ${commit.slice(0, 7)}의 변경을 되돌리는 새 커밋을 만들었습니다. 기존 기록은 유지됩니다.`
-      : "Revert를 완료하지 못했습니다. 충돌이 있다면 상태를 확인하세요.",
+      ? t("actions.revert.success", { commit: commit.slice(0, 7) })
+      : t("actions.revert.failed"),
   };
 }

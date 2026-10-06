@@ -1,6 +1,18 @@
 const vscode = require("vscode");
 const path = require("node:path");
 const crypto = require("node:crypto");
+const {
+  t,
+  getLocale,
+  setLocale,
+  resetLocale,
+  normalizeLocale,
+  detectLocale,
+  getFixedT,
+  registerTranslations,
+  SUPPORTED_LOCALES,
+  DEFAULT_LOCALE,
+} = require("./i18n.js");
 
 let activeContext = null;
 const diffDocumentContents = new Map();
@@ -296,7 +308,7 @@ async function guardWorkingState(cwd, action) {
   return { ok: true };
 }
 
-async function confirmMutation({ action, target = "", effect = "", risk = "", level = "safe", confirmLabel = "실행" }) {
+async function confirmMutation({ action, target = "", effect = "", risk = "", level = "safe", confirmLabel = null }) {
   let worktreeContext = null;
   const cwd = getCwd();
   if (cwd) {
@@ -304,22 +316,30 @@ async function confirmMutation({ action, target = "", effect = "", risk = "", le
     const worktrees = await getLinkedWorktrees(cwd);
     const others = worktrees.filter((worktree) => !worktree.isCurrent);
     if (others.length) {
-      worktreeContext = `다른 작업 폴더 ${others.length}개: ${others.map((item) => `${item.branch ?? "분리된 HEAD"} · ${item.path}`).join(", ")}`;
+      const details = others.map((item) => `${item.branch ?? t("dialog.confirmMutation.detachedHead")} · ${item.path}`).join(", ");
+      worktreeContext = t("dialog.confirmMutation.worktreeContext", { count: others.length, details });
     }
   }
+  const safeguardStatus = level === "blocked"
+    ? t("dialog.confirmMutation.blocked")
+    : level === "warning"
+      ? t("dialog.confirmMutation.warning")
+      : t("dialog.confirmMutation.safe");
+
   const lines = [
-    `작업: ${action}`,
-    target ? `대상: ${target}` : null,
-    effect ? `변경: ${effect}` : null,
-    risk ? `주의: ${risk}` : null,
+    t("dialog.confirmMutation.actionLabel", { action }),
+    target ? t("dialog.confirmMutation.targetLabel", { target }) : null,
+    effect ? t("dialog.confirmMutation.effectLabel", { effect }) : null,
+    risk ? t("dialog.confirmMutation.riskLabel", { risk }) : null,
     worktreeContext,
-    `Safe Guard: ${level === "blocked" ? "차단" : level === "warning" ? "주의" : "확인됨"}`,
+    t("dialog.confirmMutation.safeguardLabel", { status: safeguardStatus }),
   ].filter(Boolean).join("\n");
   if (level === "blocked") {
     await vscode.window.showWarningMessage(lines, { modal: true });
     return false;
   }
-  const choice = await vscode.window.showWarningMessage(lines, { modal: true }, confirmLabel);
+  const label = confirmLabel ?? t("dialog.confirmMutation.defaultConfirmLabel");
+  const choice = await vscode.window.showWarningMessage(lines, { modal: true }, label);
   return Boolean(choice);
 }
 
@@ -327,6 +347,7 @@ async function confirmMutation({ action, target = "", effect = "", risk = "", le
 function initialize(context) {
   activeContext = context;
   selectedRepositoryRoot = context.workspaceState.get("gitNext.selectedRepositoryRoot", null);
+  setLocale(context.globalState.get("gitNext.locale", vscode?.env?.language));
 }
 
 function getActiveContext() {
@@ -362,4 +383,14 @@ module.exports = {
   guardWorkingState,
   confirmMutation,
   relaxedSafeGuardRules,
+  t,
+  getLocale,
+  setLocale,
+  resetLocale,
+  normalizeLocale,
+  detectLocale,
+  getFixedT,
+  registerTranslations,
+  SUPPORTED_LOCALES,
+  DEFAULT_LOCALE,
 };

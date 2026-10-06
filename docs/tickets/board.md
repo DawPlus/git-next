@@ -81,6 +81,13 @@ This board is the status source of truth.
 | T-261005-44 | Type core Git workflows | done | - | worker | implementation | 1+2 | [ticket](archive/2026-10/T-261005-44.md) | Operation/change/history workflows now typecheck without @ts-nocheck |
 | T-261005-45 | Remove remaining TypeScript no-check markers | done | - | worker | implementation | 1+2 | [ticket](archive/2026-10/T-261005-45.md) | Full src tree typechecks; zero @ts-nocheck markers remain |
 
+| T-261006-01 | Introduce i18n foundation | done | - | worker | implementation | 1+2 | [ticket](archive/2026-10/T-261006-01.md) | Locale API + ko/en + fallback/interpolation |
+| T-261006-02 | Localize sidebar and primary actions | done | - | worker | implementation | 1+2 | [ticket](archive/2026-10/T-261006-02.md) | Depends on T-261006-01 |
+| T-261006-03 | Localize Git actions, safeguards, and result messages | done | - | worker | implementation | 1+2 | [ticket](archive/2026-10/T-261006-03.md) | Depends on T-261006-01 |
+| T-261006-04 | Localize workspace panels | done | - | worker | implementation | 1+2 | [ticket](archive/2026-10/T-261006-04.md) | Depends on T-261006-01 |
+| T-261006-05 | Localize learning content and Git guides | done | - | worker | implementation | 1+2 | [ticket](archive/2026-10/T-261006-05.md) | Depends on T-261006-01 |
+| T-261006-06 | Add i18n completeness and release checks | done | - | worker | implementation | 1+2 | [ticket](archive/2026-10/T-261006-06.md) | Depends on T-261006-02~05 |
+
 Allowed states: `draft`, `ready`, `in_progress`, `review`, `ready_for_qa`, `blocked`, `done`, `superseded`.
 
 Lifecycle:
