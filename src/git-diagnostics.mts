@@ -1,4 +1,4 @@
-export function recommendNextAction({ tracking, upstreamState = null, changes = [], operation = null }: { tracking?: { kind?: string; ahead?: number; behind?: number } | null; upstreamState?: { kind?: string; upstream?: string | null; remote?: string | null } | null; changes?: Array<{ path?: string }>; operation?: { operation: string } | null } = {}) {
+export function recommendNextAction({ tracking, upstreamState = null, changes = [], incomingFiles = [], operation = null }: { tracking?: { kind?: string; ahead?: number; behind?: number } | null; upstreamState?: { kind?: string; upstream?: string | null; remote?: string | null } | null; changes?: Array<{ path?: string }>; incomingFiles?: string[]; operation?: { operation: string } | null } = {}) {
   if (operation) {
     return {
       kind: "operation",
@@ -30,6 +30,16 @@ export function recommendNextAction({ tracking, upstreamState = null, changes = 
       kind: "unknown",
       title: "원격 상태를 확인할 수 없어요.",
       detail: "연결 또는 네트워크를 확인한 뒤 다시 새로고침해주세요.",
+    };
+  }
+
+  const localPaths = new Set(changes.map((change) => change.path).filter(Boolean));
+  const overlap = incomingFiles.filter((path) => localPaths.has(path));
+  if ((tracking?.kind === "behind" || tracking?.kind === "diverged") && overlap.length) {
+    return {
+      kind: "pull-blocked-dirty",
+      title: `Pull 전에 겹치는 로컬 변경 ${overlap.length}개를 먼저 정리해주세요.`,
+      detail: `${overlap.slice(0, 3).join(", ")}${overlap.length > 3 ? ` 외 ${overlap.length - 3}개` : ""} · Commit 또는 Stash 후 Pull하세요.`,
     };
   }
 

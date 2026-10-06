@@ -149,6 +149,7 @@ export function renderSidebarHtml(state, notice = null) {
     if (["push", "push-dirty", "first-push"].includes(nextAction.kind)) return { action: "push", label: outgoingCount > 0 ? `Push ${outgoingCount}` : "Push" };
     if (["unknown", "refresh"].includes(nextAction.kind)) return { action: "refresh", label: "원격 상태 새로고침" };
     if (nextAction.kind === "remote-missing") return { action: "branchMenu", label: "브랜치 상태 확인" };
+    if (nextAction.kind === "pull-blocked-dirty") return { action: "stashMenu", label: "Stash로 보관" };
     if (nextAction.kind === "dirty" && unstagedChanges.length) return { action: "sidebarStageAll", label: "전체 Stage" };
     if (nextAction.kind === "dirty" && stagedChanges.length) return { action: "focusCommit", label: "Commit 메시지 입력" };
     return null;
@@ -214,11 +215,11 @@ export function renderSidebarHtml(state, notice = null) {
           <span class="guard-title">Safe Guard</span>
         </span>
         <span class="guard-side">
-          ${nextAction ? `<span class="guard-hint"><strong>${escapeHtml(nextAction.title)}</strong>${nextAction.detail ? ` ${escapeHtml(nextAction.detail)}` : ""}</span>` : ""}
+          ${nextAction ? `<span class="guard-hint" data-tooltip="${escapeHtml([nextAction.title, nextAction.detail].filter(Boolean).join(" · "))}" aria-label="현재 상태 안내: ${escapeHtml([nextAction.title, nextAction.detail].filter(Boolean).join(" · "))}"><span class="guard-hint-text"><strong>${escapeHtml(nextAction.title)}</strong>${nextAction.detail ? ` ${escapeHtml(nextAction.detail)}` : ""}</span></span>` : ""}
           <button class="guard-message-button" type="button" data-action="openSafeGuard" data-notice-message="${escapeHtml(notice?.message ?? "실행된 검사 결과가 없습니다.")}" data-notice-detail="${escapeHtml(notice?.detail ?? "")}" aria-label="검사 결과 상세 보기" title="검사 결과 상세 보기"><svg viewBox="0 0 24 24"><path d="M4 6h16v12H4z"></path><path d="m5 7 7 6 7-6"></path></svg></button>
         </span>
       </div>
-      ${contextualAction ? `<button class="linkish guard-next-action" type="button" data-action="${contextualAction.action}">${escapeHtml(contextualAction.label)}</button>` : ""}
+      ${contextualAction ? `<div class="guard-recommendation"><span class="guard-recommendation-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 12h12"></path><path d="m13 8 4 4-4 4"></path></svg></span><span class="guard-recommendation-copy"><span class="guard-recommendation-label">다음 추천</span><button class="guard-next-action" type="button" data-action="${contextualAction.action}" title="현재 상태에서 추천하는 다음 행동: ${escapeHtml(contextualAction.label)}">${escapeHtml(contextualAction.label)}</button></span></div>` : ""}
       ${notice?.actions?.includes("operation-recovery") && contextualAction?.action !== "operationRecovery" ? '<button class="linkish" type="button" data-action="operationRecovery">진행 중 작업 Continue / Abort</button>' : ""}
     </section>
 
@@ -229,6 +230,9 @@ export function renderSidebarHtml(state, notice = null) {
           <button class="icon-button commit-helper" type="button" data-action="toolsMenu" data-tool="commit" aria-label="Commit 메시지 도우미" title="Commit 메시지 도우미"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v12H8l-4 3z"></path><path d="M8 9h8M8 13h5"></path></svg></button>
         </div>
         <button class="primary" type="button" data-action="sidebarCommit">Commit</button>
+      </div>
+      <div class="commit-secondary-row">
+        <button class="commit-undo" type="button" data-action="sidebarUndoCommit" title="아직 Push하지 않은 마지막 Commit만 취소하고 변경은 Staged 상태로 되돌립니다.">마지막 Commit 취소</button>
       </div>
       <div class="sync-row">
         <button class="sync-button ${primarySyncAction === "pull" ? "is-primary-sync" : ""}" type="button" data-action="pull" title="${escapeHtml(pullRisk.reason)}">

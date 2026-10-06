@@ -601,11 +601,12 @@ async function openStashWorkspace(context) {
   );
   if (!created) return;
   let selected = null;
+  let notice = null;
   const refresh = async () => {
     const cwd = getCwd();
     const stashes = cwd ? await actions.listStashes(cwd) : [];
     const details = cwd && selected ? await workflows.getStashDetails(cwd, selected) : null;
-    setWebviewHtml(panel.webview, renderStashWorkspace(stashes, details));
+    setWebviewHtml(panel.webview, renderStashWorkspace(stashes, details, notice));
   };
 
   panel.webview.onDidReceiveMessage(async (message) => {
@@ -628,7 +629,8 @@ async function openStashWorkspace(context) {
         confirmLabel: "Stash",
       });
       if (!ok) return;
-      await actions.stashPush(cwd, memo);
+      const result = await actions.stashPush(cwd, memo);
+      notice = result;
       selected = null;
       return refresh();
     }
@@ -646,13 +648,26 @@ async function openStashWorkspace(context) {
       const preview = await workflows.getStashDetails(cwd, message.ref);
       const ok = await confirmMutation(stashActionConfirmation(preview, message.type));
       if (!ok) return;
-      await (message.type === "apply" ? actions.stashApply(cwd, message.ref) : actions.stashPop(cwd, message.ref));
+      const result = await (message.type === "apply" ? actions.stashApply(cwd, message.ref) : actions.stashPop(cwd, message.ref));
+      const remaining = await actions.listStashes(cwd);
+      notice = {
+        ...result,
+        detail: message.type === "pop"
+          ? result.ok
+            ? remaining.length
+              ? `선택한 Stash는 제거되었습니다. 아직 ${remaining.length}개가 남아 있고, 목록 번호는 자동으로 다시 매겨집니다. 그래서 다른 항목이 새 stash@{0}으로 보일 수 있습니다.`
+              : "선택한 Stash를 복원하고 목록에서도 제거했습니다. 남은 Stash는 없습니다."
+            : "Pop이 충돌 또는 오류로 끝나면 Git은 작업 유실을 막기 위해 해당 Stash를 목록에 남깁니다. 충돌을 정리하고 결과를 확인한 뒤, 더 이상 필요 없으면 Drop으로 삭제하세요."
+          : "Apply는 변경만 복원하고 Stash 항목은 의도적으로 그대로 남깁니다. 복원 결과를 확인한 뒤 더 이상 필요 없으면 Drop으로 정리할 수 있습니다.",
+      };
+      if (message.type === "pop" && result.ok) selected = null;
       return refresh();
     }
     if (message?.type === "drop") {
       const ok = await confirmMutation({ action: "Stash Drop", target: message.ref, effect: "Stash 항목을 삭제합니다.", risk: "삭제 후 목록에서 복원할 수 없습니다.", level: "warning", confirmLabel: "Drop" });
       if (!ok) return;
-      await actions.stashDrop(cwd, message.ref);
+      const result = await actions.stashDrop(cwd, message.ref);
+      notice = result;
       selected = null;
       return refresh();
     }

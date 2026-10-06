@@ -126,6 +126,37 @@ function createWebviewMessageHandler({
       await recordActivity(result);
       await renderPanel(host, result, mode, getOptions());
     },
+    sidebarUndoCommit: async () => {
+      const cwd = getCwd();
+      if (!cwd) return;
+      const root = await getRepositoryRoot(cwd);
+      const workflows = await import("./git-workflows.mjs");
+      const undo = await workflows.getUndoContext(root);
+      if (undo.headIsInUpstream) {
+        await renderPanel(host, {
+          ok: false,
+          level: "warning",
+          message: "마지막 Commit이 이미 Push된 상태라 바로 취소하지 않습니다.",
+          detail: "공유된 기록은 지우지 않고 Revert를 사용해주세요.",
+        }, mode, getOptions());
+        return;
+      }
+      const ok = await confirmMutation({
+        action: "마지막 Commit 취소",
+        target: "HEAD",
+        effect: "마지막 로컬 Commit만 취소하고 그 변경은 Staged 상태로 되돌립니다. 현재 Staged 변경과 합쳐 한 번에 다시 Commit할 수 있습니다.",
+        risk: "아직 Push하지 않은 마지막 Commit에만 사용합니다.",
+        level: "warning",
+        confirmLabel: "Commit 취소",
+      });
+      if (!ok) return;
+      const result = await runInternalGitOperation(
+        () => workflows.runWithGitStateDelta(root, () => workflows.undoLastLocalCommit(root)),
+        { consumeExternalRefresh: true },
+      );
+      await recordActivity(result);
+      await renderPanel(host, result, mode, getOptions());
+    },
     setGraphOptions: async (message) => updateGraphOptions(message, true),
     graphOptions: async (message) => updateGraphOptions(message, false),
     branchMenu: async () => openBranchWorkspace(context),

@@ -210,6 +210,15 @@ export async function getHeadSafety(cwd: string): Promise<HeadSafety> {
   }
 }
 
+export async function getIncomingChangedFiles(cwd: string): Promise<string[]> {
+  try {
+    const raw = await runGitInspection(cwd, ["diff", "--name-only", "HEAD..@{u}"]);
+    return raw ? raw.split(/\r?\n/).filter(Boolean) : [];
+  } catch {
+    return [];
+  }
+}
+
 export async function getWorkingTreeChanges(cwd: string): Promise<WorkingTreeChange[]> {
   const { stdout } = await execFileAsync("git", ["status", "--porcelain=v1", "--untracked-files=all"], {
     cwd,

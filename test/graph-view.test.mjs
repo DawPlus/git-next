@@ -238,6 +238,8 @@ test("keeps the status hint and Safe Guard compact above collapsible change grou
   assert.ok(html.indexOf("data-toggle-tools") < changesIndex);
   assert.ok(html.indexOf("class=\"status-hints\"") < html.indexOf("id=\"sidebar-commit-message\""));
   assert.ok(html.indexOf("id=\"sidebar-commit-message\"") < changesIndex);
+  assert.match(html, /data-action="sidebarUndoCommit"/);
+  assert.match(html, /마지막 Commit 취소/);
   assert.ok(html.indexOf("data-action=\"push\"") < changesIndex);
   assert.ok(html.indexOf("class=\"status-hints\"") < changesIndex);
   assert.ok(html.indexOf("class=\"safe-guard\"") === -1);
@@ -247,7 +249,9 @@ test("keeps the status hint and Safe Guard compact above collapsible change grou
   assert.match(html, /class="guard-message-button"/);
   assert.match(html, /class="guard-hint"/);
   assert.match(html, /로컬 변경을 먼저 Commit 또는 Stash하세요/);
-  assert.match(html, /class="linkish guard-next-action"[^>]*data-action="sidebarStageAll"[^>]*>전체 Stage<\/button>/);
+  assert.match(html, /class="guard-recommendation-label">다음 추천<\/span>/);
+  assert.match(html, /class="guard-next-action"[^>]*data-action="sidebarStageAll"[^>]*title="현재 상태에서 추천하는 다음 행동: 전체 Stage"[^>]*>전체 Stage<\/button>/);
+  assert.match(html, /class="guard-hint"[^>]*data-tooltip="로컬 변경을 먼저 Commit 또는 Stash하세요"/);
   assert.doesNotMatch(html, /class="guard-state"/);
   assert.match(html, /<details class="scm-group scm-card" open>/);
   assert.match(html, /<summary class="scm-group-head">/);

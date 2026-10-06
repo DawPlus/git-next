@@ -203,6 +203,12 @@ async function runSyncAction(host, action, mode = "graph", options = {}) {
       if (!proceed) return;
     }
     if (!guard.canProceed && !relaxedOverlap) {
+      if (preflight.code === "dirty-incoming-overlap") {
+        await vscode.window.showWarningMessage(
+          `Pull을 실행하지 않았습니다.\n\n로컬에서 수정한 파일과 원격에서 받아올 파일이 겹칩니다. 그대로 Pull하면 작업이 중단되거나 충돌할 수 있어요.\n\n먼저 Commit하거나 Stash로 현재 작업을 보관한 뒤 다시 Pull해주세요.${preflight.affected?.length ? `\n\n겹치는 파일: ${preflight.affected.join(", ")}` : ""}`,
+          { modal: true },
+        );
+      }
       const detail = [
         guard.affected?.length ? `영향 파일/참조: ${guard.affected.join(", ")}` : null,
         guard.detail,
@@ -242,6 +248,19 @@ async function runSyncAction(host, action, mode = "graph", options = {}) {
     if (!await confirmImpactPreview(host, mode, options, cwd, "pull")) return;
     const pullResult = await withNetworkProgress("Git Next · Pull", async () =>
       (await import("./git-workflows.mjs")).runWithGitStateDelta(cwd, () => pullRepository(cwd)));
+    if (pullResult.ok) {
+      const stashes = await (await import("./git-actions.mjs")).listStashes(cwd);
+      if (stashes.length) {
+        pullResult.message = `${pullResult.message} Stash가 ${stashes.length}개 남아 있습니다.`;
+        pullResult.detail = [
+          pullResult.detail,
+          `Pull 전에 작업을 Stash했다면 Stash 화면에서 Pop으로 다시 꺼내세요. 현재 맨 위 항목은 ${stashes[0].ref}입니다.`,
+        ].filter(Boolean).join("\n");
+        void vscode.window.showInformationMessage(
+          `Pull 완료 · Stash ${stashes.length}개 보관 중. Pull 전에 넣어둔 작업이라면 Stash에서 Pop으로 복원하세요.`,
+        );
+      }
+    }
     await showResult(host, mode, options, pullResult, pullResult.ok ? null : "blocked");
     if (!pullResult.ok && (await getTrackingStatus(cwd)).kind === "diverged") {
       await offerDivergedResolution(host, mode, options, cwd);

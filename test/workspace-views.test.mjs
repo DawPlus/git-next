@@ -106,8 +106,13 @@ test("branch and stash workspaces use visual selection instead of raw picker-onl
     { ref: "stash@{0}", stat: "1 file changed", files: [{ status: "M", path: "app.js" }] },
   );
   assert.match(stash, /data-action="apply"/);
+  assert.match(stash, /Apply · 복원 후 보관 유지/);
   assert.match(stash, /data-action="pop"/);
+  assert.match(stash, /Pop · 복원 후 제거/);
   assert.match(stash, /data-action="drop"/);
+  assert.match(stash, /Drop · 보관본 삭제/);
+  assert.match(stash, /Pop 후에도 <code>stash@\{0\}<\/code>이 보일 수 있어요/);
+  assert.match(stash, /번호는 자동으로 다시 매겨집니다|번호가 당겨져/);
 });
 
 test("Stash preview distinguishes overlapping file paths from confirmed conflicts", () => {

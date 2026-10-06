@@ -146,6 +146,15 @@ test("recommends beginner-friendly next action from repository state", () => {
   assert.equal(behindDirty.kind, "pull");
   assert.equal(behindDirty.title, "Commit 전에 Pull을 먼저 진행해주세요.");
 
+  const blockedByOverlap = recommendNextAction({
+    changes: [{ path: "README.md" }],
+    incomingFiles: ["README.md"],
+    tracking: { kind: "behind", behind: 1 },
+  });
+  assert.equal(blockedByOverlap.kind, "pull-blocked-dirty");
+  assert.match(blockedByOverlap.title, /Pull 전에 겹치는 로컬 변경 1개/);
+  assert.match(blockedByOverlap.detail, /README\.md/);
+
   const behind = recommendNextAction({ changes: [], tracking: { kind: "behind", behind: 2 } });
   assert.equal(behind.kind, "pull");
   assert.match(behind.title, /Pull을 먼저/);
