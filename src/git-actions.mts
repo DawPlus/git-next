@@ -90,8 +90,19 @@ export async function pullRepository(cwd) {
   };
 }
 
+async function getUpstreamPushArgs(cwd) {
+  const branch = await run(cwd, ["symbolic-ref", "--quiet", "--short", "HEAD"]);
+  if (!branch.ok) return null;
+  const [remote, mergeRef] = await Promise.all([
+    run(cwd, ["config", "--get", `branch.${branch.detail}.remote`]),
+    run(cwd, ["config", "--get", `branch.${branch.detail}.merge`]),
+  ]);
+  if (!remote.ok || !mergeRef.ok || remote.detail === "." || !mergeRef.detail.startsWith("refs/heads/")) return null;
+  return ["push", "--", remote.detail, `HEAD:${mergeRef.detail}`];
+}
+
 export async function pushRepository(cwd) {
-  const result = await run(cwd, ["push"]);
+  const result = await run(cwd, await getUpstreamPushArgs(cwd) ?? ["push"]);
   return {
     ...result,
     action: "push",

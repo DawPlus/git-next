@@ -154,6 +154,26 @@ test("실제 Remote와 Pull/Push로 커밋을 주고받는다", async () => {
   assert.equal(git(remote, ["rev-parse", "refs/heads/main"]), localHead);
 });
 
+test("Push는 Git 기본 설정과 관계없이 표시 중인 upstream에 보낸다", async () => {
+  const remote = mkdtempSync(join(tmpdir(), "git-next-upstream-push-remote-"));
+  git(remote, ["init", "--bare"]);
+
+  const local = makeRepo();
+  commit(local, "base.txt");
+  git(local, ["remote", "add", "origin", remote]);
+  git(local, ["push", "-u", "origin", "main"]);
+  git(local, ["checkout", "-b", "feature"]);
+  git(local, ["branch", "--set-upstream-to=origin/main"]);
+  git(local, ["config", "push.default", "current"]);
+  commit(local, "feature.txt");
+
+  const push = await pushRepository(local);
+
+  assert.equal(push.ok, true);
+  assert.equal(git(remote, ["rev-parse", "refs/heads/main"]), git(local, ["rev-parse", "HEAD"]));
+  assert.equal((await getTrackingStatus(local)).kind, "up-to-date");
+});
+
 test("Safe Guard가 dirty working tree와 detached HEAD를 실제 저장소에서 감지한다", async () => {
   const repo = makeRepo();
   commit(repo, "base.txt");
