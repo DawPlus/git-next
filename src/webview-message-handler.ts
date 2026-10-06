@@ -125,6 +125,7 @@ function createWebviewMessageHandler({
       );
       await recordActivity(result);
       await renderPanel(host, result, mode, getOptions());
+      if (result.ok) await host.webview.postMessage({ type: "clearCommitMessage" });
     },
     sidebarUndoCommit: async () => {
       const cwd = getCwd();

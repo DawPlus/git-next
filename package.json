@@ -2,7 +2,7 @@
   "name": "git-next",
   "displayName": "Git Next",
   "description": "Git 그래프, Safe Guard, 한국어 가이드와 AI 진단으로 Git 상태와 다음 행동을 이해하기 쉽게 보여주는 VS Code 확장입니다.",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "publisher": "DawChae",
   "license": "MIT",
   "private": true,
@@ -104,7 +104,7 @@
     "typecheck": "tsc -p tsconfig.typecheck.json",
     "build": "node scripts/build.mjs",
     "test": "tsx --test test/*.test.mjs",
-    "package": "npx --yes @vscode/vsce package --allow-missing-repository --out git-next-0.2.1.vsix",
+    "package": "node scripts/package-vsix.mjs",
     "setup": "npm test && npm run typecheck && npm run build && npm run package"
   },
   "devDependencies": {

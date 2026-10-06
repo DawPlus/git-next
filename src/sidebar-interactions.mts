@@ -1,6 +1,13 @@
 export const SIDEBAR_INTERACTIONS = `
     const vscode = acquireVsCodeApi();
 
+    window.addEventListener("message", (event) => {
+      if (event.data?.type === "clearCommitMessage") {
+        const input = document.querySelector("#sidebar-commit-message");
+        if (input) input.value = "";
+      }
+    });
+
     document.addEventListener("click", (event) => {
       const toolToggle = event.target.closest("[data-toggle-tools]");
       if (toolToggle) {
