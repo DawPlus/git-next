@@ -151,9 +151,9 @@ test("recommends beginner-friendly next action from repository state", () => {
   assert.match(behind.title, /Pull을 먼저/);
 
   const diverged = recommendNextAction({ changes: [], tracking: { kind: "diverged", ahead: 1, behind: 1 } });
-  assert.equal(diverged.kind, "diverged");
-  assert.match(diverged.title, /Push 전에 정리가 필요/);
-  assert.match(diverged.detail, /Merge 또는 Rebase/);
+  assert.equal(diverged.kind, "pull");
+  assert.match(diverged.title, /Pull 1부터/);
+  assert.match(diverged.detail, /받을 Commit 1개 · 보낼 Commit 1개/);
 
   const ahead = recommendNextAction({ changes: [], tracking: { kind: "ahead", ahead: 1 } });
   assert.equal(ahead.kind, "push");
@@ -175,6 +175,20 @@ test("recommends beginner-friendly next action from repository state", () => {
   const operation = recommendNextAction({ operation: { operation: "merge" } });
   assert.equal(operation.kind, "operation");
   assert.match(operation.title, /먼저 끝내주세요/);
+
+  const staleTracking = recommendNextAction({
+    tracking: { kind: "unknown" },
+    upstreamState: { kind: "tracking-ref-missing", upstream: "origin/main" },
+  });
+  assert.equal(staleTracking.kind, "refresh");
+  assert.match(staleTracking.detail, /Fetch\/새로고침/);
+
+  const goneRemoteBranch = recommendNextAction({
+    tracking: { kind: "no-upstream" },
+    upstreamState: { kind: "remote-branch-missing", upstream: "origin/main" },
+  });
+  assert.equal(goneRemoteBranch.kind, "remote-missing");
+  assert.match(goneRemoteBranch.title, /원격 브랜치가 사라진/);
 });
 
 test("summarizes repository health as state, risk, and a next action", () => {

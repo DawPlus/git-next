@@ -258,7 +258,6 @@ header{margin-bottom:14px}h1,h2,p{margin:0}h1{font-size:20px}.intro{margin-top:5
 .marker-grid{display:grid;grid-template-columns:1fr;gap:6px;margin-top:12px}.marker{border-radius:6px;padding:9px;background:var(--vscode-list-inactiveSelectionBackground)}.marker span{display:block;font-weight:700;font-size:10px}.marker code{display:block;margin-top:4px;color:var(--vscode-textLink-foreground);font-size:10px}.marker pre{margin:5px 0 0;font:inherit;font-size:9px;color:var(--vscode-descriptionForeground)}
 .choice-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;margin-top:10px}.choice-grid>div{padding:8px;border:1px solid var(--vscode-panel-border);border-radius:6px;transition:transform 120ms ease,background 120ms ease}.choice-grid>div:hover{transform:translateX(2px);background:var(--vscode-list-hoverBackground)}.choice-grid strong,.choice-grid span{display:block;font-size:9px}.choice-grid span{margin-top:3px;color:var(--vscode-descriptionForeground);line-height:1.35}
 @keyframes cardIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
-@media(prefers-reduced-motion:reduce){.guide-card,.marker-card{animation:none;transition:none}.guide-card:hover,.marker-card:hover,.choice-grid>div:hover{transform:none}}
 @media(max-width:720px){main{padding:16px 14px 40px}.grid,.choice-grid{grid-template-columns:1fr}}
 </style>
 </head>

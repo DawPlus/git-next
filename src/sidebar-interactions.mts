@@ -28,8 +28,12 @@ export const SIDEBAR_INTERACTIONS = `
         untracked: button.dataset.untracked === "1",
         message: document.querySelector("#sidebar-commit-message")?.value ?? "",
       };
+      if (message.type === "focusCommit") {
+        document.querySelector("#sidebar-commit-message")?.focus();
+        return;
+      }
       const row = button.closest(".scm-file");
-      if (row && button.classList.contains("mini-action") && ["sidebarStage", "sidebarUnstage"].includes(message.type) && !window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      if (row && button.classList.contains("mini-action") && ["sidebarStage", "sidebarUnstage"].includes(message.type)) {
         button.disabled = true;
         row.classList.add(message.type === "sidebarStage" ? "is-moving-up" : "is-moving-down");
         window.setTimeout(() => vscode.postMessage(message), 180);

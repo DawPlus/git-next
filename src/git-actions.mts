@@ -79,11 +79,13 @@ export async function validateCommitish(cwd, value) {
 }
 
 export async function pullRepository(cwd) {
-  const result = await run(cwd, ["pull", "--ff-only"]);
+  const result = await run(cwd, ["pull", "--no-rebase", "--no-edit"]);
   return {
     ...result,
     action: "pull",
-    message: result.ok ? "원격 변경 내용을 받아왔습니다." : explainGitError("pull", result.detail),
+    message: result.ok
+      ? "원격 변경 내용을 Merge 방식으로 받아왔습니다."
+      : explainGitError("pull", result.detail),
   };
 }
 

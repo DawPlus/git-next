@@ -1,4 +1,4 @@
-export function recommendNextAction({ tracking, changes = [], operation = null }: { tracking?: { kind?: string; ahead?: number; behind?: number } | null; changes?: Array<{ path?: string }>; operation?: { operation: string } | null } = {}) {
+export function recommendNextAction({ tracking, upstreamState = null, changes = [], operation = null }: { tracking?: { kind?: string; ahead?: number; behind?: number } | null; upstreamState?: { kind?: string; upstream?: string | null; remote?: string | null } | null; changes?: Array<{ path?: string }>; operation?: { operation: string } | null } = {}) {
   if (operation) {
     return {
       kind: "operation",
@@ -7,11 +7,37 @@ export function recommendNextAction({ tracking, changes = [], operation = null }
     };
   }
 
+  if (upstreamState?.kind === "remote-branch-missing") {
+    return {
+      kind: "remote-missing",
+      title: "연결된 원격 브랜치가 사라진 것으로 보여요.",
+      detail: `${upstreamState.upstream ?? "원격 브랜치"}를 자동으로 다시 만들지 않고 먼저 브랜치 상태를 확인합니다.`,
+    };
+  }
+
+  if (upstreamState?.kind === "tracking-ref-missing" || upstreamState?.kind === "tracking-ref-stale") {
+    return {
+      kind: "refresh",
+      title: upstreamState.kind === "tracking-ref-stale"
+        ? "원격에 새 변경이 있어요. 상태를 갱신해주세요."
+        : "원격 추적 정보가 오래됐어요.",
+      detail: "Fetch/새로고침으로 원격 정보를 갱신한 뒤 Pull/Push 상태를 다시 계산해주세요.",
+    };
+  }
+
+  if (upstreamState?.kind === "remote-missing" || upstreamState?.kind === "unknown") {
+    return {
+      kind: "unknown",
+      title: "원격 상태를 확인할 수 없어요.",
+      detail: "연결 또는 네트워크를 확인한 뒤 다시 새로고침해주세요.",
+    };
+  }
+
   if (tracking?.kind === "diverged") {
     return {
-      kind: "diverged",
-      title: "로컬과 원격이 갈라졌어요. Push 전에 정리가 필요해요.",
-      detail: "Merge 또는 Rebase로 기록을 먼저 합쳐주세요.",
+      kind: "pull",
+      title: `로컬과 원격에 서로 다른 Commit이 있어요. Pull ${tracking.behind ?? 0}부터 진행해주세요.`,
+      detail: `받을 Commit ${tracking.behind ?? 0}개 · 보낼 Commit ${tracking.ahead ?? 0}개 · Pull 후 Merge가 필요하면 Git Next가 안내합니다.`,
     };
   }
 
@@ -152,6 +178,13 @@ export function getGitDoctorFindings({ head, tracking, upstreamState = null, cha
       state: `원격 브랜치 연결 정보가 오래되었거나 없음 · ${upstreamState?.upstream ?? "현재 브랜치"}`,
       risk: "원격 브랜치가 남아 있어도 내 컴퓨터의 정보가 오래됐을 수 있습니다.",
       recommendation: "원격 저장소 관리에서 Fetch를 실행해 최신 상태를 다시 확인해주세요.",
+      action: "fetch",
+    },
+    "tracking-ref-stale": {
+      id: "tracking-ref-stale",
+      state: `원격에 아직 Fetch하지 않은 새 변경이 있음 · ${upstreamState?.upstream ?? "현재 브랜치"}`,
+      risk: "현재 Pull/Push 숫자가 오래된 원격 추적 정보를 기준으로 계산됐을 수 있습니다.",
+      recommendation: "Fetch로 원격 정보를 갱신한 뒤 Pull/Push 상태를 다시 확인해주세요.",
       action: "fetch",
     },
     "remote-missing": {

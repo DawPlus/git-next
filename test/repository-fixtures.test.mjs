@@ -15,6 +15,7 @@ import {
   getTrackingStatus,
   getWorkingTreeChanges,
   inspectCurrentUpstream,
+  refreshRemoteState,
   preflightPullSafety,
 } from "../src/git-safety.mts";
 
@@ -107,7 +108,9 @@ test("원격 추적 상태의 ahead, behind, diverged를 실제 저장소로 판
   commit(other, "remote.txt");
   git(other, ["push", "origin", "main"]);
 
-  git(local, ["fetch", "origin"]);
+  assert.equal((await inspectCurrentUpstream(local)).kind, "tracking-ref-stale");
+  assert.equal((await refreshRemoteState(local)).ok, true);
+  assert.equal((await inspectCurrentUpstream(local)).kind, "healthy");
   status = await getTrackingStatus(local);
   assert.equal(status.kind, "diverged");
 

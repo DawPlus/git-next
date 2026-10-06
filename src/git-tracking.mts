@@ -89,6 +89,24 @@ export async function runGitInspection(cwd: string, args: string[]): Promise<str
   return stdout.trim();
 }
 
+export async function refreshRemoteState(cwd: string) {
+  try {
+    const remotes = (await runGitInspection(cwd, ["remote"]))
+      .split(/\r?\n/)
+      .map((name) => name.trim())
+      .filter(Boolean);
+    if (!remotes.length) return { ok: true, skipped: true, detail: "등록된 Remote가 없습니다." };
+    await runGitInspection(cwd, ["fetch", "--prune", "--all"]);
+    return { ok: true, skipped: false, detail: "원격 상태를 갱신했습니다." };
+  } catch (error) {
+    return {
+      ok: false,
+      skipped: false,
+      detail: String(error?.stderr ?? error?.message ?? error ?? ""),
+    };
+  }
+}
+
 export async function getTrackingStatus(cwd: string): Promise<TrackingStatus> {
   let upstream: string;
 
@@ -118,7 +136,7 @@ export async function getTrackingStatus(cwd: string): Promise<TrackingStatus> {
 export type UpstreamInspection =
   | { kind: "detached"; upstream: null }
   | { kind: "no-upstream"; branch: string; upstream: null }
-  | { kind: "remote-missing" | "unknown" | "remote-branch-missing" | "healthy" | "tracking-ref-missing"; branch: string; upstream: string; remote: string };
+  | { kind: "remote-missing" | "unknown" | "remote-branch-missing" | "healthy" | "tracking-ref-missing" | "tracking-ref-stale"; branch: string; upstream: string; remote: string };
 
 export async function inspectCurrentUpstream(cwd: string): Promise<UpstreamInspection> {
   let branch: string;
@@ -153,15 +171,16 @@ export async function inspectCurrentUpstream(cwd: string): Promise<UpstreamInspe
   }
   if (!remoteTip) return { kind: "remote-branch-missing", branch, upstream, remote };
 
-  let trackingRefExists = true;
+  let trackingTip: string;
   try {
-    await runGitInspection(cwd, ["show-ref", "--verify", "--quiet", `refs/remotes/${remote}/${remoteBranch}`]);
+    trackingTip = await runGitInspection(cwd, ["rev-parse", `refs/remotes/${remote}/${remoteBranch}`]);
   } catch {
-    trackingRefExists = false;
+    return { kind: "tracking-ref-missing", branch, upstream, remote };
   }
 
+  const remoteHash = remoteTip.split(/\s+/)[0] ?? "";
   return {
-    kind: trackingRefExists ? "healthy" : "tracking-ref-missing",
+    kind: remoteHash && trackingTip !== remoteHash ? "tracking-ref-stale" : "healthy",
     branch,
     upstream,
     remote,

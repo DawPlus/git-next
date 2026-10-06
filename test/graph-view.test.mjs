@@ -52,8 +52,11 @@ test("renders each graph commit as one metadata line with refs before the action
   });
 
   assert.match(html, /class="commit-line"/);
+  assert.match(html, /<code class="commit-hash"[^>]*>m<\/code>/);
   assert.match(html, /class="message"[^>]*>merge<\/span>/);
-  assert.match(html, /<code class="commit-hash">m<\/code>/);
+  assert.ok(html.indexOf("class=\"commit-hash\"") < html.indexOf("class=\"message\""));
+  assert.match(html, /aria-label="커밋 작업 열기"/);
+  assert.doesNotMatch(html, />작업<\/button>/);
   assert.match(html, /class="commit-author"[^>]*>Min<\/span>/);
   assert.match(html, /class="commit-date"[^>]*>2026-10-04 10:00:00<\/time>/);
   assert.ok(html.indexOf("class=\"refs\"") < html.indexOf("class=\"commit-action\""));
@@ -181,7 +184,7 @@ test("renders compact graph density and filter controls", () => {
   assert.match(html, /data-lane="0"/);
   assert.match(html, /has-active-lane/);
   assert.match(html, /lane-active/);
-  assert.match(html, /prefers-reduced-motion/);
+  assert.doesNotMatch(html, /prefers-reduced-motion/);
   assert.match(html, /data-commit-action/);
 });
 
@@ -228,7 +231,7 @@ test("keeps the status hint and Safe Guard compact above collapsible change grou
     kind: "repository", root: "/repo", branch: "main", upstream: "origin/main", head: "m", refs: [], commits,
     tracking: { kind: "up-to-date", ahead: 0, behind: 0, upstream: "origin/main" }, pullBeforePush: false,
     changes: [{ path: "src/extension.js", status: " M" }],
-    nextAction: { title: "로컬 변경을 먼저 Commit 또는 Stash하세요", detail: "" },
+    nextAction: { kind: "dirty", title: "로컬 변경을 먼저 Commit 또는 Stash하세요", detail: "" },
   }, { ok: false, level: "warning", message: "확인 필요", detail: "상세 설명" });
 
   const changesIndex = html.indexOf("class=\"section source-control\"");
@@ -244,6 +247,7 @@ test("keeps the status hint and Safe Guard compact above collapsible change grou
   assert.match(html, /class="guard-message-button"/);
   assert.match(html, /class="guard-hint"/);
   assert.match(html, /로컬 변경을 먼저 Commit 또는 Stash하세요/);
+  assert.match(html, /class="linkish guard-next-action"[^>]*data-action="sidebarStageAll"[^>]*>전체 Stage<\/button>/);
   assert.doesNotMatch(html, /class="guard-state"/);
   assert.match(html, /<details class="scm-group scm-card" open>/);
   assert.match(html, /<summary class="scm-group-head">/);

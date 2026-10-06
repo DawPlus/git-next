@@ -176,7 +176,7 @@ async function getRepositoryRoot(cwd) {
 async function getState(cwd) {
   const [
     { getRepositoryState, getLinkedWorktrees },
-    { getTrackingStatus, getWorkingTreeChanges, getInProgressOperation },
+    { getTrackingStatus, getWorkingTreeChanges, getInProgressOperation, inspectCurrentUpstream },
     { recommendNextAction },
     { listSafeGuardRules },
   ] = await Promise.all([
@@ -191,8 +191,9 @@ async function getState(cwd) {
     return { ...state, pullBeforePush: isPullBeforePushEnabled() };
   }
 
-  const [tracking, changes, operation] = await Promise.all([
+  const [tracking, upstreamState, changes, operation] = await Promise.all([
     getTrackingStatus(state.root),
+    inspectCurrentUpstream(state.root),
     getWorkingTreeChanges(state.root),
     getInProgressOperation(state.root),
   ]);
@@ -200,9 +201,10 @@ async function getState(cwd) {
   return {
     ...state,
     tracking,
+    upstreamState,
     changes,
     operation,
-    nextAction: recommendNextAction({ tracking, changes, operation }),
+    nextAction: recommendNextAction({ tracking, upstreamState, changes, operation }),
     worktrees: await getLinkedWorktrees(state.root),
     relaxedRules: listSafeGuardRules([...relaxedSafeGuardRules] as string[]).filter((rule) => rule.relaxed).map(({ title }) => title),
     pullBeforePush: isPullBeforePushEnabled(),

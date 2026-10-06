@@ -56,6 +56,15 @@ export function renderSidebarHtml(state, notice = null) {
   const changes = Array.isArray(state.changes) ? state.changes : [];
   const pullRisk = getActionRisk("pull", state);
   const pushRisk = getActionRisk("push", state);
+  const incomingCount = Number(state.tracking?.behind ?? 0);
+  const outgoingCount = Number(state.tracking?.ahead ?? 0);
+  const primarySyncAction = state.operation
+    ? null
+    : state.tracking?.kind === "behind" || state.tracking?.kind === "diverged"
+      ? "pull"
+      : state.tracking?.kind === "ahead" || state.tracking?.kind === "no-upstream"
+        ? "push"
+        : null;
   const stagedChanges = changes.filter((item) => {
     const status = String(item.status ?? "");
     return status[0] && status[0] !== " " && status[0] !== "?";
@@ -133,6 +142,18 @@ export function renderSidebarHtml(state, notice = null) {
     return renderNode(root);
   };
 
+  const contextualAction = (() => {
+    if (!nextAction) return null;
+    if (nextAction.kind === "operation") return { action: "operationRecovery", label: "Continue / Abort" };
+    if (nextAction.kind === "pull") return { action: "pull", label: incomingCount > 0 ? `Pull ${incomingCount}` : "Pull" };
+    if (["push", "push-dirty", "first-push"].includes(nextAction.kind)) return { action: "push", label: outgoingCount > 0 ? `Push ${outgoingCount}` : "Push" };
+    if (["unknown", "refresh"].includes(nextAction.kind)) return { action: "refresh", label: "원격 상태 새로고침" };
+    if (nextAction.kind === "remote-missing") return { action: "branchMenu", label: "브랜치 상태 확인" };
+    if (nextAction.kind === "dirty" && unstagedChanges.length) return { action: "sidebarStageAll", label: "전체 Stage" };
+    if (nextAction.kind === "dirty" && stagedChanges.length) return { action: "focusCommit", label: "Commit 메시지 입력" };
+    return null;
+  })();
+
   const stagedRows = renderChangeTree(stagedChanges, "staged");
   const unstagedRows = renderChangeTree(unstagedChanges, "unstaged");
   const stagedGroup = stagedChanges.length ? `<details class="scm-group scm-card" open>
@@ -197,7 +218,8 @@ export function renderSidebarHtml(state, notice = null) {
           <button class="guard-message-button" type="button" data-action="openSafeGuard" data-notice-message="${escapeHtml(notice?.message ?? "실행된 검사 결과가 없습니다.")}" data-notice-detail="${escapeHtml(notice?.detail ?? "")}" aria-label="검사 결과 상세 보기" title="검사 결과 상세 보기"><svg viewBox="0 0 24 24"><path d="M4 6h16v12H4z"></path><path d="m5 7 7 6 7-6"></path></svg></button>
         </span>
       </div>
-      ${notice?.actions?.includes("operation-recovery") ? '<button class="linkish" type="button" data-action="operationRecovery">진행 중 작업 Continue / Abort</button>' : ""}
+      ${contextualAction ? `<button class="linkish guard-next-action" type="button" data-action="${contextualAction.action}">${escapeHtml(contextualAction.label)}</button>` : ""}
+      ${notice?.actions?.includes("operation-recovery") && contextualAction?.action !== "operationRecovery" ? '<button class="linkish" type="button" data-action="operationRecovery">진행 중 작업 Continue / Abort</button>' : ""}
     </section>
 
     <section class="section action-panel">
@@ -209,14 +231,14 @@ export function renderSidebarHtml(state, notice = null) {
         <button class="primary" type="button" data-action="sidebarCommit">Commit</button>
       </div>
       <div class="sync-row">
-        <button class="sync-button" type="button" data-action="pull" title="${escapeHtml(pullRisk.reason)}">
+        <button class="sync-button ${primarySyncAction === "pull" ? "is-primary-sync" : ""}" type="button" data-action="pull" title="${escapeHtml(pullRisk.reason)}">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11"></path><path d="m7.5 11 4.5 4.5 4.5-4.5"></path><path d="M5 20h14"></path></svg>
-          <span>Pull</span>
+          <span>Pull${incomingCount > 0 ? ` ${incomingCount}` : ""}</span>
           ${actionRiskBadge("pull", state)}
         </button>
-        <button class="sync-button" type="button" data-action="push" title="${escapeHtml(pushRisk.reason)}">
+        <button class="sync-button ${primarySyncAction === "push" ? "is-primary-sync" : ""}" type="button" data-action="push" title="${escapeHtml(pushRisk.reason)}">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20V9"></path><path d="m7.5 13 4.5-4.5 4.5 4.5"></path><path d="M5 4h14"></path></svg>
-          <span>Push</span>
+          <span>Push${outgoingCount > 0 ? ` ${outgoingCount}` : ""}</span>
           ${actionRiskBadge("push", state)}
         </button>
       </div>

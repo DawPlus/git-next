@@ -51,8 +51,8 @@ function renderGraph(state: any, options: any = {}) {
   const rows = layoutGraph(state.commits);
   const compact = (options.density ?? "compact") === "compact";
   const rowHeight = compact ? 42 : 52;
-  const laneGap = compact ? 20 : 24;
-  const laneOffset = compact ? 12 : 16;
+  const laneGap = compact ? 15 : 19;
+  const laneOffset = compact ? 9 : 12;
   const maxLane = rows.reduce(
     (max, row) => Math.max(max, row.lane, ...row.parentLanes),
     0,
@@ -114,7 +114,8 @@ function renderGraph(state: any, options: any = {}) {
 
   const commitRows = rows
     .map((row) => {
-      const refs = refsByTarget.get(row.id) ?? [];
+      const refs = (refsByTarget.get(row.id) ?? [])
+        .filter((ref) => !(ref.kind === "remote" && ref.name.endsWith("/HEAD")));
       const isHead = state.head === row.id;
       const color = laneColor(row.lane);
       let focusClass = "";
@@ -122,23 +123,26 @@ function renderGraph(state: any, options: any = {}) {
       else if (row.isMuted) focusClass = "is-muted";
       const focusName = ({ push: "Push", pull: "Pull", diverged: "분기", "merge-base": "공통 조상", "selected-commit": "선택 커밋", "file-history": "파일 이력", tags: "태그 · 릴리스" })[options.focus] ?? "";
       const focusLabel = row.isFocused ? `<span class="focus-badge">${focusName}</span>` : "";
+      const visibleRefs = refs.slice(0, 3);
+      const hiddenRefCount = Math.max(0, refs.length - visibleRefs.length);
       const labels = [
         ...(isHead ? [`<span class="ref ref-head" style="--ref-color:${color}">HEAD</span>`] : []),
-        ...refs.map((ref) => renderRef(ref, color)),
+        ...visibleRefs.map((ref) => renderRef(ref, color)),
+        ...(hiddenRefCount ? [`<span class="ref ref-overflow" title="${escapeHtml(refs.slice(3).map((ref) => ref.name).join(", "))}">+${hiddenRefCount}</span>`] : []),
       ].join("");
 
       return `<article class="commit-row ${focusClass}" data-commit-id="${escapeHtml(row.id)}" data-lane="${row.lane}" tabindex="0">
         <div class="commit-copy">
           <div class="commit-line">
+            <code class="commit-hash" title="${escapeHtml(row.id)}">${escapeHtml(row.id.slice(0, 7))}</code>
             <span class="message" title="${escapeHtml(row.message)}">${escapeHtml(row.message)}</span>
-            <code class="commit-hash">${escapeHtml(row.id.slice(0, 7))}</code>
             <span class="commit-author" title="${escapeHtml(row.author)}">${escapeHtml(row.author)}</span>
             <time class="commit-date" datetime="${escapeHtml(row.authoredAt)}">${escapeHtml(formatCommitDate(row.authoredAt))}</time>
             <span class="refs">${labels}</span>
             ${focusLabel}
           </div>
         </div>
-        <button class="commit-action" type="button" data-commit-action="${escapeHtml(row.id)}">작업</button>
+        <button class="commit-action" type="button" data-commit-action="${escapeHtml(row.id)}" aria-label="커밋 작업 열기" title="커밋 작업">•••</button>
       </article>`;
     })
     .join("");
@@ -198,6 +202,15 @@ export function renderGraphHtml(state: any, notice: any = null, options: any = {
   const autoPull = state.pullBeforePush ? "Push 전 Pull: 켜짐" : "Push 전 Pull: 꺼짐";
   const pullRisk = getActionRisk("pull", state);
   const pushRisk = getActionRisk("push", state);
+  const incomingCount = Number(state.tracking?.behind ?? 0);
+  const outgoingCount = Number(state.tracking?.ahead ?? 0);
+  const primarySyncAction = state.operation
+    ? null
+    : state.tracking?.kind === "behind" || state.tracking?.kind === "diverged"
+      ? "pull"
+      : state.tracking?.kind === "ahead" || state.tracking?.kind === "no-upstream"
+        ? "push"
+        : null;
   const selectedScope = options.scope ?? "all";
   const selectedFocus = options.focus ?? "all";
   const selectedFocusLabel = ({ push: "Push", pull: "Pull", diverged: "분기", "merge-base": "공통 조상", "selected-commit": "선택 커밋", "file-history": "파일 이력", tags: "태그 · 릴리스" })[selectedFocus] ?? "";
@@ -237,14 +250,14 @@ export function renderGraphHtml(state: any, notice: any = null, options: any = {
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7"></path><path d="M20 5v6h-6"></path></svg>
           <span>새로고침</span>
         </button>
-        <button class="action secondary" type="button" data-action="pull" title="${escapeHtml(pullRisk.reason)}">
+        <button class="action secondary ${primarySyncAction === "pull" ? "is-primary-sync" : ""}" type="button" data-action="pull" title="${escapeHtml(pullRisk.reason)}">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11"></path><path d="m7.5 11 4.5 4.5 4.5-4.5"></path><path d="M5 20h14"></path></svg>
-          <span>받기 (Pull)</span>
+          <span>받기 (Pull)${incomingCount > 0 ? ` ${incomingCount}` : ""}</span>
           ${actionRiskBadge("pull", state)}
         </button>
-        <button class="action" type="button" data-action="push" title="${escapeHtml(pushRisk.reason)}">
+        <button class="action ${primarySyncAction === "push" ? "is-primary-sync" : ""}" type="button" data-action="push" title="${escapeHtml(pushRisk.reason)}">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20V9"></path><path d="m7.5 13 4.5-4.5 4.5 4.5"></path><path d="M5 4h14"></path></svg>
-          <span>보내기 (Push)</span>
+          <span>보내기 (Push)${outgoingCount > 0 ? ` ${outgoingCount}` : ""}</span>
           ${actionRiskBadge("push", state)}
         </button>
       </div>

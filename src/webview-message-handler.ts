@@ -28,7 +28,24 @@ function createWebviewMessageHandler({
   runSyncAction,
 }) {
   const handlers = {
-    refresh: async () => renderPanel(host, null, mode, getOptions()),
+    refresh: async () => {
+      const cwd = getCwd();
+      if (cwd) {
+        const { refreshRemoteState } = await import("./git-safety.mjs");
+        const refreshed = await refreshRemoteState(cwd);
+        if (!refreshed.ok) {
+          await renderPanel(host, {
+            ok: false,
+            level: "warning",
+            code: "fetch-failed",
+            message: "원격 상태를 갱신하지 못했습니다.",
+            detail: refreshed.detail,
+          }, mode, getOptions());
+          return;
+        }
+      }
+      await renderPanel(host, null, mode, getOptions());
+    },
     openGraph: async () => openGraphPanel(context),
     openGlossary: async () => openKnowledgePanel(context, null, "terms"),
     openKnowledge: async () => openKnowledgePanel(context, null, "terms"),

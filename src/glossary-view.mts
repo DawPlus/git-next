@@ -236,7 +236,6 @@ h1{font-size:19px}
 @keyframes semDivergeLocal{0%,22%{left:34%;top:50%;opacity:.4}72%,100%{left:88%;top:10%;opacity:1}}@keyframes semDivergeRemote{0%,22%{left:34%;top:50%;opacity:.4}72%,100%{left:88%;top:90%;opacity:1}}
 @keyframes semForce{0%,8%{left:4%;opacity:.2}58%,88%{left:96%;opacity:1;transform:translate(-50%,-50%) scale(1.18)}100%{left:96%;opacity:.1}}@keyframes semRemoteReplace{0%,35%{left:88%;opacity:1}65%,100%{left:100%;opacity:0;transform:translate(-50%,-50%) scale(.35)}}
 @keyframes termIn{from{opacity:0;transform:translateY(7px)}to{opacity:1;transform:translateY(0)}}
-@media (prefers-reduced-motion:reduce){.flow-actor,.flow-peer,.flow-copy,.semantic-mark{animation:none!important}.flow-actor{left:42%;top:50%;opacity:.9}.flow-peer{left:62%;top:50%;opacity:.8}.semantic-conflict .flow-actor{left:43%}.semantic-conflict .flow-peer{left:57%;opacity:1}.semantic-conflict .semantic-mark{opacity:1}.semantic-diverged .flow-actor{left:38%;top:30%}.semantic-diverged .flow-peer{left:62%;top:70%;opacity:1}.semantic-branch .branch-lines{display:block}.term{animation:none;transition:none}.term:hover,.term:focus-within{transform:none}}
 @media (max-width:720px){main{padding:16px 14px 40px}.grid{grid-template-columns:1fr}}
 </style>
 </head>

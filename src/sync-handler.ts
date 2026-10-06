@@ -125,38 +125,27 @@ async function offerDivergedResolution(host, mode, options, cwd) {
     return;
   }
 
-  const selected = await vscode.window.showQuickPick([
-    { label: "Merge로 합치기", strategy: "merge" },
-    { label: "Rebase로 정리하기", strategy: "rebase" },
-  ], { placeHolder: "갈라진 로컬/원격 기록을 어떻게 정리할까요?" });
-  if (!selected) return;
-
-  const guard = await guardWorkingState(cwd, selected.strategy);
+  const guard = await guardWorkingState(cwd, "merge");
   if (!guard.ok) {
     await renderPanel(host, { ok: false, level: "blocked", message: guard.message, detail: guard.detail }, mode, options);
     return;
   }
 
-  const protectedGuard = selected.strategy === "rebase"
-    ? await getProtectedBranchWarning(cwd, "rebase")
-    : { protected: false, message: "" };
   const baseRisk = preview.conflictRisk
     ? "충돌 가능성이 있습니다. 충돌 시 기존 Continue / Abort 흐름에서 정리합니다."
-    : "Git 기록 구조가 변경됩니다.";
+    : "원격 변경을 현재 브랜치에 Merge합니다.";
   const ok = await confirmMutation({
-    action: selected.strategy === "merge" ? "Diverged Merge" : (protectedGuard.protected ? "보호 브랜치 Diverged Rebase" : "Diverged Rebase"),
+    action: "Diverged Merge",
     target: preview.target,
-    effect: workflows.formatIntegrationPreview(preview, selected.strategy),
-    risk: protectedGuard.protected ? `${baseRisk} ${protectedGuard.message}` : baseRisk,
-    level: preview.conflictRisk || protectedGuard.protected ? "warning" : "safe",
-    confirmLabel: selected.strategy === "merge" ? "Merge 실행" : (protectedGuard.protected ? "보호 브랜치 Rebase 실행" : "Rebase 실행"),
+    effect: workflows.formatIntegrationPreview(preview, "merge"),
+    risk: baseRisk,
+    level: preview.conflictRisk ? "warning" : "safe",
+    confirmLabel: "Merge 실행",
   });
   if (!ok) return;
 
   const result = await workflows.runWithGitStateDelta(cwd, () =>
-    selected.strategy === "merge"
-      ? workflows.mergeIntoCurrent(cwd, preview.target)
-      : workflows.rebaseCurrentOnto(cwd, preview.target));
+    workflows.mergeIntoCurrent(cwd, preview.target));
   await showResult(host, mode, options, result, result.ok ? null : "blocked");
 }
 

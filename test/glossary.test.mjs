@@ -31,7 +31,7 @@ test("renders Korean Git terminology guide", () => {
   assert.match(html, /@keyframes semConflictA/);
   assert.match(html, /@keyframes semRebaseFirst/);
   assert.match(html, /@keyframes semForce/);
-  assert.match(html, /prefers-reduced-motion/);
+  assert.doesNotMatch(html, /prefers-reduced-motion/);
 });
 
 test("sidebar exposes source control, terminology, and compact tool actions", () => {
