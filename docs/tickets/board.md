@@ -94,6 +94,28 @@ This board is the status source of truth.
 | T-261007-05 | Share repository state across simultaneous webview refreshes | ready | worker | worker | implementation | 1+2 | [ticket](active/T-261007-05.md) | Deduplicate concurrent repository-state loads across sidebar/graph refresh bursts |
 | T-261007-06 | Add lightweight performance tracing for Git Next | ready | worker | worker | implementation | 1+2 | [ticket](active/T-261007-06.md) | Debug-only timing for Git subprocesses, state loads, renders, Help, and Push/Pull flows |
 | T-261007-07 | Introduce repository snapshot store for instant UI reads | ready | worker | worker | implementation | 1+2 | [ticket](active/T-261007-07.md) | Cache-only UI reads; refresh repository snapshots only at mutation, sync, external-change, and explicit-refresh boundaries |
+| T-261008-01 | Harden webview CSP nonce handling | ready | worker | worker | implementation | 1+2 | [ticket](active/T-261008-01.md) | Remove automatic nonce injection; nonce only trusted Git Next scripts |
+| T-261008-02 | Add CI quality gate for pull requests | ready | worker | worker | implementation | 1+2 | [ticket](active/T-261008-02.md) | GitHub Actions for test + typecheck + build |
+| T-261008-03 | Add visual README and marketplace showcase | ready | worker | worker | implementation | 1+2 | [ticket](active/T-261008-03.md) | Screenshots/GIF for sidebar, Safe Guard, and primary flow |
+| T-261008-04 | Add VS Code extension-host integration tests | ready | worker | worker | implementation | 1+2 | [ticket](active/T-261008-04.md) | Real activation/repository/SCM/localization coverage |
+| T-261008-05 | Lock interactive performance with regression budgets | ready | worker | worker | implementation | 1+2 | [ticket](active/T-261008-05.md) | Protect staging, refresh, language, and sync responsiveness |
+| T-261008-06 | Strengthen TypeScript strictness incrementally | ready | worker | worker | implementation | 1+2 | [ticket](active/T-261008-06.md) | Make typecheck catch more real defects without big-bang migration |
+| T-261008-07 | Split oversized panel handlers by responsibility | ready | worker | worker | implementation | 1+2 | [ticket](active/T-261008-07.md) | Reduce large handler maintenance risk without abstractions for abstraction's sake |
+| T-261008-08 | Normalize CommonJS and ESM module boundaries | ready | worker | worker | implementation | 1+2 | [ticket](active/T-261008-08.md) | Simplify mixed module boundaries after type hardening |
+| T-261008-09 | Make Safe Guard impact and recovery explanations complete | ready | worker | worker | implementation | 1+2 | [ticket](active/T-261008-09.md) | Always explain impact, risk, and recovery path |
+| T-261008-10 | Make failures lead directly to the next action | ready | worker | worker | implementation | 1+2 | [ticket](active/T-261008-10.md) | Turn common Git errors into supported recovery flows |
+
+| T-261008-11 | Add first-run onboarding | ready | worker | worker | implementation | 1+2 | [ticket](active/T-261008-11.md) | 30-second, skippable introduction to state, Safe Guard and next action |
+| T-261008-12 | Unify Git state messaging across surfaces | ready | worker | worker | implementation | 1+2 | [ticket](active/T-261008-12.md) | Consistent terms and severity across Sidebar, Graph, Doctor and Safe Guard |
+| T-261008-13 | Surface Undo and Recovery when relevant | ready | worker | worker | implementation | 1+2 | [ticket](active/T-261008-13.md) | Show valid recovery affordances after appropriate mutations |
+| T-261008-14 | Benchmark large repositories and monorepos | ready | worker | worker | implementation | 1+2 | [ticket](active/T-261008-14.md) | Repeatable high-file-count and high-commit-count performance baselines |
+| T-261008-15 | Audit webview XSS and HTML sinks | ready | worker | worker | implementation | 1+2 | [ticket](active/T-261008-15.md) | Review interpolated HTML and DOM sinks beyond nonce CSP |
+| T-261008-16 | Improve keyboard and screen-reader accessibility | ready | worker | worker | implementation | 1+2 | [ticket](active/T-261008-16.md) | Keyboard navigation, focus, semantics and non-color status cues |
+| T-261008-17 | Polish Marketplace metadata and discoverability | ready | worker | worker | implementation | 1+2 | [ticket](active/T-261008-17.md) | Accurate keywords, description, listing and preview assets |
+| T-261008-18 | Maintain a user-facing CHANGELOG | ready | worker | worker | implementation | 1+2 | [ticket](active/T-261008-18.md) | Start release notes with 0.2.3 and keep subsequent entries concise |
+| T-261008-19 | Add lightweight issue and feedback templates | ready | worker | worker | implementation | 1+2 | [ticket](active/T-261008-19.md) | Bug reports and feature requests without telemetry |
+| T-261008-20 | Automate pre-release validation and VSIX packaging | ready | worker | worker | implementation | 1+2 | [ticket](active/T-261008-20.md) | Check version alignment, quality gates and VSIX before manual upload |
+| T-261008-21 | Define a core-flow feature visibility policy | ready | worker | worker | implementation | 1+2 | [ticket](active/T-261008-21.md) | Keep everyday SCM and recovery flow primary; secondary tools unobtrusive |
 
 Allowed states: `draft`, `ready`, `in_progress`, `review`, `ready_for_qa`, `blocked`, `done`, `superseded`.
 
