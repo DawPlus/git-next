@@ -319,9 +319,13 @@ async function applyWorkingTreeCacheAction(
 ) {
   const cached = getCachedState(cwd);
   if (!cached || cached.kind !== "repository") return refreshState(cwd);
-  const targetPath = path ? String(path) : null;
+  const targetPath = path ? String(path).replace(/\/+$/, "") : null;
   const changes = (cached.changes ?? []).map((change) => {
-    if (targetPath && change.path !== targetPath) return change;
+    const changePath = String(change.path ?? "");
+    const matchesTarget = !targetPath
+      || changePath === targetPath
+      || changePath.startsWith(`${targetPath}/`);
+    if (!matchesTarget) return change;
     const status = String(change.status ?? "  ").padEnd(2, " ");
     const index = status[0] ?? " ";
     const worktree = status[1] ?? " ";
@@ -348,6 +352,32 @@ async function refreshWorkingTreeState(cwd) {
   const { getWorkingTreeChanges } = await import("./git-safety.mjs");
   const changes = await traceAsync("state:working-tree-refresh", cwd, () => getWorkingTreeChanges(cwd));
   return setCachedWorkingTreeChanges(cwd, changes);
+}
+
+async function relocalizeCachedState(cwd = null) {
+  const { recommendNextAction } = await import("./git-workflows.mjs");
+  const roots = cwd ? [cwd] : [...repositorySnapshots.keys()];
+  for (const root of roots) {
+    const entry = repositorySnapshots.get(root);
+    const state = entry?.state;
+    if (!entry || !state || state.kind !== "repository") continue;
+    const nextAction = recommendNextAction({
+      tracking: state.tracking,
+      upstreamState: state.upstreamState,
+      changes: Array.isArray(state.changes) ? state.changes : [],
+      incomingFiles: Array.isArray(state.incomingFiles) ? state.incomingFiles : [],
+      operation: state.operation,
+    });
+    repositorySnapshots.set(root, {
+      ...entry,
+      version: ++snapshotVersion,
+      updatedAt: Date.now(),
+      state: {
+        ...state,
+        nextAction,
+      },
+    });
+  }
 }
 
 async function getState(cwd) {
@@ -523,6 +553,7 @@ module.exports = {
   refreshState,
   refreshWorkingTreeState,
   applyWorkingTreeCacheAction,
+  relocalizeCachedState,
   invalidateSharedStateLoad,
   renderPanel,
   getGuideKey,

@@ -129,11 +129,11 @@ test("sidebar renders in Korean with full surface coverage", () => {
   assert.match(html, /title="Staging에 넣기"/);
   assert.match(html, /title="Staging에서 빼기"/);
 
-  // Status badges
-  assert.match(html, />수정<\/span>/);
-  assert.match(html, />신규<\/span>/);
-  assert.match(html, />삭제<\/span>/);
-  assert.match(html, />충돌<\/span>/);
+  // Status badges are language-independent one-character codes.
+  assert.match(html, />U<\/span>/);
+  assert.match(html, />N<\/span>/);
+  assert.match(html, />D<\/span>/);
+  assert.match(html, />!<\/span>/);
 });
 
 test("sidebar renders in English from the same state", () => {
@@ -202,11 +202,11 @@ test("sidebar renders in English from the same state", () => {
   assert.match(html, /title="Stage"/);
   assert.match(html, /title="Unstage"/);
 
-  // Status badges
-  assert.match(html, />Modified<\/span>/);
-  assert.match(html, />New<\/span>/);
-  assert.match(html, />Deleted<\/span>/);
-  assert.match(html, />Conflict<\/span>/);
+  // Status badges are language-independent one-character codes.
+  assert.match(html, />U<\/span>/);
+  assert.match(html, />N<\/span>/);
+  assert.match(html, />D<\/span>/);
+  assert.match(html, />!<\/span>/);
 });
 
 test("sidebar empty state renders in Korean and English", () => {

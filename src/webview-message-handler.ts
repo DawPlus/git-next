@@ -11,6 +11,7 @@ function createWebviewMessageHandler({
   getRepositoryRoot,
   refreshState,
   applyWorkingTreeCacheAction,
+  relocalizeCachedState,
   renderPanel,
   recordActivity,
   confirmMutation,
@@ -211,6 +212,7 @@ function createWebviewMessageHandler({
       if (!selected || selected.locale === currentLocale) return;
       setLocale(selected.locale);
       await context.globalState.update("gitNext.locale", selected.locale);
+      await relocalizeCachedState();
       await refreshWebviewHosts();
     },
     toolsMenu: async (message) => toolsMenu(host, mode, getOptions(), context, message.tool),

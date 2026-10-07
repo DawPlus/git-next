@@ -112,16 +112,16 @@ export function renderSidebarHtml(state: any, notice: any = null, options: { loc
     return status === "??" || (status[1] && status[1] !== " ");
   });
   const statusLabel = (code, untracked = false) => {
-    if (untracked) return tFn("sidebar.status.untracked");
+    if (untracked) return "N";
     return ({
-      A: tFn("sidebar.status.added"),
-      M: tFn("sidebar.status.modified"),
-      D: tFn("sidebar.status.deleted"),
-      R: tFn("sidebar.status.renamed"),
-      C: tFn("sidebar.status.copied"),
-      U: tFn("sidebar.status.conflict"),
-      T: tFn("sidebar.status.type"),
-    })[code] ?? code ?? tFn("sidebar.status.changed");
+      A: "N",
+      M: "U",
+      D: "D",
+      R: "R",
+      C: "C",
+      U: "!",
+      T: "T",
+    })[code] ?? code ?? "?";
   };
   const renderChangeTree = (items, area) => {
     const root = { folders: new Map(), files: [] };

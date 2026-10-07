@@ -67,7 +67,15 @@ async function openChangesPanel(context) {
   let changesRefreshTimer = null;
   let gitStateDisposable = null;
   let changesMutationRunning = false;
-  let ignoreGitRefreshUntil = 0;
+  let internalChangesQuietUntil = 0;
+
+  const sameWorkingTreeChanges = (left = [], right = []) => {
+    if (left.length !== right.length) return false;
+    for (let index = 0; index < left.length; index += 1) {
+      if (left[index]?.status !== right[index]?.status || left[index]?.path !== right[index]?.path) return false;
+    }
+    return true;
+  };
   const toChangeWorkspace = (changes = []) => {
     const files = changes.map((change) => {
       const rawStatus = String(change.status ?? "  ").padEnd(2, " ");
@@ -108,16 +116,20 @@ async function openChangesPanel(context) {
     const repository = (api?.repositories ?? []).find((item) => item.rootUri?.fsPath === cwd);
     if (repository?.state?.onDidChange) {
       gitStateDisposable = repository.state.onDidChange(() => {
-        if (changesMutationRunning || Date.now() < ignoreGitRefreshUntil) return;
+        if (changesMutationRunning || Date.now() < internalChangesQuietUntil) return;
         if (changesRefreshTimer) clearTimeout(changesRefreshTimer);
-        changesRefreshTimer = setTimeout(() => {
+        changesRefreshTimer = setTimeout(async () => {
           changesRefreshTimer = null;
           const currentCwd = getCwd();
           if (!currentCwd) {
-            void refresh();
+            await refresh();
             return;
           }
-          void refreshWorkingTreeState(currentCwd).then(refresh).catch(() => refresh());
+          const before = await getState(currentCwd).catch(() => null);
+          const after = await refreshWorkingTreeState(currentCwd).catch(() => null);
+          if (!before || !after || !sameWorkingTreeChanges(before.changes ?? [], after.changes ?? [])) {
+            await refresh();
+          }
         }, 100);
       });
     }
@@ -130,13 +142,28 @@ async function openChangesPanel(context) {
     gitStateDisposable?.dispose?.();
   });
 
+  const reconcileWorkingTreeAfterQuietPeriod = () => {
+    if (changesRefreshTimer) clearTimeout(changesRefreshTimer);
+    changesRefreshTimer = setTimeout(async () => {
+      changesRefreshTimer = null;
+      const currentCwd = getCwd();
+      if (!currentCwd) return;
+      const before = await getState(currentCwd).catch(() => null);
+      const after = await refreshWorkingTreeState(currentCwd).catch(() => null);
+      if (!before || !after || !sameWorkingTreeChanges(before.changes ?? [], after.changes ?? [])) {
+        await refresh();
+      }
+    }, 500);
+  };
+
   const runChangesMutation = async (action) => {
     changesMutationRunning = true;
     try {
       return await action();
     } finally {
       changesMutationRunning = false;
-      ignoreGitRefreshUntil = Date.now() + 600;
+      internalChangesQuietUntil = Date.now() + 450;
+      reconcileWorkingTreeAfterQuietPeriod();
     }
   };
 

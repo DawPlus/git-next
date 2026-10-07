@@ -1,19 +1,22 @@
 import { t } from "./i18n.mjs";
 
-export function recommendNextAction({ tracking, upstreamState = null, changes = [], incomingFiles = [], operation = null }: { tracking?: { kind?: string; ahead?: number; behind?: number } | null; upstreamState?: { kind?: string; upstream?: string | null; remote?: string | null } | null; changes?: Array<{ path?: string }>; incomingFiles?: string[]; operation?: { operation: string } | null } = {}) {
+export function recommendNextAction(
+  { tracking, upstreamState = null, changes = [], incomingFiles = [], operation = null }: { tracking?: { kind?: string; ahead?: number; behind?: number } | null; upstreamState?: { kind?: string; upstream?: string | null; remote?: string | null } | null; changes?: Array<{ path?: string }>; incomingFiles?: string[]; operation?: { operation: string } | null } = {},
+  tFn: typeof t = t,
+) {
   if (operation) {
     return {
       kind: "operation",
-      title: t("guidance.nextAction.operation.title", { operation: operation.operation }),
-      detail: t("guidance.nextAction.operation.detail"),
+      title: tFn("guidance.nextAction.operation.title", { operation: operation.operation }),
+      detail: tFn("guidance.nextAction.operation.detail"),
     };
   }
 
   if (upstreamState?.kind === "remote-branch-missing") {
     return {
       kind: "remote-missing",
-      title: t("guidance.nextAction.remoteMissing.title"),
-      detail: t("guidance.nextAction.remoteMissing.detail", { upstream: upstreamState.upstream ?? t("guidance.nextAction.remoteMissing.fallbackUpstream") }),
+      title: tFn("guidance.nextAction.remoteMissing.title"),
+      detail: tFn("guidance.nextAction.remoteMissing.detail", { upstream: upstreamState.upstream ?? tFn("guidance.nextAction.remoteMissing.fallbackUpstream") }),
     };
   }
 
@@ -21,38 +24,38 @@ export function recommendNextAction({ tracking, upstreamState = null, changes = 
     return {
       kind: "refresh",
       title: upstreamState.kind === "tracking-ref-stale"
-        ? t("guidance.nextAction.refreshStale.title")
-        : t("guidance.nextAction.refreshMissing.title"),
+        ? tFn("guidance.nextAction.refreshStale.title")
+        : tFn("guidance.nextAction.refreshMissing.title"),
       detail: upstreamState.kind === "tracking-ref-stale"
-        ? t("guidance.nextAction.refreshStale.detail")
-        : t("guidance.nextAction.refreshMissing.detail"),
+        ? tFn("guidance.nextAction.refreshStale.detail")
+        : tFn("guidance.nextAction.refreshMissing.detail"),
     };
   }
 
   if (upstreamState?.kind === "remote-missing" || upstreamState?.kind === "unknown") {
     return {
       kind: "unknown",
-      title: t("guidance.nextAction.unknown.title"),
-      detail: t("guidance.nextAction.unknown.detail"),
+      title: tFn("guidance.nextAction.unknown.title"),
+      detail: tFn("guidance.nextAction.unknown.detail"),
     };
   }
 
   const localPaths = new Set(changes.map((change) => change.path).filter(Boolean));
   const overlap = incomingFiles.filter((path) => localPaths.has(path));
   if ((tracking?.kind === "behind" || tracking?.kind === "diverged") && overlap.length) {
-    const preview = `${overlap.slice(0, 3).join(", ")}${overlap.length > 3 ? t("guidance.nextAction.pullBlockedDirty.moreCount", { count: overlap.length - 3 }) : ""}`;
+    const preview = `${overlap.slice(0, 3).join(", ")}${overlap.length > 3 ? tFn("guidance.nextAction.pullBlockedDirty.moreCount", { count: overlap.length - 3 }) : ""}`;
     return {
       kind: "pull-blocked-dirty",
-      title: t("guidance.nextAction.pullBlockedDirty.title", { count: overlap.length }),
-      detail: t("guidance.nextAction.pullBlockedDirty.detail", { preview }),
+      title: tFn("guidance.nextAction.pullBlockedDirty.title", { count: overlap.length }),
+      detail: tFn("guidance.nextAction.pullBlockedDirty.detail", { preview }),
     };
   }
 
   if (tracking?.kind === "diverged") {
     return {
       kind: "pull",
-      title: t("guidance.nextAction.diverged.title", { behind: tracking.behind ?? 0 }),
-      detail: t("guidance.nextAction.diverged.detail", { behind: tracking.behind ?? 0, ahead: tracking.ahead ?? 0 }),
+      title: tFn("guidance.nextAction.diverged.title", { behind: tracking.behind ?? 0 }),
+      detail: tFn("guidance.nextAction.diverged.detail", { behind: tracking.behind ?? 0, ahead: tracking.ahead ?? 0 }),
     };
   }
 
@@ -60,9 +63,9 @@ export function recommendNextAction({ tracking, upstreamState = null, changes = 
     return {
       kind: "pull",
       title: changes.length
-        ? t("guidance.nextAction.behind.titleWithChanges")
-        : t("guidance.nextAction.behind.titleNoChanges"),
-      detail: t("guidance.nextAction.behind.detail", { behind: tracking.behind }),
+        ? tFn("guidance.nextAction.behind.titleWithChanges")
+        : tFn("guidance.nextAction.behind.titleNoChanges"),
+      detail: tFn("guidance.nextAction.behind.detail", { behind: tracking.behind }),
     };
   }
 
@@ -70,13 +73,13 @@ export function recommendNextAction({ tracking, upstreamState = null, changes = 
     return changes.length
       ? {
           kind: "push-dirty",
-          title: t("guidance.nextAction.pushDirty.title"),
-          detail: t("guidance.nextAction.pushDirty.detail", { ahead: tracking.ahead, changes: changes.length }),
+          title: tFn("guidance.nextAction.pushDirty.title"),
+          detail: tFn("guidance.nextAction.pushDirty.detail", { ahead: tracking.ahead, changes: changes.length }),
         }
       : {
           kind: "push",
-          title: t("guidance.nextAction.push.title", { ahead: tracking.ahead }),
-          detail: t("guidance.nextAction.push.detail"),
+          title: tFn("guidance.nextAction.push.title", { ahead: tracking.ahead }),
+          detail: tFn("guidance.nextAction.push.detail"),
         };
   }
 
@@ -84,36 +87,36 @@ export function recommendNextAction({ tracking, upstreamState = null, changes = 
     return changes.length
       ? {
           kind: "dirty",
-          title: t("guidance.nextAction.noUpstreamDirty.title"),
-          detail: t("guidance.nextAction.noUpstreamDirty.detail"),
+          title: tFn("guidance.nextAction.noUpstreamDirty.title"),
+          detail: tFn("guidance.nextAction.noUpstreamDirty.detail"),
         }
       : {
           kind: "first-push",
-          title: t("guidance.nextAction.firstPush.title"),
-          detail: t("guidance.nextAction.firstPush.detail"),
+          title: tFn("guidance.nextAction.firstPush.title"),
+          detail: tFn("guidance.nextAction.firstPush.detail"),
         };
   }
 
   if (tracking?.kind === "unknown") {
     return {
       kind: "unknown",
-      title: t("guidance.nextAction.unknown.title"),
-      detail: t("guidance.nextAction.unknown.detailRemote"),
+      title: tFn("guidance.nextAction.unknown.title"),
+      detail: tFn("guidance.nextAction.unknown.detailRemote"),
     };
   }
 
   if (changes.length) {
     return {
       kind: "dirty",
-      title: t("guidance.nextAction.dirty.title"),
-      detail: t("guidance.nextAction.dirty.detail"),
+      title: tFn("guidance.nextAction.dirty.title"),
+      detail: tFn("guidance.nextAction.dirty.detail"),
     };
   }
 
   return {
     kind: "clean",
-    title: t("guidance.nextAction.clean.title"),
-    detail: t("guidance.nextAction.clean.detail"),
+    title: tFn("guidance.nextAction.clean.title"),
+    detail: tFn("guidance.nextAction.clean.detail"),
   };
 }
 

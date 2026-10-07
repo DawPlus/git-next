@@ -169,20 +169,21 @@ const LABELS=${JSON.stringify({
   stageAll: tFn("workspace.changes.stageAll"),
   unstageAll: tFn("workspace.changes.unstageAll"),
 })};
-function updateSection(area){
+function changeCount(area,delta){
  const section=document.querySelector('[data-change-section="'+area+'"]');
  const list=section?.querySelector('[data-change-list="'+area+'"]');
- if(!section||!list)return;
- const rows=[...list.querySelectorAll('[data-change-row]')];
- const count=section.querySelector('[data-change-count]');
- if(count)count.textContent=String(rows.length);
+ const count=section?.querySelector('[data-change-count]');
+ if(!section||!list||!count)return;
+ const next=Math.max(0,(Number(count.textContent)||0)+delta);
+ count.textContent=String(next);
  const empty=list.querySelector('.empty');
- if(rows.length===0&&!empty){const el=document.createElement('div');el.className='empty';el.textContent=area==='staged'?LABELS.stagedEmpty:LABELS.unstagedEmpty;list.appendChild(el);}
- else if(rows.length>0&&empty)empty.remove();
+ if(next===0&&!empty){const el=document.createElement('div');el.className='empty';el.textContent=area==='staged'?LABELS.stagedEmpty:LABELS.unstagedEmpty;list.appendChild(el);}
+ else if(next>0&&empty)empty.remove();
 }
 function moveRow(row,toArea){
+ const fromArea=row?.dataset.area;
  const list=document.querySelector('[data-change-list="'+toArea+'"]');
- if(!row||!list)return;
+ if(!row||!list||fromArea===toArea)return;
  list.querySelector('.empty')?.remove();
  row.dataset.area=toArea;
  const toggle=row.querySelector('[data-action="stage"],[data-action="unstage"]');
@@ -193,12 +194,11 @@ function moveRow(row,toArea){
    toggle.title=staged?LABELS.unstageTitle:LABELS.stageTitle;
  }
  list.appendChild(row);
- updateSection('staged');
- updateSection('unstaged');
+ if(fromArea)changeCount(fromArea,-1);
+ changeCount(toArea,1);
 }
-function optimisticChange(action,path){
+function optimisticChange(action,row){
  if(action==='stage'||action==='unstage'){
-   const row=[...document.querySelectorAll('[data-change-row]')].find((item)=>item.dataset.path===path);
    if(row)moveRow(row,action==='stage'?'staged':'unstaged');
    return;
  }
@@ -206,7 +206,7 @@ function optimisticChange(action,path){
    const from=action==='stage-all'?'unstaged':'staged';
    const to=from==='staged'?'unstaged':'staged';
    const rows=[...document.querySelectorAll('[data-change-list="'+from+'"] [data-change-row]')];
-   for(const row of rows)moveRow(row,to);
+   for(const item of rows)moveRow(item,to);
  }
 }
 document.addEventListener("click",(event)=>{
@@ -214,7 +214,8 @@ document.addEventListener("click",(event)=>{
  if(!btn)return;
  const action=btn.dataset.action;
  const path=btn.dataset.path;
- if(action==='stage'||action==='unstage'||action==='stage-all'||action==='unstage-all')optimisticChange(action,path);
+ const row=btn.closest("[data-change-row]");
+ if(action==='stage'||action==='unstage'||action==='stage-all'||action==='unstage-all')optimisticChange(action,row);
  vscode.postMessage({type:action,path,untracked:btn.dataset.untracked==="1",message:document.querySelector("#message")?.value??""});
 });`;
   return shell(tFn("workspace.changes.shellTitle"), body, script, locale);
