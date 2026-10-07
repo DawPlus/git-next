@@ -139,7 +139,7 @@ export function renderChangesWorkspace(data, notice = null, options: { locale?: 
     const statusLabel = file.status === "??"
       ? tFn("workspace.changes.statusNew")
       : file.status || tFn("workspace.changes.statusModified");
-    return `<div class="file compact-file">
+    return `<div class="file compact-file" data-change-row data-path="${esc(file.path)}" data-area="${area}">
       <span class="badge ${file.status === "??" ? "new" : ""}">${esc(statusLabel)}</span>
       <span class="path" title="${esc(file.path)}">${esc(file.path)}</span>
       <div class="actions">
@@ -156,15 +156,66 @@ export function renderChangesWorkspace(data, notice = null, options: { locale?: 
   const body = `
 <header><div><h1>${esc(tFn("workspace.changes.headerTitle"))}</h1><div class="sub">${esc(tFn("workspace.changes.headerSub"))}</div></div><div class="toolbar"><button class="btn" data-action="refresh">${esc(tFn("common.refresh"))}</button><button class="btn" data-action="compare-remote">${esc(tFn("workspace.changes.compareRemote"))}</button></div></header>
 ${notice ? `<div class="card"><strong>${esc(notice.message)}</strong>${notice.detail ? `<div class="meta">${esc(notice.detail)}</div>` : ""}</div>` : ""}
-<section class="section"><div class="section-title"><h2>${esc(tFn("workspace.changes.stagedHeading"))}</h2><div class="toolbar"><span class="badge">${data.staged.length}</span>${data.staged.length ? `<button class="btn compact-action" data-action="unstage-all">${esc(tFn("workspace.changes.unstageAll"))}</button>` : ""}</div></div><div class="card list compact-list">${staged || `<div class="empty">${esc(tFn("workspace.changes.stagedEmpty"))}</div>`}</div></section>
-<section class="section"><div class="section-title"><h2>${esc(tFn("workspace.changes.unstagedHeading"))}</h2><div class="toolbar"><span class="badge">${data.unstaged.length}</span>${data.unstaged.length ? `<button class="btn compact-action" data-action="stage-all">${esc(tFn("workspace.changes.stageAll"))}</button>` : ""}</div></div><div class="card list compact-list">${unstaged || `<div class="empty">${esc(tFn("workspace.changes.unstagedEmpty"))}</div>`}</div></section>
+<section class="section" data-change-section="staged"><div class="section-title"><h2>${esc(tFn("workspace.changes.stagedHeading"))}</h2><div class="toolbar"><span class="badge" data-change-count>${data.staged.length}</span>${data.staged.length ? `<button class="btn compact-action" data-action="unstage-all">${esc(tFn("workspace.changes.unstageAll"))}</button>` : ""}</div></div><div class="card list compact-list" data-change-list="staged">${staged || `<div class="empty">${esc(tFn("workspace.changes.stagedEmpty"))}</div>`}</div></section>
+<section class="section" data-change-section="unstaged"><div class="section-title"><h2>${esc(tFn("workspace.changes.unstagedHeading"))}</h2><div class="toolbar"><span class="badge" data-change-count>${data.unstaged.length}</span>${data.unstaged.length ? `<button class="btn compact-action" data-action="stage-all">${esc(tFn("workspace.changes.stageAll"))}</button>` : ""}</div></div><div class="card list compact-list" data-change-list="unstaged">${unstaged || `<div class="empty">${esc(tFn("workspace.changes.unstagedEmpty"))}</div>`}</div></section>
 <section class="section"><div class="section-title"><h2>${esc(tFn("workspace.changes.commitHeading"))}</h2><span class="badge">${esc(tFn("workspace.changes.localOnlyBadge"))}</span></div><div class="card"><input class="input" id="message" placeholder="${esc(tFn("workspace.changes.inputPlaceholder"))}" /><div class="toolbar" style="margin-top:10px"><button class="btn primary" data-action="commit">${esc(tFn("workspace.changes.commitBtn"))}</button><button class="btn" data-action="undo-commit">${esc(tFn("workspace.changes.undoBtn"))}</button></div><div class="meta">${esc(tFn("workspace.changes.commitMeta"))}</div></div></section>`;
   const script = `
 const vscode=acquireVsCodeApi();
+const LABELS=${JSON.stringify({
+  stageTitle: tFn("workspace.changes.stageTitle"),
+  unstageTitle: tFn("workspace.changes.unstageTitle"),
+  stagedEmpty: tFn("workspace.changes.stagedEmpty"),
+  unstagedEmpty: tFn("workspace.changes.unstagedEmpty"),
+  stageAll: tFn("workspace.changes.stageAll"),
+  unstageAll: tFn("workspace.changes.unstageAll"),
+})};
+function updateSection(area){
+ const section=document.querySelector('[data-change-section="'+area+'"]');
+ const list=section?.querySelector('[data-change-list="'+area+'"]');
+ if(!section||!list)return;
+ const rows=[...list.querySelectorAll('[data-change-row]')];
+ const count=section.querySelector('[data-change-count]');
+ if(count)count.textContent=String(rows.length);
+ const empty=list.querySelector('.empty');
+ if(rows.length===0&&!empty){const el=document.createElement('div');el.className='empty';el.textContent=area==='staged'?LABELS.stagedEmpty:LABELS.unstagedEmpty;list.appendChild(el);}
+ else if(rows.length>0&&empty)empty.remove();
+}
+function moveRow(row,toArea){
+ const list=document.querySelector('[data-change-list="'+toArea+'"]');
+ if(!row||!list)return;
+ list.querySelector('.empty')?.remove();
+ row.dataset.area=toArea;
+ const toggle=row.querySelector('[data-action="stage"],[data-action="unstage"]');
+ if(toggle){
+   const staged=toArea==='staged';
+   toggle.dataset.action=staged?'unstage':'stage';
+   toggle.textContent=staged?'−':'+';
+   toggle.title=staged?LABELS.unstageTitle:LABELS.stageTitle;
+ }
+ list.appendChild(row);
+ updateSection('staged');
+ updateSection('unstaged');
+}
+function optimisticChange(action,path){
+ if(action==='stage'||action==='unstage'){
+   const row=[...document.querySelectorAll('[data-change-row]')].find((item)=>item.dataset.path===path);
+   if(row)moveRow(row,action==='stage'?'staged':'unstaged');
+   return;
+ }
+ if(action==='stage-all'||action==='unstage-all'){
+   const from=action==='stage-all'?'unstaged':'staged';
+   const to=from==='staged'?'unstaged':'staged';
+   const rows=[...document.querySelectorAll('[data-change-list="'+from+'"] [data-change-row]')];
+   for(const row of rows)moveRow(row,to);
+ }
+}
 document.addEventListener("click",(event)=>{
  const btn=event.target.closest("[data-action]");
  if(!btn)return;
- vscode.postMessage({type:btn.dataset.action,path:btn.dataset.path,untracked:btn.dataset.untracked==="1",message:document.querySelector("#message")?.value??""});
+ const action=btn.dataset.action;
+ const path=btn.dataset.path;
+ if(action==='stage'||action==='unstage'||action==='stage-all'||action==='unstage-all')optimisticChange(action,path);
+ vscode.postMessage({type:action,path,untracked:btn.dataset.untracked==="1",message:document.querySelector("#message")?.value??""});
 });`;
   return shell(tFn("workspace.changes.shellTitle"), body, script, locale);
 }
@@ -324,7 +375,7 @@ export function renderBranchWorkspace(state, options: { locale?: string } = {}) 
 </section>`;
 
   const script=`
-const vscode=acquireVsCodeApi();let selected=null;let kind=null;let draggingRemote=null;
+const vscode=acquireVsCodeApi();let selected=null;let kind=null;let draggingRemote=null;const syncPendingLabel=${JSON.stringify(tFn("workspace.branch.sync.pending"))};
 const selection=document.querySelector("#selection");
 const selectionButtons=[...selection.querySelectorAll("[data-action]")];
 const layout=document.querySelector(".branch-layout");
@@ -407,6 +458,12 @@ localPocket?.addEventListener("dragleave",e=>{if(e.relatedTarget&&localPocket.co
 localPocket?.addEventListener("drop",e=>{if(!draggingRemote)return;e.preventDefault();localPocket.classList.remove("drag-ready");vscode.postMessage({type:"track",branch:draggingRemote,kind:"remote"});draggingRemote=null;});
 for(const b of document.querySelectorAll("[data-action]"))b.addEventListener("click",e=>{
   e.stopPropagation();
+  if(b.dataset.action==="sync"){
+    if(b.disabled)return;
+    b.disabled=true;
+    b.dataset.originalLabel=b.textContent||"";
+    b.textContent=syncPendingLabel;
+  }
   vscode.postMessage({type:b.dataset.action,branch:selected,kind});
 });
 drawTrackingLinks();
@@ -640,7 +697,31 @@ export function renderAiDiagnosisWorkspace({ diagnosis, provider = "AI" }: any =
   return shell("Git Next · AI 진단", body, script);
 }
 
-export function renderKnowledgeCenter({ tab = "terms", selected = null, state = null } = {}, options: { locale?: string } = {}) {
+export function buildKnowledgeLiveContext(state, options: { locale?: string } = {}) {
+  const locale = options?.locale ?? getLocale();
+  const terms = getGlossaryTerms(locale);
+  const termExamples = Object.fromEntries(
+    terms
+      .map((item) => [item.term, getLiveTermExample(item.term, state, { locale })])
+      .filter(([, example]) => Boolean(example)),
+  );
+  return {
+    status: state?.kind === "repository" ? "ready" : "unavailable",
+    termExamples,
+    matchedScenarioIds: [...getMatchingScenarios(state)],
+  };
+}
+
+export function renderKnowledgeCenter(
+  {
+    tab = "terms",
+    selected = null,
+    state = null,
+    loadingLiveContext = false,
+    liveContextUnavailable = false,
+  } = {},
+  options: { locale?: string } = {},
+) {
   const locale = options?.locale ?? getLocale();
   const tFn = getFixedT(locale);
   const terms = getGlossaryTerms(locale);
@@ -667,7 +748,7 @@ export function renderKnowledgeCenter({ tab = "terms", selected = null, state = 
     ${renderKnowledgeFlow(t.flow, t.tone, t.animation, tFn)}
     <div class="effect">${esc(t.effect)}</div>
     <div class="example"><span>${esc(tFn("glossary.exampleLabel"))}</span>${esc(t.example)}</div>
-    ${liveExample ? `<div class="live-example"><span>${esc(tFn("glossary.liveExampleLabel"))}</span>${esc(liveExample)}</div>` : ""}
+    <div class="live-example" data-live-term="${esc(t.term)}" ${liveExample ? "" : "hidden"}><span>${esc(tFn("glossary.liveExampleLabel"))}</span><span data-live-value>${esc(liveExample ?? "")}</span></div>
   </article>`;
   }).join("");
 
@@ -682,20 +763,25 @@ export function renderKnowledgeCenter({ tab = "terms", selected = null, state = 
   </article>`).join("");
 
   const matchedScenarios = getMatchingScenarios(state);
-  const scenarioCards = scenarios.map((scenario) => `<article class="guide-card knowledge scenario-card ${matchedScenarios.has(scenario.id) ? "matches-state" : ""}" id="scenario-${esc(scenario.id)}" data-search="${esc(Object.values(scenario).filter((value) => typeof value === "string").join(" ").toLowerCase())}">
-    <h2>${esc(scenario.title)}${matchedScenarios.has(scenario.id) ? ` <span class="scenario-match">${esc(tFn("glossary.scenarioMatchHint"))}</span>` : ""}</h2>
+  const scenarioCards = scenarios.map((scenario) => `<article class="guide-card knowledge scenario-card ${matchedScenarios.has(scenario.id) ? "matches-state" : ""}" id="scenario-${esc(scenario.id)}" data-scenario-id="${esc(scenario.id)}" data-search="${esc(Object.values(scenario).filter((value) => typeof value === "string").join(" ").toLowerCase())}">
+    <h2>${esc(scenario.title)} <span class="scenario-match" data-scenario-match ${matchedScenarios.has(scenario.id) ? "" : "hidden"}>${esc(tFn("glossary.scenarioMatchHint"))}</span></h2>
     <p><strong>${esc(tFn("glossary.labelState"))}</strong> ${esc(scenario.state)}</p>
     <p><strong>${esc(tFn("glossary.labelRisk"))}</strong> ${esc(scenario.risk)}</p>
     <p><strong>${esc(tFn("glossary.labelNext"))}</strong> ${esc(scenario.next)}</p>
   </article>`).join("");
   const activeTab = selected ? "guides" : tab;
+  const liveStatus = loadingLiveContext
+    ? "현재 저장소 상태 확인 중..."
+    : liveContextUnavailable
+    ? "현재 저장소 상태를 확인할 수 없습니다."
+    : "";
   const body = `<input class="tab-radio" id="knowledge-tab-terms" name="knowledge-tab" type="radio" ${activeTab==="terms"?"checked":""} />
   <input class="tab-radio" id="knowledge-tab-guides" name="knowledge-tab" type="radio" ${activeTab==="guides"?"checked":""} />
-  <header><div><h1>${esc(tFn("glossary.knowledgeHeaderTitle"))}</h1><div class="sub">${esc(tFn("glossary.knowledgeHeaderSub"))}</div></div><div class="tabs"><label class="tab" for="knowledge-tab-terms">${esc(tFn("glossary.tabTerms"))}</label><label class="tab" for="knowledge-tab-guides">${esc(tFn("glossary.tabGuides"))}</label></div></header>
+  <header><div><h1>${esc(tFn("glossary.knowledgeHeaderTitle"))}</h1><div class="sub">${esc(tFn("glossary.knowledgeHeaderSub"))}</div><div class="meta" data-live-status ${liveStatus ? "" : "hidden"}>${esc(liveStatus)}</div></div><div class="tabs"><label class="tab" for="knowledge-tab-terms">${esc(tFn("glossary.tabTerms"))}</label><label class="tab" for="knowledge-tab-guides">${esc(tFn("glossary.tabGuides"))}</label></div></header>
   <input id="q" class="input" type="search" placeholder="${esc(tFn("glossary.knowledgeSearchPlaceholder"))}" />
   <section id="terms" class="section knowledge-grid">${termCards}</section>
   <section id="guides" class="section knowledge-grid"><h2 class="scenario-heading">${esc(tFn("glossary.scenariosHeading"))}</h2>${scenarioCards}${guideCards}</section>`;
 
-  const script = `const selected=${JSON.stringify(selected)};const q=document.querySelector("#q");function filter(){const s=q.value.trim().toLowerCase();for(const el of document.querySelectorAll(".knowledge"))el.hidden=Boolean(s)&&!el.dataset.search.includes(s);}q?.addEventListener("input",filter);if(selected){requestAnimationFrame(()=>document.getElementById(selected)?.scrollIntoView({block:"start"}));}`;
+  const script = `const selected=${JSON.stringify(selected)};const q=document.querySelector("#q");function filter(){const s=q.value.trim().toLowerCase();for(const el of document.querySelectorAll(".knowledge"))el.hidden=Boolean(s)&&!el.dataset.search.includes(s);}q?.addEventListener("input",filter);if(selected){requestAnimationFrame(()=>document.getElementById(selected)?.scrollIntoView({block:"start"}));}window.addEventListener("message",(event)=>{if(event.data?.type!=="knowledgeLiveContext")return;const payload=event.data.payload??{};const status=document.querySelector("[data-live-status]");if(status){status.textContent=payload.status==="unavailable"?"현재 저장소 상태를 확인할 수 없습니다.":"";status.hidden=!status.textContent;}for(const el of document.querySelectorAll("[data-live-term]")){const value=payload.termExamples?.[el.dataset.liveTerm]??"";const target=el.querySelector("[data-live-value]");if(target)target.textContent=value;el.hidden=!value;}const matched=new Set(payload.matchedScenarioIds??[]);for(const card of document.querySelectorAll("[data-scenario-id]")){const isMatch=matched.has(card.dataset.scenarioId);card.classList.toggle("matches-state",isMatch);const badge=card.querySelector("[data-scenario-match]");if(badge)badge.hidden=!isMatch;}});`;
   return shell(tFn("glossary.knowledgeShellTitle"), body, script, locale);
 }

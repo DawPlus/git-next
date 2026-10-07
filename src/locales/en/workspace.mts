@@ -90,6 +90,7 @@ export const workspace = {
       noUpstream: "Sync · First push",
       unknown: "Sync · Check status",
       default: "Sync",
+      pending: "Syncing...",
     },
     script: {
       remoteTitle: "Branch stored on remote",

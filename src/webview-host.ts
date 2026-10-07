@@ -6,6 +6,10 @@ function createWebviewHost(core, panels, menus, sync) {
     setWebviewHtml,
     getCwd,
     getRepositoryRoot,
+    refreshState,
+    refreshWorkingTreeState,
+    applyWorkingTreeCacheAction,
+    invalidateSharedStateLoad,
     renderPanel,
     recordActivity,
     confirmMutation,
@@ -30,8 +34,10 @@ function createWebviewHost(core, panels, menus, sync) {
   let externalGitRefreshTimer = null;
   let internalGitOperationDepth = 0;
   let externalGitRefreshPending = false;
+  const externalGitRefreshRoots = new Set();
 
-  function scheduleExternalGitRefresh() {
+  function scheduleExternalGitRefresh(root = null) {
+    if (root) externalGitRefreshRoots.add(root);
     if (internalGitOperationDepth > 0) {
       externalGitRefreshPending = true;
       return;
@@ -39,6 +45,9 @@ function createWebviewHost(core, panels, menus, sync) {
     if (externalGitRefreshTimer) clearTimeout(externalGitRefreshTimer);
     externalGitRefreshTimer = setTimeout(async () => {
       externalGitRefreshTimer = null;
+      const roots = [...externalGitRefreshRoots];
+      externalGitRefreshRoots.clear();
+      await Promise.allSettled(roots.map((item) => refreshState(item, { maxAgeMs: 250 })));
       await Promise.allSettled(
         [...liveWebviewHosts].map(({ host, mode, getOptions }) =>
           renderPanel(host, null, mode, getOptions())),
@@ -46,15 +55,22 @@ function createWebviewHost(core, panels, menus, sync) {
     }, 180);
   }
 
-  async function runInternalGitOperation(action, { consumeExternalRefresh = false } = {}) {
+  async function runInternalGitOperation(action, { consumeExternalRefresh = false, refresh = "full" } = {}) {
+    const cwd = getCwd();
+    invalidateSharedStateLoad(cwd);
     internalGitOperationDepth += 1;
     try {
       return await action();
     } finally {
+      invalidateSharedStateLoad(cwd);
+      if (cwd) {
+        if (refresh === "working-tree") await refreshWorkingTreeState(cwd).catch(() => {});
+        else if (refresh !== "none") await refreshState(cwd).catch(() => {});
+      }
       internalGitOperationDepth -= 1;
       if (internalGitOperationDepth === 0 && externalGitRefreshPending) {
         externalGitRefreshPending = false;
-        if (!consumeExternalRefresh) scheduleExternalGitRefresh();
+        if (!consumeExternalRefresh) scheduleExternalGitRefresh(cwd);
       }
     }
   }
@@ -84,7 +100,14 @@ function createWebviewHost(core, panels, menus, sync) {
         if (!repository || observed.has(repository)) return;
         observed.add(repository);
         refreshRepositoryRoots();
-        const disposable = repository.state?.onDidChange?.(scheduleExternalGitRefresh);
+        const root = repository.rootUri?.fsPath;
+        if (root) {
+          void refreshState(root).catch(() => {});
+          void import("./git-safety.mjs")
+            .then(({ refreshCurrentUpstreamState }) => refreshCurrentUpstreamState(root))
+            .catch(() => {});
+        }
+        const disposable = repository.state?.onDidChange?.(() => scheduleExternalGitRefresh(root));
         if (disposable) context.subscriptions.push(disposable);
       };
 
@@ -128,6 +151,8 @@ function createWebviewHost(core, panels, menus, sync) {
       setOptions: (next) => { options = next; },
       getCwd,
       getRepositoryRoot,
+      refreshState,
+      applyWorkingTreeCacheAction,
       renderPanel,
       recordActivity,
       confirmMutation,

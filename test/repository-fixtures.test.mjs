@@ -15,6 +15,8 @@ import {
   getTrackingStatus,
   getWorkingTreeChanges,
   inspectCurrentUpstream,
+  clearRemoteFreshnessCache,
+  refreshCurrentUpstreamState,
   refreshRemoteState,
   preflightPullSafety,
 } from "../src/git-safety.mts";
@@ -85,7 +87,8 @@ test("distinguishes a deleted remote branch from a missing local tracking ref", 
   git(local, ["fetch", "origin"]);
 
   git(remote, ["update-ref", "-d", "refs/heads/main"]);
-  assert.equal((await inspectCurrentUpstream(local)).kind, "remote-branch-missing");
+  assert.equal((await inspectCurrentUpstream(local)).kind, "unknown");
+  assert.equal((await refreshCurrentUpstreamState(local, { force: true })).kind, "remote-branch-missing");
 });
 
 test("원격 추적 상태의 ahead, behind, diverged를 실제 저장소로 판별한다", async () => {
@@ -108,7 +111,8 @@ test("원격 추적 상태의 ahead, behind, diverged를 실제 저장소로 판
   commit(other, "remote.txt");
   git(other, ["push", "origin", "main"]);
 
-  assert.equal((await inspectCurrentUpstream(local)).kind, "tracking-ref-stale");
+  assert.equal((await inspectCurrentUpstream(local)).kind, "unknown");
+  assert.equal((await refreshCurrentUpstreamState(local, { force: true })).kind, "tracking-ref-stale");
   assert.equal((await refreshRemoteState(local)).ok, true);
   assert.equal((await inspectCurrentUpstream(local)).kind, "healthy");
   status = await getTrackingStatus(local);

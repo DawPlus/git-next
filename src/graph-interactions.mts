@@ -1,6 +1,27 @@
 export const GRAPH_INTERACTIONS = `
     const vscode = acquireVsCodeApi();
     let filterTimer;
+    let syncPendingAction = null;
+
+    const applySyncPending = () => {
+      for (const button of document.querySelectorAll('button[data-action="pull"], button[data-action="push"]')) {
+        const label = button.querySelector("span");
+        if (label && !label.dataset.syncOriginal) label.dataset.syncOriginal = label.textContent ?? "";
+        button.disabled = Boolean(syncPendingAction);
+        if (label) {
+          label.textContent = syncPendingAction === button.dataset.action
+            ? (syncPendingAction === "push" ? "Push 중..." : "Pull 중...")
+            : (label.dataset.syncOriginal ?? label.textContent);
+        }
+      }
+    };
+
+    window.addEventListener("message", (event) => {
+      if (event.data?.type !== "syncPending") return;
+      syncPendingAction = event.data.pending ? event.data.action : null;
+      applySyncPending();
+    });
+    window.addEventListener("gitnext:refresh", applySyncPending);
 
     const graphTable = () => document.querySelector(".graph-table");
     const clearActiveLane = () => {
@@ -31,7 +52,13 @@ export const GRAPH_INTERACTIONS = `
     document.addEventListener("click", (event) => {
       const actionButton = event.target.closest("button[data-action]");
       if (actionButton) {
-        vscode.postMessage({ type: actionButton.dataset.action, guideKey: actionButton.dataset.guideKey ?? null });
+        const action = actionButton.dataset.action;
+        if (["pull", "push"].includes(action)) {
+          if (syncPendingAction) return;
+          syncPendingAction = action;
+          applySyncPending();
+        }
+        vscode.postMessage({ type: action, guideKey: actionButton.dataset.guideKey ?? null });
         return;
       }
       const commitButton = event.target.closest("button[data-commit-action]");

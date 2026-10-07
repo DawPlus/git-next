@@ -1,10 +1,14 @@
 const vscode = require("vscode");
 const { createAiPanelHandlers } = require("./ai-panel-handlers.js");
+const { traceAsync } = require("./perf-trace.js");
 
 function createPanelHandlers(core, getMenus) {
   const {
     getCwd,
     getState,
+    refreshState,
+    refreshWorkingTreeState,
+    applyWorkingTreeCacheAction,
     getOrCreateWebviewPanel,
     renderPatchableWebview,
     setWebviewHtml,
@@ -60,14 +64,80 @@ async function openChangesPanel(context) {
   if (!created) return;
 
   let notice = null;
+  let changesRefreshTimer = null;
+  let gitStateDisposable = null;
+  let changesMutationRunning = false;
+  let ignoreGitRefreshUntil = 0;
+  const toChangeWorkspace = (changes = []) => {
+    const files = changes.map((change) => {
+      const rawStatus = String(change.status ?? "  ").padEnd(2, " ");
+      const path = String(change.path ?? "").split(" -> ").at(-1) ?? "";
+      const untracked = rawStatus === "??";
+      const staged = !untracked && rawStatus[0] !== " ";
+      const unstaged = untracked || rawStatus[1] !== " ";
+      return {
+        path,
+        status: untracked ? "?" : (unstaged ? rawStatus[1] : rawStatus[0]).trim(),
+        staged,
+        unstaged,
+        untracked,
+      };
+    });
+    return {
+      staged: files.filter((file) => file.staged),
+      unstaged: files.filter((file) => file.unstaged),
+      files,
+    };
+  };
   const refresh = async () => {
     const cwd = getCwd();
+    const state = cwd ? await getState(cwd) : null;
     await renderPatchableWebview(
       panel.webview,
-      cwd
-        ? renderChangesWorkspace(await workflows.getChangeWorkspace(cwd), notice)
+      state?.kind === "repository"
+        ? renderChangesWorkspace(toChangeWorkspace(state.changes ?? []), notice)
         : renderChangesWorkspace({ staged: [], unstaged: [], files: [] }, { message: "Git 저장소가 없습니다." }),
     );
+  };
+
+  try {
+    const extension = vscode.extensions.getExtension("vscode.git");
+    const exports = extension?.isActive ? extension.exports : await extension?.activate();
+    const api = exports?.getAPI?.(1);
+    const cwd = getCwd();
+    const repository = (api?.repositories ?? []).find((item) => item.rootUri?.fsPath === cwd);
+    if (repository?.state?.onDidChange) {
+      gitStateDisposable = repository.state.onDidChange(() => {
+        if (changesMutationRunning || Date.now() < ignoreGitRefreshUntil) return;
+        if (changesRefreshTimer) clearTimeout(changesRefreshTimer);
+        changesRefreshTimer = setTimeout(() => {
+          changesRefreshTimer = null;
+          const currentCwd = getCwd();
+          if (!currentCwd) {
+            void refresh();
+            return;
+          }
+          void refreshWorkingTreeState(currentCwd).then(refresh).catch(() => refresh());
+        }, 100);
+      });
+    }
+  } catch {
+    // Manual refresh remains available when the built-in Git API cannot be used.
+  }
+
+  panel.onDidDispose(() => {
+    if (changesRefreshTimer) clearTimeout(changesRefreshTimer);
+    gitStateDisposable?.dispose?.();
+  });
+
+  const runChangesMutation = async (action) => {
+    changesMutationRunning = true;
+    try {
+      return await action();
+    } finally {
+      changesMutationRunning = false;
+      ignoreGitRefreshUntil = Date.now() + 600;
+    }
   };
 
   panel.webview.onDidReceiveMessage(async (message) => {
@@ -75,7 +145,10 @@ async function openChangesPanel(context) {
     if (!cwd) return;
     notice = null;
 
-    if (message?.type === "refresh") return refresh();
+    if (message?.type === "refresh") {
+      await refreshWorkingTreeState(cwd).catch(() => {});
+      return refresh();
+    }
     if (message?.type === "compare-remote") {
       await openComparePanel(context);
       return;
@@ -91,19 +164,36 @@ async function openChangesPanel(context) {
       return;
     }
     if (message?.type === "stage" || message?.type === "unstage") {
-      const result = message.type === "stage"
-        ? await workflows.stageFile(cwd, message.path)
-        : await workflows.unstageFile(cwd, message.path);
+      const result = await runChangesMutation(() => message.type === "stage"
+        ? workflows.stageFile(cwd, message.path)
+        : workflows.unstageFile(cwd, message.path));
       notice = result;
+      if (result.ok) {
+        await applyWorkingTreeCacheAction(cwd, {
+          action: message.type === "stage" ? "stage" : "unstage",
+          path: message.path,
+        });
+        await recordActivity(result);
+        return;
+      }
       await recordActivity(result);
+      await refreshWorkingTreeState(cwd).catch(() => {});
       return refresh();
     }
     if (message?.type === "stage-all" || message?.type === "unstage-all") {
-      const result = message.type === "stage-all"
-        ? await workflows.stageAll(cwd)
-        : await workflows.unstageAll(cwd);
+      const result = await runChangesMutation(() => message.type === "stage-all"
+        ? workflows.stageAll(cwd)
+        : workflows.unstageAll(cwd));
       notice = result;
+      if (result.ok) {
+        await applyWorkingTreeCacheAction(cwd, {
+          action: message.type === "stage-all" ? "stage-all" : "unstage-all",
+        });
+        await recordActivity(result);
+        return;
+      }
       await recordActivity(result);
+      await refreshWorkingTreeState(cwd).catch(() => {});
       return refresh();
     }
     if (message?.type === "discard") {
@@ -119,6 +209,7 @@ async function openChangesPanel(context) {
       const result = await workflows.discardFile(cwd, message.path, { untracked: message.untracked });
       notice = result;
       await recordActivity(result);
+      await refreshWorkingTreeState(cwd).catch(() => {});
       return refresh();
     }
     if (message?.type === "commit") {
@@ -142,6 +233,7 @@ async function openChangesPanel(context) {
       const result = await workflows.runWithGitStateDelta(cwd, () => workflows.commitWithMessage(cwd, commitMessage));
       notice = result;
       await recordActivity(result);
+      await refreshState(cwd).catch(() => {});
       return refresh();
     }
     if (message?.type === "undo-commit") {
@@ -162,6 +254,7 @@ async function openChangesPanel(context) {
       const result = await workflows.runWithGitStateDelta(cwd, () => workflows.undoLastLocalCommit(cwd));
       notice = result;
       await recordActivity(result);
+      await refreshState(cwd).catch(() => {});
       return refresh();
     }
   });
@@ -258,16 +351,19 @@ async function openComparePanel(context) {
 }
 
 async function openBranchWorkspace(context) {
-  const { renderBranchWorkspace } = await import("./workspace-views.mjs");
-  const actions = await import("./git-actions.mjs");
-  const workflows = await import("./git-workflows.mjs");
-  const safety = await import("./git-safety.mjs");
   const { panel, created } = getOrCreateWebviewPanel(
     "gitNext.branches",
     "Git Next · Branch",
     { enableScripts: true, retainContextWhenHidden: true },
   );
   if (!created) return;
+  setWebviewHtml(panel.webview, "<p>브랜치 정보를 불러오는 중입니다...</p>");
+  const [{ renderBranchWorkspace }, actions, workflows, safety] = await Promise.all([
+    import("./workspace-views.mjs"),
+    import("./git-actions.mjs"),
+    import("./git-workflows.mjs"),
+    import("./git-safety.mjs"),
+  ]);
   let branchMutationRunning = false;
   const runBranchMutation = async (action) => {
     if (branchMutationRunning) {
@@ -278,12 +374,14 @@ async function openBranchWorkspace(context) {
     try {
       return await action();
     } finally {
+      const cwd = getCwd();
+      if (cwd) await refreshState(cwd).catch(() => {});
       branchMutationRunning = false;
     }
   };
   const refresh = async () => {
     const cwd = getCwd();
-    const state = cwd ? await getState(cwd) : { refs: [], branch: null };
+    const state = cwd ? await getState(cwd) : { refs: [], branch: null, upstream: null, tracking: null };
     setWebviewHtml(panel.webview, renderBranchWorkspace(state));
   };
 
@@ -300,7 +398,12 @@ async function openBranchWorkspace(context) {
         if (branchRefreshTimer) clearTimeout(branchRefreshTimer);
         branchRefreshTimer = setTimeout(() => {
           branchRefreshTimer = null;
-          void refresh();
+          const cwd = getCwd();
+          if (!cwd) {
+            void refresh();
+            return;
+          }
+          void refreshState(cwd, { maxAgeMs: 250 }).then(refresh).catch(() => refresh());
         }, 80);
       });
     }
@@ -387,7 +490,11 @@ async function openBranchWorkspace(context) {
         confirmLabel: "원격에도 만들기",
       });
       if (!ok) return;
-      const result = await workflows.runWithGitStateDelta(cwd, () => actions.pushWithUpstream(cwd, selected.name, state.branch));
+      const result = await vscode.window.withProgress({
+        location: vscode.ProgressLocation.Notification,
+        title: "Git Next · 동기화 · 첫 Push",
+        cancellable: false,
+      }, () => workflows.runWithGitStateDelta(cwd, () => actions.pushWithUpstream(cwd, selected.name, state.branch)));
       await vscode.window.showInformationMessage(result.message);
       return;
     }
@@ -417,10 +524,14 @@ async function openBranchWorkspace(context) {
     });
     if (!ok) return;
 
-    const result = await workflows.runWithGitStateDelta(
+    const result = await vscode.window.withProgress({
+      location: vscode.ProgressLocation.Notification,
+      title: `Git Next · 동기화 · ${action === "push" ? "Push" : "Pull"}`,
+      cancellable: false,
+    }, () => workflows.runWithGitStateDelta(
       cwd,
       () => action === "push" ? actions.pushRepository(cwd) : actions.pullRepository(cwd),
-    );
+    ));
     await vscode.window.showInformationMessage(result.message);
   };
 
@@ -448,10 +559,12 @@ async function openBranchWorkspace(context) {
     const state = await getState(cwd);
     if (message?.type === "sync") {
       await syncCurrentBranch(cwd, state, message.branch, message.kind);
+      await refreshState(cwd).catch(() => {});
       return refresh();
     }
     if (message?.type === "refresh-remote") {
       await refreshRemoteBranches(cwd);
+      await refreshState(cwd).catch(() => {});
       return refresh();
     }
     if (message?.type === "create") {
@@ -534,7 +647,7 @@ async function openBranchWorkspace(context) {
 
       const switched = await runBranchMutation(async () => {
         const result = await workflows.runWithGitStateDelta(cwd, () => actions.checkoutBranch(cwd, message.branch));
-        const after = await getState(cwd);
+        const after = await refreshState(cwd);
         if (!result.ok || after.branch !== message.branch) {
           const detail = "detail" in result && result.detail ? `\n${result.detail}` : "";
           void vscode.window.showWarningMessage(`${result.message}${detail}`);
@@ -586,7 +699,7 @@ async function openBranchWorkspace(context) {
     }
   });
 
-  await refresh();
+  void refresh();
   context.subscriptions.push(panel);
 }
 
@@ -747,19 +860,35 @@ async function openCommitDetailsPanel(context, commit) {
 }
 
 async function openKnowledgePanel(context, selected = null, tab = "terms") {
-  const { renderKnowledgeCenter } = await import("./workspace-views.mjs");
+  const { renderKnowledgeCenter, buildKnowledgeLiveContext } = await import("./workspace-views.mjs");
   const cwd = getCwd();
-  const state = cwd ? await getState(cwd) : null;
+
   const { panel, created } = getOrCreateWebviewPanel(
     "gitNext.knowledge",
     "Git Next · 도움말",
     { enableScripts: true, retainContextWhenHidden: true },
   );
-  setWebviewHtml(panel.webview, renderKnowledgeCenter({ tab: selected ? "guides" : tab, selected, state }));
-  if (!created) return;
-  context.subscriptions.push(panel);
-}
 
+  const view = { tab: selected ? "guides" : tab, selected };
+  setWebviewHtml(panel.webview, renderKnowledgeCenter({
+    ...view,
+    state: null,
+    loadingLiveContext: Boolean(cwd),
+  }));
+
+  if (created) context.subscriptions.push(panel);
+  if (!cwd) return;
+
+  void traceAsync("help:live-context", cwd, () => getState(cwd))
+    .then((state) => panel.webview.postMessage({
+      type: "knowledgeLiveContext",
+      payload: buildKnowledgeLiveContext(state),
+    }))
+    .catch(() => panel.webview.postMessage({
+      type: "knowledgeLiveContext",
+      payload: { status: "unavailable", termExamples: {}, matchedScenarioIds: [] },
+    }));
+}
 async function openGuidePanel(context, selected = null) {
   const { renderGuideHtml } = await import("./git-guide.mjs");
   const { panel, created } = getOrCreateWebviewPanel(

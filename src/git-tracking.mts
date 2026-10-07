@@ -3,6 +3,7 @@ import { promisify } from "node:util";
 
 import { formatStateRiskNext } from "./git-guidance.mjs";
 import type { TrackingStatus, WorkingTreeChange } from "./git-types.mjs";
+import { traceAsync } from "./perf-trace.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -80,13 +81,17 @@ export function getPushGuidance(status: TrackingStatus): PushGuidance {
   );
 }
 
-export async function runGitInspection(cwd: string, args: string[]): Promise<string> {
+async function runGitInspectionRaw(cwd: string, args: string[]): Promise<string> {
   const { stdout } = await execFileAsync("git", args, {
     cwd,
     encoding: "utf8",
     windowsHide: true,
   });
   return stdout.trim();
+}
+
+export async function runGitInspection(cwd: string, args: string[]): Promise<string> {
+  return traceAsync(`git:${args[0] ?? "unknown"}`, cwd, () => runGitInspectionRaw(cwd, args));
 }
 
 export async function refreshRemoteState(cwd: string) {
@@ -97,6 +102,7 @@ export async function refreshRemoteState(cwd: string) {
       .filter(Boolean);
     if (!remotes.length) return { ok: true, skipped: true, detail: "등록된 Remote가 없습니다." };
     await runGitInspection(cwd, ["fetch", "--prune", "--all"]);
+    await markCurrentUpstreamFreshFromTracking(cwd);
     return { ok: true, skipped: false, detail: "원격 상태를 갱신했습니다." };
   } catch (error) {
     return {
@@ -138,7 +144,7 @@ export type UpstreamInspection =
   | { kind: "no-upstream"; branch: string; upstream: null }
   | { kind: "remote-missing" | "unknown" | "remote-branch-missing" | "healthy" | "tracking-ref-missing" | "tracking-ref-stale"; branch: string; upstream: string; remote: string };
 
-export async function inspectCurrentUpstream(cwd: string): Promise<UpstreamInspection> {
+async function inspectCurrentUpstreamFresh(cwd: string): Promise<UpstreamInspection> {
   let branch: string;
   let remote: string;
   let mergeRef: string;
@@ -185,6 +191,122 @@ export async function inspectCurrentUpstream(cwd: string): Promise<UpstreamInspe
     upstream,
     remote,
   };
+}
+
+type RemoteFreshnessEntry = {
+  inspection: UpstreamInspection;
+  updatedAt: number;
+};
+
+const remoteFreshnessCache = new Map<string, RemoteFreshnessEntry>();
+const remoteFreshnessInFlight = new Map<string, Promise<UpstreamInspection>>();
+const DEFAULT_REMOTE_FRESHNESS_MS = 30_000;
+
+function remoteFreshnessKey(cwd: string): string {
+  return cwd;
+}
+
+async function inspectCurrentUpstreamLocal(cwd: string, useCache = true): Promise<UpstreamInspection> {
+  let branch: string;
+  let remote: string;
+  let mergeRef: string;
+
+  try {
+    branch = await runGitInspection(cwd, ["symbolic-ref", "--quiet", "--short", "HEAD"]);
+  } catch {
+    return { kind: "detached", upstream: null };
+  }
+
+  try {
+    remote = await runGitInspection(cwd, ["config", "--get", `branch.${branch}.remote`]);
+    mergeRef = await runGitInspection(cwd, ["config", "--get", `branch.${branch}.merge`]);
+  } catch {
+    return { kind: "no-upstream", branch, upstream: null };
+  }
+
+  const remoteBranch = mergeRef.replace(/^refs\/heads\//, "");
+  const upstream = `${remote}/${remoteBranch}`;
+
+  try {
+    await runGitInspection(cwd, ["remote", "get-url", remote]);
+  } catch {
+    return { kind: "remote-missing", branch, upstream, remote };
+  }
+
+  try {
+    await runGitInspection(cwd, ["rev-parse", `refs/remotes/${remote}/${remoteBranch}`]);
+  } catch {
+    return { kind: "tracking-ref-missing", branch, upstream, remote };
+  }
+
+  if (!useCache) return { kind: "unknown", branch, upstream, remote };
+
+  const cached = remoteFreshnessCache.get(remoteFreshnessKey(cwd));
+  if (!cached) return { kind: "unknown", branch, upstream, remote };
+
+  if ("remote" in cached.inspection && cached.inspection.upstream === upstream) {
+    return { ...cached.inspection, branch, upstream, remote };
+  }
+  return { kind: "unknown", branch, upstream, remote };
+}
+
+export async function inspectCurrentUpstream(cwd: string): Promise<UpstreamInspection> {
+  return inspectCurrentUpstreamLocal(cwd);
+}
+
+export async function markCurrentUpstreamFreshFromTracking(
+  cwd: string,
+  refreshedRemote?: string,
+): Promise<UpstreamInspection> {
+  const local = await inspectCurrentUpstreamLocal(cwd, false);
+  if ("remote" in local && refreshedRemote && local.remote !== refreshedRemote) {
+    return inspectCurrentUpstreamLocal(cwd);
+  }
+
+  const inspection = local.kind === "unknown"
+    ? { ...local, kind: "healthy" as const }
+    : local;
+
+  remoteFreshnessCache.set(remoteFreshnessKey(cwd), {
+    inspection,
+    updatedAt: Date.now(),
+  });
+  return inspection;
+}
+
+export async function refreshCurrentUpstreamState(
+  cwd: string,
+  { force = false, maxAgeMs = DEFAULT_REMOTE_FRESHNESS_MS }: { force?: boolean; maxAgeMs?: number } = {},
+): Promise<UpstreamInspection> {
+  const key = remoteFreshnessKey(cwd);
+  const cached = remoteFreshnessCache.get(key);
+
+  if (!force && cached && Date.now() - cached.updatedAt < maxAgeMs) {
+    return cached.inspection;
+  }
+
+  const existing = remoteFreshnessInFlight.get(key);
+  if (existing) return existing;
+
+  const pending = inspectCurrentUpstreamFresh(cwd)
+    .then((inspection) => {
+      remoteFreshnessCache.set(key, { inspection, updatedAt: Date.now() });
+      return inspection;
+    })
+    .finally(() => {
+      if (remoteFreshnessInFlight.get(key) === pending) remoteFreshnessInFlight.delete(key);
+    });
+
+  remoteFreshnessInFlight.set(key, pending);
+  return pending;
+}
+
+export function clearRemoteFreshnessCache(cwd?: string): void {
+  if (cwd) {
+    remoteFreshnessCache.delete(remoteFreshnessKey(cwd));
+    return;
+  }
+  remoteFreshnessCache.clear();
 }
 
 export function parseMergeTreeConflictOutput(output: unknown): string[] {

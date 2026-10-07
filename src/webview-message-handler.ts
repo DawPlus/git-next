@@ -1,3 +1,5 @@
+const syncActionsInFlight = new Set<string>();
+
 function createWebviewMessageHandler({
   vscode,
   host,
@@ -7,6 +9,8 @@ function createWebviewMessageHandler({
   setOptions,
   getCwd,
   getRepositoryRoot,
+  refreshState,
+  applyWorkingTreeCacheAction,
   renderPanel,
   recordActivity,
   confirmMutation,
@@ -31,6 +35,30 @@ function createWebviewMessageHandler({
   setLocale,
   t,
 }) {
+  async function runSyncOnce(action: "pull" | "push") {
+    const cwd = getCwd();
+    if (!cwd) {
+      try {
+        return await runInternalGitOperation(() => runSyncAction(host, action, mode, getOptions()));
+      } finally {
+        await host.webview.postMessage({ type: "syncPending", action, pending: false });
+      }
+    }
+    if (syncActionsInFlight.has(cwd)) {
+      await host.webview.postMessage({ type: "syncPending", action, pending: false });
+      return;
+    }
+
+    syncActionsInFlight.add(cwd);
+    await host.webview.postMessage({ type: "syncPending", action, pending: true });
+    try {
+      return await runInternalGitOperation(() => runSyncAction(host, action, mode, getOptions()));
+    } finally {
+      syncActionsInFlight.delete(cwd);
+      await host.webview.postMessage({ type: "syncPending", action, pending: false });
+    }
+  }
+
   const handlers = {
     refresh: async () => {
       const cwd = getCwd();
@@ -48,6 +76,7 @@ function createWebviewMessageHandler({
           return;
         }
       }
+      if (cwd) await refreshState(cwd).catch(() => {});
       await renderPanel(host, null, mode, getOptions());
     },
     openGraph: async () => openGraphPanel(context),
@@ -123,9 +152,12 @@ function createWebviewMessageHandler({
         confirmLabel: "Commit",
       });
       if (!ok) return;
-      const result = await workflows.runWithGitStateDelta(
-        root,
-        () => workflows.commitWithMessage(root, commitMessage),
+      const result = await runInternalGitOperation(
+        () => workflows.runWithGitStateDelta(
+          root,
+          () => workflows.commitWithMessage(root, commitMessage),
+        ),
+        { consumeExternalRefresh: true },
       );
       await recordActivity(result);
       await renderPanel(host, result, mode, getOptions());
@@ -184,8 +216,8 @@ function createWebviewMessageHandler({
     toolsMenu: async (message) => toolsMenu(host, mode, getOptions(), context, message.tool),
     commitMenu: async (message) => commitMenu(host, mode, getOptions(), message.commit),
     operationRecovery: async () => conflictHelper(host, mode, getOptions()),
-    pull: async () => runInternalGitOperation(() => runSyncAction(host, "pull", mode, getOptions())),
-    push: async () => runInternalGitOperation(() => runSyncAction(host, "push", mode, getOptions())),
+    pull: async () => runSyncOnce("pull"),
+    push: async () => runSyncOnce("push"),
   };
 
   async function updateSidebarStage(message, stage) {
@@ -197,8 +229,14 @@ function createWebviewMessageHandler({
       () => stage
         ? workflows.stageFile(root, message.path)
         : workflows.unstageFile(root, message.path),
-      { consumeExternalRefresh: true },
+      { consumeExternalRefresh: true, refresh: "none" },
     );
+    if (result.ok) {
+      await applyWorkingTreeCacheAction(root, {
+        action: stage ? "stage" : "unstage",
+        path: message.path,
+      });
+    }
     await recordActivity(result);
     await renderPanel(host, result, mode, getOptions());
   }
@@ -210,8 +248,13 @@ function createWebviewMessageHandler({
     const workflows = await import("./git-workflows.mjs");
     const result = await runInternalGitOperation(
       () => stage ? workflows.stageAll(root) : workflows.unstageAll(root),
-      { consumeExternalRefresh: true },
+      { consumeExternalRefresh: true, refresh: "none" },
     );
+    if (result.ok) {
+      await applyWorkingTreeCacheAction(root, {
+        action: stage ? "stage-all" : "unstage-all",
+      });
+    }
     await recordActivity(result);
     await renderPanel(host, result, mode, getOptions());
   }

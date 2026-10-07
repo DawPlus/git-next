@@ -143,6 +143,9 @@ export async function pushWithUpstream(cwd, remote, branch) {
 
 export async function fetchPruneRemote(cwd, remote) {
   const result = await run(cwd, ["fetch", "--prune", remote]);
+  if (result.ok) {
+    await (await import("./git-tracking.mjs")).markCurrentUpstreamFreshFromTracking(cwd, remote);
+  }
   return {
     ...result,
     action: "fetch-prune",

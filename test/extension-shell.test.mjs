@@ -25,7 +25,7 @@ test("registers Git Next open command activation", () => {
 test("refreshes open Git Next views when VS Code Source Control changes Git state", () => {
   const source = runtimeSource;
   assert.match(source, /vscode\.extensions\.getExtension\("vscode\.git"\)/);
-  assert.match(source, /repository\.state\?\.onDidChange\?\.\(scheduleExternalGitRefresh\)/);
+  assert.match(source, /repository\.state\?\.onDidChange\?\.\(\(\) => scheduleExternalGitRefresh\(root\)\)/);
   assert.match(source, /api\.onDidOpenRepository/);
   assert.match(source, /liveWebviewHosts/);
   assert.match(source, /renderPanel\(host, null, mode, getOptions\(\)\)/);
@@ -110,7 +110,7 @@ test("includes sibling worktree details in mutation confirmation", () => {
   const source = runtimeSource;
   assert.match(source, /const \{ getLinkedWorktrees \} = await import/);
   assert.match(source, /dialog\.confirmMutation\.worktreeContext/);
-  assert.match(source, /worktrees: await getLinkedWorktrees\(state\.root\)/);
+  assert.match(source, /worktrees: await (?:traceAsync\([^\n]+\(\) => )?getLinkedWorktrees\(state\.root\)\)?/);
 });
 
 
@@ -122,9 +122,13 @@ test("exposes partial-stage guidance from Git Doctor and Git tools", () => {
 });
 
 
-test("passes live repository state to the glossary center", () => {
+test("loads glossary repository context lazily without blocking initial render", () => {
   const source = runtimeSource;
-  assert.match(source, /renderKnowledgeCenter\(\{ tab: selected \? "guides" : tab, selected, state \}\)/);
+  assert.match(source, /state: null/);
+  assert.match(source, /loadingLiveContext: Boolean\(cwd\)/);
+  assert.match(source, /traceAsync\("help:live-context", cwd, \(\) => getState\(cwd\)\)/);
+  assert.match(source, /type: "knowledgeLiveContext"/);
+  assert.doesNotMatch(source, /await traceAsync\("help:live-context"/);
 });
 
 

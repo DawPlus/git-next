@@ -1,4 +1,5 @@
 const vscode = require("vscode");
+const { traceAsync } = require("./perf-trace.js");
 
 function createSyncHandler(core) {
   const {
@@ -9,6 +10,7 @@ function createSyncHandler(core) {
     guardWorkingState,
     showResult,
     getState,
+    refreshState,
     isPullBeforePushEnabled,
     relaxedSafeGuardRules,
   } = core;
@@ -25,20 +27,17 @@ async function showSyncMovementPreview(action, preview) {
     const to = action === "push" ? "원격" : "로컬";
     if (!visible.length) {
       progress.report({ message: preview.summary });
-      await new Promise((resolve) => setTimeout(resolve, 400));
       return;
     }
-    for (const [index, commit] of visible.entries()) {
+    for (const commit of visible) {
       if (token.isCancellationRequested) break;
       progress.report({
         increment: 100 / visible.length,
         message: `${from} ● ━▶ ${to} · ${commit.id.slice(0, 8)} ${commit.subject}`,
       });
-      await new Promise((resolve) => setTimeout(resolve, 220));
     }
     if (!token.isCancellationRequested && commits.length > visible.length) {
       progress.report({ message: `외 ${commits.length - visible.length}개 커밋 · ${from} → ${to}` });
-      await new Promise((resolve) => setTimeout(resolve, 220));
     }
   });
 }
@@ -49,7 +48,7 @@ async function confirmImpactPreview(host, mode, options, cwd, action) {
     buildSyncImpactSummary,
     formatSyncImpactSummary,
   } = await import("./git-workflows.mjs");
-  const preview = await getActionImpactPreview(cwd, action);
+  const preview = await traceAsync(`sync:${action}-impact-preview`, cwd, () => getActionImpactPreview(cwd, action));
   const summary = buildSyncImpactSummary(preview);
   const detail = formatSyncImpactSummary(summary);
   await renderPanel(host, {
@@ -114,6 +113,7 @@ async function offerForceWithLease(host, mode, options, cwd, reason) {
   const actions = await import("./git-actions.mjs");
   const result = await workflows.runWithGitStateDelta(cwd, () =>
     actions.pushWithForceWithLease(cwd, preview.remote, preview.remoteRef, preview.expected));
+  await refreshState(cwd).catch(() => {});
   await showResult(host, mode, options, result, result.ok ? null : "blocked");
 }
 
@@ -146,15 +146,18 @@ async function offerDivergedResolution(host, mode, options, cwd) {
 
   const result = await workflows.runWithGitStateDelta(cwd, () =>
     workflows.mergeIntoCurrent(cwd, preview.target));
+  await refreshState(cwd).catch(() => {});
   await showResult(host, mode, options, result, result.ok ? null : "blocked");
 }
 
 async function withNetworkProgress(title, action) {
-  return vscode.window.withProgress({
+  const traceLabel = /Push/i.test(title) ? "sync:push-network" : /Pull/i.test(title) ? "sync:pull-network" : /Fetch/i.test(title) ? "sync:fetch-network" : "sync:network";
+  return traceAsync(traceLabel, getCwd(), () => vscode.window.withProgress({
+
     location: vscode.ProgressLocation.Notification,
     title,
     cancellable: false,
-  }, action);
+  }, action));
 }
 
 async function runSyncAction(host, action, mode = "graph", options = {}) {
@@ -170,13 +173,16 @@ async function runSyncAction(host, action, mode = "graph", options = {}) {
 
   const [
     { pullRepository, pushRepository },
-    { getTrackingStatus, isPullUnnecessary, preflightPullSafety, preflightPushSafety },
+    { getTrackingStatus, isPullUnnecessary, preflightPullSafety: rawPreflightPullSafety, preflightPushSafety: rawPreflightPushSafety },
     { createGuardDecision, evaluateSafeguards },
   ] = await Promise.all([
     import("./git-actions.mjs"),
     import("./git-safety.mjs"),
     import("./safe-guard.mjs"),
   ]);
+  const preflightPullSafety = (targetCwd) => traceAsync("sync:pull-preflight", targetCwd, () => rawPreflightPullSafety(targetCwd));
+  const preflightPushSafety = (targetCwd) => traceAsync("sync:push-preflight", targetCwd, () => rawPreflightPushSafety(targetCwd));
+
   if (action === "pull") {
     const preflight = await preflightPullSafety(cwd);
     const guard = await evaluateSafeguards({
@@ -232,7 +238,7 @@ async function runSyncAction(host, action, mode = "graph", options = {}) {
       return;
     }
 
-    const freshTracking = await getTrackingStatus(cwd);
+    const freshTracking = preflight.beforeSnapshot?.tracking ?? await getTrackingStatus(cwd);
     if (isPullUnnecessary(freshTracking)) {
       await renderPanel(host, {
         action: "pull",
@@ -261,6 +267,7 @@ async function runSyncAction(host, action, mode = "graph", options = {}) {
         );
       }
     }
+    await refreshState(cwd).catch(() => {});
     await showResult(host, mode, options, pullResult, pullResult.ok ? null : "blocked");
     if (!pullResult.ok && (await getTrackingStatus(cwd)).kind === "diverged") {
       await offerDivergedResolution(host, mode, options, cwd);
@@ -268,9 +275,10 @@ async function runSyncAction(host, action, mode = "graph", options = {}) {
     return;
   }
 
-  const tracking = await getTrackingStatus(cwd);
-  if (isPullBeforePushEnabled() && tracking.kind !== "no-upstream") {
-    const before = await getTrackingStatus(cwd);
+  const pullBeforePush = isPullBeforePushEnabled();
+  const tracking = pullBeforePush ? await getTrackingStatus(cwd) : null;
+  if (pullBeforePush && tracking?.kind !== "no-upstream") {
+    const before = tracking;
     const preflight = await preflightPullSafety(cwd);
     if (preflight.level !== "safe") {
       const detail = [
@@ -298,6 +306,7 @@ async function runSyncAction(host, action, mode = "graph", options = {}) {
     }
 
     const pullResult = await withNetworkProgress("Git Next · Push 전 Pull", () => pullRepository(cwd));
+    await refreshState(cwd).catch(() => {});
     if (!pullResult.ok) {
       await showResult(host, mode, options, pullResult, "blocked");
       return;
@@ -347,10 +356,10 @@ async function runSyncAction(host, action, mode = "graph", options = {}) {
     })), { placeHolder: "첫 Push를 보낼 Remote를 선택하세요." });
     if (!selected) return;
 
-    const state = await getState(cwd);
+    const currentBranch = preflight.beforeSnapshot?.branch ?? (await getState(cwd)).branch;
     const branch = await vscode.window.showInputBox({
       prompt: "Remote에 연결할 브랜치 이름을 확인하세요.",
-      value: state.branch ?? "",
+      value: currentBranch ?? "",
       validateInput: async (value) => {
         const result = await (await import("./git-actions.mjs")).validateBranchName(cwd, value);
         return result.ok ? null : result.message;
@@ -361,7 +370,7 @@ async function runSyncAction(host, action, mode = "graph", options = {}) {
 
     if (!await confirmMutation({
       action: "첫 Push 설정",
-      target: `${state.branch} → ${selected.remote.name}/${branchName}`,
+      target: `${currentBranch} → ${selected.remote.name}/${branchName}`,
       effect: `현재 브랜치를 Remote에 보내고 이후 Pull/Push의 기본 대상으로 ${selected.remote.name}/${branchName}를 연결합니다.`,
       risk: "현재 브랜치의 커밋이 공유 Remote에 올라갑니다.",
       confirmLabel: "첫 Push 실행",
@@ -375,6 +384,7 @@ async function runSyncAction(host, action, mode = "graph", options = {}) {
         () => actions.pushWithUpstream(cwd, selected.remote.name, branchName),
       ),
     );
+    await refreshState(cwd).catch(() => {});
     await showResult(host, mode, options, firstPush, firstPush.ok ? null : "blocked");
     return;
   }
@@ -383,6 +393,7 @@ async function runSyncAction(host, action, mode = "graph", options = {}) {
   const workflows = await import("./git-workflows.mjs");
   const result = await withNetworkProgress("Git Next · Push", () =>
     workflows.runWithGitStateDelta(cwd, () => pushRepository(cwd)));
+  await refreshState(cwd).catch(() => {});
   await showResult(host, mode, options, result, result.ok ? null : "blocked");
   if (!result.ok && /non-fast-forward|rejected/i.test(`${result.detail ?? ""} ${result.message ?? ""}`)) {
     await offerForceWithLease(host, mode, options, cwd, "일반 Push가 Remote에서 거절됐습니다.");

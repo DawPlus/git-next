@@ -2,7 +2,7 @@ import { existsSync } from "node:fs";
 
 import { isAbsolute, resolve } from "node:path";
 
-import { runGitInspection, getTrackingStatus, getHeadSafety, getWorkingTreeChanges, parseMergeTreeConflictOutput, getPushGuidance } from "./git-tracking.mjs";
+import { runGitInspection, getTrackingStatus, getHeadSafety, getWorkingTreeChanges, parseMergeTreeConflictOutput, getPushGuidance, markCurrentUpstreamFreshFromTracking } from "./git-tracking.mjs";
 import { guidanceNotice } from "./git-guidance.mjs";
 
 export async function getInProgressOperation(cwd) {
@@ -47,6 +47,7 @@ export async function detectRemoteHistoryRewrite(cwd) {
 
   try {
     await runGitInspection(cwd, ["fetch", "--prune"]);
+    await markCurrentUpstreamFreshFromTracking(cwd);
   } catch (error) {
     return {
       rewritten: false,
@@ -160,6 +161,11 @@ export async function preflightPushSafety(cwd) {
     detail: `추적 상태: ${status.kind}; ahead ${status.ahead}; behind ${status.behind}`,
     affected: status.upstream ? [status.upstream] : [],
     status,
+    beforeSnapshot: {
+      branch: head.branch,
+      upstream: status.upstream ?? null,
+      tracking: status,
+    },
   };
 }
 
@@ -293,6 +299,12 @@ export async function preflightPullSafety(cwd, runGit = runGitInspection) {
       message: "Pull 전에 충돌 위험을 확인했습니다.",
       detail: output,
       affected: [],
+      beforeSnapshot: {
+        branch: head.branch,
+        upstream: tracking.upstream ?? null,
+        tracking,
+        dirty: changes.length > 0,
+      },
     };
   } catch (error) {
     const detail = [error?.stdout, error?.stderr, error?.message]

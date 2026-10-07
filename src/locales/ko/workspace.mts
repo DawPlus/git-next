@@ -90,6 +90,7 @@ export const workspace = {
       noUpstream: "동기화 · 첫 Push",
       unknown: "동기화 · 상태 확인",
       default: "동기화",
+      pending: "동기화 중...",
     },
     script: {
       remoteTitle: "원격에 보관된 브랜치",

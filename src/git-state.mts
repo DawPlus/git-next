@@ -3,6 +3,7 @@ import { resolve } from "node:path";
 import { promisify } from "node:util";
 
 import type { GitCommit, GitRef, GitWorktree, RepositoryState } from "./git-types.mjs";
+import { traceAsync } from "./perf-trace.js";
 
 const execFileAsync = promisify(execFile);
 const FIELD = "\x1f";
@@ -57,7 +58,7 @@ export function parseRefs(raw: string): GitRef[] {
     });
 }
 
-async function git(cwd: string, args: string[]): Promise<string> {
+async function gitRaw(cwd: string, args: string[]): Promise<string> {
   const { stdout } = await execFileAsync("git", args, {
     cwd,
     encoding: "utf8",
@@ -65,6 +66,10 @@ async function git(cwd: string, args: string[]): Promise<string> {
   });
 
   return stdout.trim();
+}
+
+async function git(cwd: string, args: string[]): Promise<string> {
+  return traceAsync(`git:${args[0] ?? "unknown"}`, cwd, () => gitRaw(cwd, args));
 }
 
 async function gitOr(cwd: string, args: string[], fallback = ""): Promise<string> {
@@ -100,6 +105,33 @@ export async function getLinkedWorktrees(cwd: string): Promise<GitWorktree[]> {
   } catch {
     return [];
   }
+}
+
+export async function getBranchRepositoryState(cwd: string): Promise<RepositoryState> {
+  const root = await gitOr(cwd, ["rev-parse", "--show-toplevel"], "");
+  if (!root) return { kind: "no-repository", root: null, branch: null, upstream: null, head: null, refs: [], commits: [] };
+
+  const [branch, upstream, head, refsRaw] = await Promise.all([
+    gitOr(root, ["symbolic-ref", "--quiet", "--short", "HEAD"], ""),
+    gitOr(root, ["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"], ""),
+    gitOr(root, ["rev-parse", "--verify", "HEAD"], ""),
+    gitOr(root, [
+      "for-each-ref",
+      "--format=%(refname)" + FIELD + "%(objectname)" + FIELD + "%(upstream:short)" + RECORD,
+      "refs/heads",
+      "refs/remotes",
+    ], ""),
+  ]);
+
+  return {
+    kind: "repository",
+    root,
+    branch: branch || null,
+    upstream: upstream || null,
+    head: head || null,
+    refs: parseRefs(refsRaw),
+    commits: [],
+  };
 }
 
 export async function getRepositoryState(

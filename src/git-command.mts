@@ -2,6 +2,7 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 
 import type { CommitSubject, GitCommandResult, GitEnvironment, NameStatusEntry } from "./git-types.mjs";
+import { traceAsync } from "./perf-trace.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -12,13 +13,14 @@ export async function runGit(
   args: string[],
   env: GitEnvironment = {},
 ): Promise<GitCommandResult> {
+  const label = `git:${args[0] ?? "unknown"}`;
   try {
-    const { stdout, stderr } = await execFileAsync("git", args, {
+    const { stdout, stderr } = await traceAsync(label, cwd, () => execFileAsync("git", args, {
       cwd,
       encoding: "utf8",
       windowsHide: true,
       env: { ...process.env, ...env },
-    });
+    }));
     return { ok: true, detail: [stdout, stderr].filter(Boolean).join("\n").trim() };
   } catch (error) {
     const failure = error as ExecFileError;

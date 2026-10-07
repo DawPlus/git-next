@@ -1,6 +1,7 @@
 const vscode = require("vscode");
 const path = require("node:path");
 const crypto = require("node:crypto");
+const { traceAsync } = require("./perf-trace.js");
 const {
   t,
   getLocale,
@@ -185,7 +186,8 @@ async function getRepositoryRoot(cwd) {
   return (await getRepositoryState(cwd)).root ?? cwd;
 }
 
-async function getState(cwd) {
+async function loadState(cwd) {
+
   const [
     { getRepositoryState, getLinkedWorktrees },
     { getTrackingStatus, getWorkingTreeChanges, getIncomingChangedFiles, getInProgressOperation, inspectCurrentUpstream },
@@ -197,18 +199,18 @@ async function getState(cwd) {
     import("./git-workflows.mjs"),
     import("./safe-guard.mjs"),
   ]);
-  const state = await getRepositoryState(cwd);
+  const state = await traceAsync("state:repository", cwd, () => getRepositoryState(cwd));
 
   if (state.kind !== "repository") {
     return { ...state, pullBeforePush: isPullBeforePushEnabled() };
   }
 
   const [tracking, upstreamState, changes, operation, incomingFiles] = await Promise.all([
-    getTrackingStatus(state.root),
-    inspectCurrentUpstream(state.root),
-    getWorkingTreeChanges(state.root),
-    getInProgressOperation(state.root),
-    getIncomingChangedFiles(state.root),
+    traceAsync("state:tracking", state.root, () => getTrackingStatus(state.root)),
+    traceAsync("state:upstream", state.root, () => inspectCurrentUpstream(state.root)),
+    traceAsync("state:working-tree", state.root, () => getWorkingTreeChanges(state.root)),
+    traceAsync("state:operation", state.root, () => getInProgressOperation(state.root)),
+    traceAsync("state:incoming-files", state.root, () => getIncomingChangedFiles(state.root)),
   ]);
 
   return {
@@ -219,13 +221,140 @@ async function getState(cwd) {
     incomingFiles,
     operation,
     nextAction: recommendNextAction({ tracking, upstreamState, changes, incomingFiles, operation }),
-    worktrees: await getLinkedWorktrees(state.root),
+    worktrees: await traceAsync("state:worktrees", state.root, () => getLinkedWorktrees(state.root)),
     relaxedRules: listSafeGuardRules([...relaxedSafeGuardRules] as string[]).filter((rule) => rule.relaxed).map(({ title }) => title),
     pullBeforePush: isPullBeforePushEnabled(),
   };
 }
 
-async function renderPanel(panel, notice = null, mode = "graph", options = {}) {
+const repositorySnapshots = new Map();
+const stateLoadsInFlight = new Map();
+const stateLoadGenerations = new Map();
+let snapshotVersion = 0;
+
+function getStateLoadGeneration(cwd) {
+  return stateLoadGenerations.get(cwd) ?? 0;
+}
+
+function invalidateSharedStateLoad(cwd = null) {
+  if (cwd) {
+    stateLoadGenerations.set(cwd, getStateLoadGeneration(cwd) + 1);
+    stateLoadsInFlight.delete(cwd);
+    return;
+  }
+  const roots = new Set([
+    ...repositorySnapshots.keys(),
+    ...stateLoadsInFlight.keys(),
+    ...stateLoadGenerations.keys(),
+  ]);
+  for (const root of roots) {
+    stateLoadGenerations.set(root, getStateLoadGeneration(root) + 1);
+  }
+  stateLoadsInFlight.clear();
+}
+
+function getCachedState(cwd) {
+  return repositorySnapshots.get(cwd)?.state ?? null;
+}
+
+async function refreshState(cwd, { maxAgeMs = 0 } = {}) {
+  const cached = repositorySnapshots.get(cwd);
+  if (maxAgeMs > 0 && cached && Date.now() - cached.updatedAt <= maxAgeMs) {
+    return cached.state;
+  }
+
+  const currentGeneration = getStateLoadGeneration(cwd);
+  const existing = stateLoadsInFlight.get(cwd);
+  if (existing?.generation === currentGeneration) return existing.promise;
+
+  const generation = currentGeneration;
+  const promise = traceAsync("state:refresh", cwd, async () => {
+    const state = await loadState(cwd);
+    if (generation === getStateLoadGeneration(cwd)) {
+      repositorySnapshots.set(cwd, {
+        version: ++snapshotVersion,
+        updatedAt: Date.now(),
+        state,
+      });
+    }
+    return state;
+  });
+  stateLoadsInFlight.set(cwd, { generation, promise });
+  try {
+    return await promise;
+  } finally {
+    const current = stateLoadsInFlight.get(cwd);
+    if (current?.generation === generation && current.promise === promise) {
+      stateLoadsInFlight.delete(cwd);
+    }
+  }
+}
+
+async function setCachedWorkingTreeChanges(cwd, changes) {
+  const cached = getCachedState(cwd);
+  if (!cached || cached.kind !== "repository") return refreshState(cwd);
+  const { recommendNextAction } = await import("./git-workflows.mjs");
+  const state = {
+    ...cached,
+    changes,
+    nextAction: recommendNextAction({
+      tracking: cached.tracking,
+      upstreamState: cached.upstreamState,
+      changes,
+      incomingFiles: cached.incomingFiles,
+      operation: cached.operation,
+    }),
+  };
+  repositorySnapshots.set(cwd, {
+    version: ++snapshotVersion,
+    updatedAt: Date.now(),
+    state,
+  });
+  return state;
+}
+
+async function applyWorkingTreeCacheAction(
+  cwd,
+  { action, path = null }: { action: "stage" | "stage-all" | "unstage" | "unstage-all"; path?: string | null },
+) {
+  const cached = getCachedState(cwd);
+  if (!cached || cached.kind !== "repository") return refreshState(cwd);
+  const targetPath = path ? String(path) : null;
+  const changes = (cached.changes ?? []).map((change) => {
+    if (targetPath && change.path !== targetPath) return change;
+    const status = String(change.status ?? "  ").padEnd(2, " ");
+    const index = status[0] ?? " ";
+    const worktree = status[1] ?? " ";
+    if (action === "stage" || action === "stage-all") {
+      if (status === "??") return { ...change, status: "A " };
+      const staged = index !== " " ? index : worktree;
+      return { ...change, status: `${staged === "?" ? "A" : staged} ` };
+    }
+    if (action === "unstage" || action === "unstage-all") {
+      if (index === "A") return { ...change, status: "??" };
+      const unstaged = worktree !== " " ? worktree : index;
+      return { ...change, status: ` ${unstaged}` };
+    }
+    return change;
+  });
+  return setCachedWorkingTreeChanges(cwd, changes);
+}
+
+async function refreshWorkingTreeState(cwd) {
+  const cached = getCachedState(cwd);
+  if (!cached || cached.kind !== "repository") return refreshState(cwd);
+
+  invalidateSharedStateLoad(cwd);
+  const { getWorkingTreeChanges } = await import("./git-safety.mjs");
+  const changes = await traceAsync("state:working-tree-refresh", cwd, () => getWorkingTreeChanges(cwd));
+  return setCachedWorkingTreeChanges(cwd, changes);
+}
+
+async function getState(cwd) {
+  return getCachedState(cwd) ?? refreshState(cwd);
+}
+
+async function renderPanelImpl(panel, notice = null, mode = "graph", options = {}) {
   if (notice?.ok === false) await recordActivity(notice);
   const [{ renderGraphHtml }, { renderSidebarHtml }] = await Promise.all([
     import("./graph-view.mjs"),
@@ -252,6 +381,10 @@ async function renderPanel(panel, notice = null, mode = "graph", options = {}) {
       ? renderSidebarHtml(state, notice)
       : renderGraphHtml(state, notice, options),
   );
+}
+
+async function renderPanel(panel, notice = null, mode = "graph", options = {}) {
+  return traceAsync(`render:${mode}`, getCwd(), () => renderPanelImpl(panel, notice, mode, options));
 }
 
 async function getGuideKey(action, data: any = {}) {
@@ -355,7 +488,17 @@ function getActiveContext() {
 }
 
 function setKnownRepositoryRoots(roots) {
-  knownRepositoryRoots = [...new Set((roots ?? []).filter(Boolean))];
+  const nextRoots = [...new Set((roots ?? []).filter(Boolean))];
+  knownRepositoryRoots = nextRoots;
+  for (const root of [...repositorySnapshots.keys()]) {
+    if (!nextRoots.includes(root)) repositorySnapshots.delete(root);
+  }
+  for (const root of [...stateLoadsInFlight.keys()]) {
+    if (!nextRoots.includes(root)) stateLoadsInFlight.delete(root);
+  }
+  for (const root of [...stateLoadGenerations.keys()]) {
+    if (!nextRoots.includes(root)) stateLoadGenerations.delete(root);
+  }
   if (selectedRepositoryRoot && !knownRepositoryRoots.includes(selectedRepositoryRoot)) {
     selectedRepositoryRoot = null;
     void activeContext?.workspaceState.update("gitNext.selectedRepositoryRoot", null);
@@ -376,6 +519,11 @@ module.exports = {
   selectRepository,
   getRepositoryRoot,
   getState,
+  getCachedState,
+  refreshState,
+  refreshWorkingTreeState,
+  applyWorkingTreeCacheAction,
+  invalidateSharedStateLoad,
   renderPanel,
   getGuideKey,
   showResult,

@@ -125,7 +125,7 @@ export async function unstageFile(cwd: string, path: string) {
 }
 
 export async function unstageAll(cwd: string) {
-  const result = await runGit(cwd, ["reset"]);
+  const result = await runGit(cwd, ["reset", "--quiet"]);
   return { ...result, action: "unstage-all", message: result.ok ? "모든 Staging을 해제했습니다." : "전체 Unstage에 실패했습니다." };
 }
 

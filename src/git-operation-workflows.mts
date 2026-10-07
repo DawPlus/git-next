@@ -5,13 +5,14 @@ import { getTrackingStatus, getWorkingTreeChanges } from "./git-safety.mjs";
 import { getRepositoryState } from "./git-state.mjs";
 import { guidanceNotice } from "./git-guidance.mjs";
 import type { CommitSubject, NameStatusEntry, TrackingStatus } from "./git-types.mjs";
+import { traceAsync } from "./perf-trace.js";
 
 type GitOperationName = "merge" | "rebase" | "cherry-pick" | "revert";
 type OperationAction = "continue" | "abort";
 
 type WorkflowResult = { ok: boolean; action?: string; message?: string; detail?: string; [key: string]: unknown };
 type ImpactPreview = { action: "pull" | "push"; upstream: string | null; commits: CommitSubject[]; files: NameStatusEntry[]; summary: string };
-type StateSnapshot = { branch: string | null; upstream: string | null; tracking: TrackingStatus; dirty: boolean };
+export type StateSnapshot = { branch: string | null; upstream: string | null; tracking: TrackingStatus; dirty: boolean };
 
 export async function listConflictedFiles(cwd: string): Promise<string[]> {
   const result = await runGit(cwd, ["diff", "--name-only", "--diff-filter=U"]);
@@ -232,16 +233,29 @@ export function formatGitStateDelta(before: StateSnapshot, after: StateSnapshot)
   return changes.length ? `상태 변화: ${changes.join(" · ")}` : "상태 변화 없음";
 }
 
-export async function runWithGitStateDelta<T extends WorkflowResult>(cwd: string, action: () => Promise<T>): Promise<T> {
-  const snapshot = async (): Promise<StateSnapshot> => {
-    const state = await getRepositoryState(cwd);
-    const root = state.root ?? cwd;
-    const [tracking, changes] = await Promise.all([getTrackingStatus(root), getWorkingTreeChanges(root)]);
-    return { branch: state.branch, upstream: state.upstream, tracking, dirty: changes.length > 0 };
+export async function runWithGitStateDelta<T extends WorkflowResult>(
+  cwd: string,
+  action: () => Promise<T>,
+  { beforeSnapshot = null }: { beforeSnapshot?: Partial<StateSnapshot> | null } = {},
+): Promise<T> {
+  const snapshot = async (seed: Partial<StateSnapshot> = {}): Promise<StateSnapshot> => {
+    const needsRepositoryState = seed.branch === undefined || seed.upstream === undefined;
+    const state = needsRepositoryState ? await getRepositoryState(cwd) : null;
+    const root = state?.root ?? cwd;
+    const [tracking, changes] = await Promise.all([
+      seed.tracking ?? getTrackingStatus(root),
+      seed.dirty === undefined ? getWorkingTreeChanges(root) : Promise.resolve(null),
+    ]);
+    return {
+      branch: seed.branch !== undefined ? seed.branch : state?.branch ?? null,
+      upstream: seed.upstream !== undefined ? seed.upstream : state?.upstream ?? tracking.upstream ?? null,
+      tracking,
+      dirty: seed.dirty !== undefined ? seed.dirty : Boolean(changes?.length),
+    };
   };
-  const before = await snapshot();
+  const before = await traceAsync("action:state-before", cwd, () => snapshot(beforeSnapshot ?? {}));
   const result = await action();
   if (!result.ok) return result;
-  const after = await snapshot();
+  const after = await traceAsync("action:state-after", cwd, () => snapshot());
   return { ...result, message: `${result.message} ${formatGitStateDelta(before, after)}` };
 }
