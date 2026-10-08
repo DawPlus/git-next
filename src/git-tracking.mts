@@ -96,13 +96,15 @@ export async function runGitInspection(cwd: string, args: string[]): Promise<str
 
 export async function refreshRemoteState(cwd: string) {
   try {
-    const remotes = (await runGitInspection(cwd, ["remote"]))
+    const root = await runGitInspection(cwd, ["rev-parse", "--show-toplevel"]);
+    const remotes = (await runGitInspection(root, ["remote"]))
       .split(/\r?\n/)
       .map((name) => name.trim())
       .filter(Boolean);
     if (!remotes.length) return { ok: true, skipped: true, detail: "등록된 Remote가 없습니다." };
-    await runGitInspection(cwd, ["fetch", "--prune", "--all"]);
-    await markCurrentUpstreamFreshFromTracking(cwd);
+    await runGitInspection(root, ["fetch", "--prune", "--all"]);
+    await markCurrentUpstreamFreshFromTracking(root);
+    if (root !== cwd) await markCurrentUpstreamFreshFromTracking(cwd);
     return { ok: true, skipped: false, detail: "원격 상태를 갱신했습니다." };
   } catch (error) {
     return {
@@ -341,20 +343,27 @@ export async function getIncomingChangedFiles(cwd: string): Promise<string[]> {
   }
 }
 
+export function parseWorkingTreeStatus(output: string): WorkingTreeChange[] {
+  if (!output) return [];
+  const entries = output.split("\0");
+  const changes: WorkingTreeChange[] = [];
+  for (let index = 0; index < entries.length; index += 1) {
+    const entry = entries[index];
+    if (!entry) continue;
+    const status = entry.slice(0, 2);
+    const path = entry.slice(3);
+    // Porcelain v1 -z lists the destination first, then the original path for renames/copies.
+    if (status.includes("R") || status.includes("C")) index += 1;
+    changes.push({ status, path });
+  }
+  return changes;
+}
+
 export async function getWorkingTreeChanges(cwd: string): Promise<WorkingTreeChange[]> {
-  const { stdout } = await execFileAsync("git", ["status", "--porcelain=v1", "--untracked-files=all"], {
+  const { stdout } = await execFileAsync("git", ["status", "--porcelain=v1", "-z", "--untracked-files=all"], {
     cwd,
     encoding: "utf8",
     windowsHide: true,
   });
-  const output = stdout.replace(/\r?\n$/, "");
-  if (!output) return [];
-
-  return output
-    .split("\n")
-    .filter(Boolean)
-    .map((line) => ({
-      status: line.slice(0, 2),
-      path: line.slice(3).trim(),
-    }));
+  return parseWorkingTreeStatus(stdout);
 }

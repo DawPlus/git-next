@@ -139,7 +139,8 @@ test("사이드바에서 변경 파일을 보고 diff, stage, unstage, commit �
   assert.equal((html.match(/class="tool-button"/g) ?? []).length, 7);
   assert.match(html, /data-action="changeLanguage"/);
   assert.ok(html.indexOf('data-action="openGraph"') < html.indexOf('data-tool="ai-diagnose"'));
-  assert.ok(html.indexOf('data-tool="ai-diagnose"') < html.indexOf('data-action="refresh"'));
+  const sidebarMarkup = html.slice(html.indexOf('<body>'));
+  assert.ok(sidebarMarkup.indexOf('data-tool="ai-diagnose"') < sidebarMarkup.indexOf('data-action="refresh"'));
   assert.doesNotMatch(html, /class="tool-button"[^>]*data-tool="ai-history"/);
   assert.doesNotMatch(html, /class="tool-button"[^>]*data-tool="remote"/);
   assert.doesNotMatch(html, /class="tool-button"[^>]*data-tool="compare"/);

@@ -42,13 +42,13 @@ async function showSyncMovementPreview(action, preview) {
   });
 }
 
-async function confirmImpactPreview(host, mode, options, cwd, action) {
+async function confirmImpactPreview(host, mode, options, cwd, action, beforeSnapshot = null) {
   const {
     getActionImpactPreview,
     buildSyncImpactSummary,
     formatSyncImpactSummary,
   } = await import("./git-workflows.mjs");
-  const preview = await traceAsync(`sync:${action}-impact-preview`, cwd, () => getActionImpactPreview(cwd, action));
+  const preview = await traceAsync(`sync:${action}-impact-preview`, cwd, () => getActionImpactPreview(cwd, action, { upstream: beforeSnapshot?.upstream }));
   const summary = buildSyncImpactSummary(preview);
   const detail = formatSyncImpactSummary(summary);
   await renderPanel(host, {
@@ -251,7 +251,7 @@ async function runSyncAction(host, action, mode = "graph", options = {}) {
       return;
     }
 
-    if (!await confirmImpactPreview(host, mode, options, cwd, "pull")) return;
+    if (!await confirmImpactPreview(host, mode, options, cwd, "pull", preflight.beforeSnapshot)) return;
     const pullResult = await withNetworkProgress("Git Next · Pull", async () =>
       (await import("./git-workflows.mjs")).runWithGitStateDelta(cwd, () => pullRepository(cwd)));
     if (pullResult.ok) {
@@ -389,7 +389,7 @@ async function runSyncAction(host, action, mode = "graph", options = {}) {
     return;
   }
 
-  if (!await confirmImpactPreview(host, mode, options, cwd, "push")) return;
+  if (!await confirmImpactPreview(host, mode, options, cwd, "push", preflight.beforeSnapshot)) return;
   const workflows = await import("./git-workflows.mjs");
   const result = await withNetworkProgress("Git Next · Push", () =>
     workflows.runWithGitStateDelta(cwd, () => pushRepository(cwd)));

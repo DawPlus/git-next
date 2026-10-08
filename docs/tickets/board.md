@@ -87,13 +87,19 @@ This board is the status source of truth.
 | T-261006-04 | Localize workspace panels | done | - | worker | implementation | 1+2 | [ticket](archive/2026-10/T-261006-04.md) | Depends on T-261006-01 |
 | T-261006-05 | Localize learning content and Git guides | done | - | worker | implementation | 1+2 | [ticket](archive/2026-10/T-261006-05.md) | Depends on T-261006-01 |
 | T-261006-06 | Add i18n completeness and release checks | done | - | worker | implementation | 1+2 | [ticket](archive/2026-10/T-261006-06.md) | Depends on T-261006-02~05 |
-| T-261007-01 | Decouple remote freshness checks from interactive UI rendering | ready | worker | worker | implementation | 1+2 | [ticket](active/T-261007-01.md) | Remove `git ls-remote` from ordinary UI render paths; keep fresh checks for safety-critical sync |
-| T-261007-02 | Make Push/Pull actions respond immediately | ready | worker | worker | implementation | 1+2 | [ticket](active/T-261007-02.md) | Remove artificial preview delays; add immediate pending UI and duplicate-action guard |
-| T-261007-03 | Reuse Git state within a single action flow | ready | worker | worker | implementation | 1+2 | [ticket](active/T-261007-03.md) | Reuse pre-action repository state within one request; refresh only after mutation |
-| T-261007-04 | Load repository context lazily in Help panels | ready | worker | worker | implementation | 1+2 | [ticket](active/T-261007-04.md) | Open Help immediately; load live repository-aware guidance asynchronously with lightweight context |
-| T-261007-05 | Share repository state across simultaneous webview refreshes | ready | worker | worker | implementation | 1+2 | [ticket](active/T-261007-05.md) | Deduplicate concurrent repository-state loads across sidebar/graph refresh bursts |
-| T-261007-06 | Add lightweight performance tracing for Git Next | ready | worker | worker | implementation | 1+2 | [ticket](active/T-261007-06.md) | Debug-only timing for Git subprocesses, state loads, renders, Help, and Push/Pull flows |
-| T-261007-07 | Introduce repository snapshot store for instant UI reads | ready | worker | worker | implementation | 1+2 | [ticket](active/T-261007-07.md) | Cache-only UI reads; refresh repository snapshots only at mutation, sync, external-change, and explicit-refresh boundaries |
+| T-261007-01 | Decouple remote freshness checks from interactive UI rendering | done | - | worker | implementation | 1+2 | [ticket](archive/2026-10/T-261007-01.md) | Remove `git ls-remote` from ordinary UI render paths; keep fresh checks for safety-critical sync |
+| T-261007-02 | Make Push/Pull actions respond immediately | done | - | worker | implementation | 1+2 | [ticket](archive/2026-10/T-261007-02.md) | Remove artificial preview delays; add immediate pending UI and duplicate-action guard |
+| T-261007-03 | Reuse Git state within a single action flow | done | - | worker | implementation | 1+2 | [ticket](archive/2026-10/T-261007-03.md) | Reuse pre-action repository state within one request; refresh only after mutation |
+| T-261007-04 | Load repository context lazily in Help panels | done | - | worker | implementation | 1+2 | [ticket](archive/2026-10/T-261007-04.md) | Open Help immediately; load live repository-aware guidance asynchronously with lightweight context |
+| T-261007-05 | Share repository state across simultaneous webview refreshes | done | - | worker | implementation | 1+2 | [ticket](archive/2026-10/T-261007-05.md) | Deduplicate concurrent repository-state loads across sidebar/graph refresh bursts |
+| T-261007-06 | Add lightweight performance tracing for Git Next | done | - | worker | implementation | 1+2 | [ticket](archive/2026-10/T-261007-06.md) | Debug-only timing for Git subprocesses, state loads, renders, Help, and Push/Pull flows |
+| T-261007-07 | Introduce repository snapshot store for instant UI reads | done | - | worker | implementation | 1+2 | [ticket](archive/2026-10/T-261007-07.md) | Cache-only UI reads; refresh repository snapshots only at mutation, sync, external-change, and explicit-refresh boundaries |
+
+| T-261008-01 | Measure Stage/Unstage end-to-end latency | ready_for_qa | human | worker | implementation | 1+2 | [ticket](active/T-261008-01.md) | Instrumented; real VS Code 10/100/500 baseline pending |
+| T-261008-02 | Remove presentation-only Stage/Unstage delay | ready_for_qa | human | worker | implementation | 1+2 | [ticket](active/T-261008-02.md) | 180ms timer removed; actual VS Code latency QA pending |
+| T-261008-03 | Avoid full sidebar DOM replacement for one-file moves | ready | worker | worker | implementation | 1+2 | [ticket](active/T-261008-03.md) | Depends on T-261008-01,02; confirmed render bottleneck only |
+| T-261008-04 | Deduplicate Stage-triggered external refreshes | ready_for_qa | human | worker | implementation | 1+2 | [ticket](active/T-261008-04.md) | Guarded echo check implemented; manual latency/externals QA pending |
+| T-261008-05 | Diagnose slow Git refresh and skip redundant redraw | ready_for_qa | human | worker | implementation | 1+2 | [ticket](active/T-261008-05.md) | Skip render on verified internal echoes; 5s Git command spikes require separate QA |
 
 Allowed states: `draft`, `ready`, `in_progress`, `review`, `ready_for_qa`, `blocked`, `done`, `superseded`.
 

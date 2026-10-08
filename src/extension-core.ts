@@ -1,7 +1,7 @@
 const vscode = require("vscode");
 const path = require("node:path");
 const crypto = require("node:crypto");
-const { traceAsync } = require("./perf-trace.js");
+const { traceAsync, isPerfTracingEnabled } = require("./perf-trace.js");
 const {
   t,
   getLocale,
@@ -44,21 +44,35 @@ function secureWebviewHtml(webview, html) {
     `<head$1><meta http-equiv="Content-Security-Policy" content="${csp}" />`,
   );
   const refreshRuntime = `<script nonce="${nonce}">
+window.gitNextPerfEnabled = ${isPerfTracingEnabled()};
 window.addEventListener("message", (event) => {
   const data = event.data;
   if (!data || data.type !== "gitNextRefresh" || typeof data.mainHtml !== "string") return;
   const main = document.querySelector("main");
   if (!main) return;
+  const domStart = window.gitNextPerfEnabled && data.stageTraceId ? performance.now() : null;
   const controls = [...document.querySelectorAll("input, textarea, select")].map((element, index) => ({
     key: element.id || element.name || String(index),
     value: element.value,
     selectionStart: typeof element.selectionStart === "number" ? element.selectionStart : null,
     selectionEnd: typeof element.selectionEnd === "number" ? element.selectionEnd : null,
   }));
+  const foldStates = new Map([...main.querySelectorAll("details.scm-group, details.scm-folder")].map((element) => [
+    element.classList.contains("scm-folder")
+      ? "folder:" + element.dataset.area + ":" + element.dataset.folderPath
+      : "group:" + element.dataset.area,
+    element.open,
+  ]));
   const activeId = document.activeElement?.id || null;
   const scrollX = window.scrollX;
   const scrollY = window.scrollY;
   main.innerHTML = data.mainHtml;
+  for (const element of main.querySelectorAll("details.scm-group, details.scm-folder")) {
+    const key = element.classList.contains("scm-folder")
+      ? "folder:" + element.dataset.area + ":" + element.dataset.folderPath
+      : "group:" + element.dataset.area;
+    if (foldStates.has(key)) element.open = foldStates.get(key);
+  }
   for (const [index, element] of [...document.querySelectorAll("input, textarea, select")].entries()) {
     const key = element.id || element.name || String(index);
     const saved = controls.find((item) => item.key === key);
@@ -71,6 +85,15 @@ window.addEventListener("message", (event) => {
   window.scrollTo(scrollX, scrollY);
   if (activeId) document.getElementById(activeId)?.focus({ preventScroll: true });
   window.dispatchEvent(new CustomEvent("gitnext:refresh"));
+  if (domStart != null) {
+    const end = performance.now();
+    console.debug("[Git Next perf] op=stage:dom:" + data.stageTraceId + " ms=" + Math.round(end - domStart));
+    const clickStart = window.gitNextStageClicks?.get(data.stageTraceId);
+    if (clickStart != null) {
+      console.debug("[Git Next perf] op=stage:total:" + data.stageTraceId + " ms=" + Math.round(end - clickStart) + " rows=" + document.querySelectorAll(".scm-file").length);
+      window.gitNextStageClicks.delete(data.stageTraceId);
+    }
+  }
 });
 </script>`;
   return withCsp
@@ -87,14 +110,15 @@ function getMainHtml(html) {
   return String(html ?? "").match(/<main[^>]*>([\s\S]*)<\/main>/i)?.[1] ?? null;
 }
 
-async function renderPatchableWebview(webview, html) {
+async function renderPatchableWebview(webview, html, stageTraceId = null) {
   const mainHtml = getMainHtml(html);
   if (!patchableWebviews.has(webview) || !mainHtml || typeof webview.postMessage !== "function") {
     setWebviewHtml(webview, html);
     if (mainHtml) patchableWebviews.add(webview);
     return;
   }
-  await webview.postMessage({ type: "gitNextRefresh", mainHtml });
+  if (stageTraceId) await webview.postMessage({ type: "gitNextRefresh", mainHtml, stageTraceId });
+  else await webview.postMessage({ type: "gitNextRefresh", mainHtml });
 }
 
 function getOrCreateWebviewPanel(viewType, title, options) {
@@ -321,7 +345,7 @@ async function applyWorkingTreeCacheAction(
   if (!cached || cached.kind !== "repository") return refreshState(cwd);
   const targetPath = path ? String(path) : null;
   const changes = (cached.changes ?? []).map((change) => {
-    if (targetPath && change.path !== targetPath) return change;
+    if (targetPath && change.path !== targetPath && !change.path.startsWith(`${targetPath.replace(/\/$/, "")}/`)) return change;
     const status = String(change.status ?? "  ").padEnd(2, " ");
     const index = status[0] ?? " ";
     const worktree = status[1] ?? " ";
@@ -375,12 +399,11 @@ async function renderPanelImpl(panel, notice = null, mode = "graph", options = {
         pullBeforePush: isPullBeforePushEnabled(),
       };
 
-  await renderPatchableWebview(
-    panel.webview,
-    mode === "sidebar"
-      ? renderSidebarHtml(state, notice)
-      : renderGraphHtml(state, notice, options),
-  );
+  const stageTraceId = isPerfTracingEnabled() ? notice?.stageTraceId : null;
+  const html = await traceAsync(`stage:html:${stageTraceId || "none"}`, cwd, async () =>
+    mode === "sidebar" ? renderSidebarHtml(state, notice) : renderGraphHtml(state, notice, options));
+  await traceAsync(`stage:postMessage:${stageTraceId || "none"}`, cwd, () =>
+    renderPatchableWebview(panel.webview, html, stageTraceId));
 }
 
 async function renderPanel(panel, notice = null, mode = "graph", options = {}) {

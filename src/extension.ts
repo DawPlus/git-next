@@ -15,6 +15,9 @@ menus = createGitMenus(core, sync, panels, () => webviewHost);
 webviewHost = createWebviewHost(core, panels, menus, sync);
 
 function activate(context: vscode.ExtensionContext) {
+  if (context.extensionMode === vscode.ExtensionMode.Development) {
+    require("./perf-trace.js").enableDevelopmentPerfTracing();
+  }
   core.initialize(context);
   void webviewHost.registerBuiltInGitStateRefresh(context);
 

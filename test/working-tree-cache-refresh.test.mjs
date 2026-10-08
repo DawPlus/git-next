@@ -29,6 +29,15 @@ test("Changes workspace renders from cached changes and follows external Git sta
   assert.match(fn, /refreshWorkingTreeState\(currentCwd\)/);
 });
 
+test("folder stage cache action updates descendants, not only an exact filename", () => {
+  const fn = coreSource.slice(
+    coreSource.indexOf("async function applyWorkingTreeCacheAction"),
+    coreSource.indexOf("async function refreshWorkingTreeState"),
+  );
+  assert.match(fn, /change\.path\.startsWith/);
+  assert.match(fn, /targetPath\.replace/);
+});
+
 test("sidebar stage mutations update cached working-tree state without a blocking rescan", () => {
   const fn = messageSource.slice(
     messageSource.indexOf("async function updateSidebarStage"),
