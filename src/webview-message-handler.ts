@@ -1,4 +1,6 @@
+const { traceAsync, isPerfTracingEnabled } = require("./perf-trace.js");
 const syncActionsInFlight = new Set<string>();
+const refreshActionsInFlight = new Set<string>();
 
 function createWebviewMessageHandler({
   vscode,
@@ -9,6 +11,7 @@ function createWebviewMessageHandler({
   setOptions,
   getCwd,
   getRepositoryRoot,
+  getCachedState,
   refreshState,
   applyWorkingTreeCacheAction,
   relocalizeCachedState,
@@ -30,6 +33,7 @@ function createWebviewMessageHandler({
   commitMenu,
   conflictHelper,
   runInternalGitOperation,
+  markInternalStage,
   runSyncAction,
   refreshWebviewHosts,
   getLocale,
@@ -63,22 +67,34 @@ function createWebviewMessageHandler({
   const handlers = {
     refresh: async () => {
       const cwd = getCwd();
-      if (cwd) {
-        const { refreshRemoteState } = await import("./git-safety.mjs");
-        const refreshed = await refreshRemoteState(cwd);
-        if (!refreshed.ok) {
-          await renderPanel(host, {
-            ok: false,
-            level: "warning",
-            code: "fetch-failed",
-            message: "원격 상태를 갱신하지 못했습니다.",
-            detail: refreshed.detail,
-          }, mode, getOptions());
-          return;
-        }
+      const key = cwd ?? "__no_repository__";
+      if (refreshActionsInFlight.has(key)) {
+        await host.webview.postMessage({ type: "refreshPending", pending: false });
+        return;
       }
-      if (cwd) await refreshState(cwd).catch(() => {});
-      await renderPanel(host, null, mode, getOptions());
+      refreshActionsInFlight.add(key);
+      await host.webview.postMessage({ type: "refreshPending", pending: true });
+      try {
+        if (cwd) {
+          const { refreshRemoteState } = await import("./git-safety.mjs");
+          const refreshed = await refreshRemoteState(cwd);
+          if (!refreshed.ok) {
+            await renderPanel(host, {
+              ok: false,
+              level: "warning",
+              code: "fetch-failed",
+              message: "원격 상태를 갱신하지 못했습니다.",
+              detail: refreshed.detail,
+            }, mode, getOptions());
+            return;
+          }
+        }
+        if (cwd) await refreshState(cwd).catch(() => {});
+        await renderPanel(host, null, mode, getOptions());
+      } finally {
+        refreshActionsInFlight.delete(key);
+        await host.webview.postMessage({ type: "refreshPending", pending: false });
+      }
     },
     openGraph: async () => openGraphPanel(context),
     openGlossary: async () => openKnowledgePanel(context, null, "terms"),
@@ -225,37 +241,46 @@ function createWebviewMessageHandler({
   async function updateSidebarStage(message, stage) {
     const cwd = getCwd();
     if (!cwd || !message.path) return;
-    const root = await getRepositoryRoot(cwd);
+    const traceId = isPerfTracingEnabled() && /^[0-9]+-[0-9]+$/.test(message.stageTraceId ?? "")
+      ? message.stageTraceId : null;
+    // Stage only needs the working repository root, not branch/commit history.
+    const root = await traceAsync(`stage:root:${traceId ?? "none"}`, cwd, async () =>
+      getCachedState(cwd)?.root ?? await getRepositoryRoot(cwd));
     const workflows = await import("./git-workflows.mjs");
-    const result = await runInternalGitOperation(
-      () => stage
-        ? workflows.stageFile(root, message.path)
-        : workflows.unstageFile(root, message.path),
-      { consumeExternalRefresh: true, refresh: "none" },
-    );
+    const result = await traceAsync(`stage:git:${traceId ?? "none"}`, root, () =>
+      runInternalGitOperation(
+        () => stage
+          ? workflows.stageFile(root, message.path)
+          : workflows.unstageFile(root, message.path),
+        { consumeExternalRefresh: true, refresh: "none" },
+      ));
     if (result.ok) {
-      await applyWorkingTreeCacheAction(root, {
-        action: stage ? "stage" : "unstage",
-        path: message.path,
-      });
+      await traceAsync(`stage:cache:${traceId ?? "none"}`, root, () =>
+        applyWorkingTreeCacheAction(cwd, {
+          action: stage ? "stage" : "unstage",
+          path: message.path,
+        }));
+      markInternalStage(root);
     }
     await recordActivity(result);
-    await renderPanel(host, result, mode, getOptions());
+    await traceAsync(`stage:render:${traceId ?? "none"}`, root, () =>
+      renderPanel(host, traceId ? { ...result, stageTraceId: traceId } : result, mode, getOptions()));
   }
 
   async function updateSidebarStageAll(stage) {
     const cwd = getCwd();
     if (!cwd) return;
-    const root = await getRepositoryRoot(cwd);
+    const root = getCachedState(cwd)?.root ?? await getRepositoryRoot(cwd);
     const workflows = await import("./git-workflows.mjs");
     const result = await runInternalGitOperation(
       () => stage ? workflows.stageAll(root) : workflows.unstageAll(root),
       { consumeExternalRefresh: true, refresh: "none" },
     );
     if (result.ok) {
-      await applyWorkingTreeCacheAction(root, {
+      await applyWorkingTreeCacheAction(cwd, {
         action: stage ? "stage-all" : "unstage-all",
       });
+      markInternalStage(root);
     }
     await recordActivity(result);
     await renderPanel(host, result, mode, getOptions());

@@ -6,6 +6,7 @@ function createWebviewHost(core, panels, menus, sync) {
     setWebviewHtml,
     getCwd,
     getRepositoryRoot,
+    getCachedState,
     refreshState,
     refreshWorkingTreeState,
     applyWorkingTreeCacheAction,
@@ -33,9 +34,34 @@ function createWebviewHost(core, panels, menus, sync) {
 
   const liveWebviewHosts = new Set();
   let externalGitRefreshTimer = null;
+  let externalGitRefreshInFlight = false;
   let internalGitOperationDepth = 0;
   let externalGitRefreshPending = false;
   const externalGitRefreshRoots = new Set();
+  const recentInternalStageRoots = new Map();
+  const gitRepositoriesByRoot = new Map();
+
+  function markInternalStage(root) {
+    if (root) recentInternalStageRoots.set(root, Date.now());
+  }
+
+  async function isUnchangedInternalStageEcho(root) {
+    const marker = recentInternalStageRoots.get(root);
+    if (!marker || Date.now() - marker > 1000) return false;
+    const cwd = getCwd();
+    const cached = getCachedState(cwd);
+    if (!cached || cached.kind !== "repository" || cached.root !== root) return false;
+    const head = gitRepositoriesByRoot.get(root)?.state?.HEAD;
+    if (!head || head.commit !== cached.head || head.name !== cached.branch) return false;
+    try {
+      const { getWorkingTreeChanges } = await import("./git-safety.mjs");
+      const actual = await getWorkingTreeChanges(root);
+      const signature = (changes) => JSON.stringify(changes.map(({ path, status }) => [path, status]).sort((a, b) => a[0].localeCompare(b[0])));
+      return signature(actual) === signature(cached.changes ?? []);
+    } catch {
+      return false;
+    }
+  }
 
   function scheduleExternalGitRefresh(root = null) {
     if (root) externalGitRefreshRoots.add(root);
@@ -43,16 +69,30 @@ function createWebviewHost(core, panels, menus, sync) {
       externalGitRefreshPending = true;
       return;
     }
+    if (externalGitRefreshInFlight) return;
     if (externalGitRefreshTimer) clearTimeout(externalGitRefreshTimer);
     externalGitRefreshTimer = setTimeout(async () => {
       externalGitRefreshTimer = null;
-      const roots = [...externalGitRefreshRoots];
-      externalGitRefreshRoots.clear();
-      await Promise.allSettled(roots.map((item) => refreshState(item, { maxAgeMs: 250 })));
-      await Promise.allSettled(
-        [...liveWebviewHosts].map(({ host, mode, getOptions }) =>
-          renderPanel(host, null, mode, getOptions())),
-      );
+      externalGitRefreshInFlight = true;
+      try {
+        const roots = [...externalGitRefreshRoots];
+        externalGitRefreshRoots.clear();
+        const results = await Promise.allSettled(roots.map(async (item) => {
+          if (await isUnchangedInternalStageEcho(item)) return false;
+          await refreshState(item, { maxAgeMs: 250 });
+          return true;
+        }));
+        // An echoed Stage event already reflected in the snapshot needs no second DOM replacement.
+        if (!roots.length || results.some((result) => result.status !== "fulfilled" || result.value !== false)) {
+          await Promise.allSettled(
+            [...liveWebviewHosts].map(({ host, mode, getOptions }) =>
+              renderPanel(host, null, mode, getOptions())),
+          );
+        }
+      } finally {
+        externalGitRefreshInFlight = false;
+        if (externalGitRefreshRoots.size) scheduleExternalGitRefresh();
+      }
     }, 180);
   }
 
@@ -103,6 +143,7 @@ function createWebviewHost(core, panels, menus, sync) {
         refreshRepositoryRoots();
         const root = repository.rootUri?.fsPath;
         if (root) {
+          gitRepositoriesByRoot.set(root, repository);
           void refreshState(root).catch(() => {});
           void import("./git-safety.mjs")
             .then(({ refreshCurrentUpstreamState }) => refreshCurrentUpstreamState(root))
@@ -152,6 +193,7 @@ function createWebviewHost(core, panels, menus, sync) {
       setOptions: (next) => { options = next; },
       getCwd,
       getRepositoryRoot,
+      getCachedState,
       refreshState,
       applyWorkingTreeCacheAction,
       relocalizeCachedState,
@@ -173,6 +215,7 @@ function createWebviewHost(core, panels, menus, sync) {
       commitMenu,
       conflictHelper,
       runInternalGitOperation,
+      markInternalStage,
       runSyncAction,
       refreshWebviewHosts,
       getLocale,

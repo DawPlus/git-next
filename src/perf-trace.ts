@@ -2,10 +2,15 @@ import { createHash } from "node:crypto";
 
 const PERF_ENV = "GIT_NEXT_PERF";
 const DEFAULT_SLOW_MS = 250;
+let developmentTracing = false;
+
+export function enableDevelopmentPerfTracing(): void {
+  developmentTracing = true;
+}
 
 export function isPerfTracingEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
   const value = String(env[PERF_ENV] ?? "").trim().toLowerCase();
-  return value === "1" || value === "true" || value === "on";
+  return developmentTracing || value === "1" || value === "true" || value === "on";
 }
 
 export function repositoryTraceId(cwd?: string | null): string {

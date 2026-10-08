@@ -132,10 +132,10 @@ export async function abortGitOperation(cwd: string, operation: string): Promise
 }
 
 
-export async function getActionImpactPreview(cwd: string, action: "pull" | "push"): Promise<ImpactPreview> {
+export async function getActionImpactPreview(cwd: string, action: "pull" | "push", { upstream: knownUpstream }: { upstream?: string | null } = {}): Promise<ImpactPreview> {
   if (action === "push") {
     const [upstream, commits, files] = await Promise.all([
-      runGit(cwd, ["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"]),
+      knownUpstream !== undefined ? Promise.resolve({ ok: Boolean(knownUpstream), detail: knownUpstream ?? "" }) : runGit(cwd, ["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"]),
       runGit(cwd, ["log", "--oneline", "@{u}..HEAD"]),
       runGit(cwd, ["diff", "--name-status", "@{u}..HEAD"]),
     ]);
@@ -153,7 +153,7 @@ export async function getActionImpactPreview(cwd: string, action: "pull" | "push
   }
 
   const [upstream, commits] = await Promise.all([
-    runGit(cwd, ["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"]),
+    knownUpstream !== undefined ? Promise.resolve({ ok: Boolean(knownUpstream), detail: knownUpstream ?? "" }) : runGit(cwd, ["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"]),
     runGit(cwd, ["log", "--oneline", "HEAD..@{u}"]),
   ]);
   const parsedCommits = commits.ok ? parseSubjects(commits.detail) : [];

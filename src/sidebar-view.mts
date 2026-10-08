@@ -144,7 +144,7 @@ export function renderSidebarHtml(state: any, notice: any = null, options: { loc
           const action = area === "staged" ? "sidebarUnstage" : "sidebarStage";
           const symbol = area === "staged" ? "−" : "+";
           const title = area === "staged" ? tFn("sidebar.unstageFolder") : tFn("sidebar.stageFolder");
-          return `<details class="scm-folder" open>
+          return `<details class="scm-folder" data-folder-path="${escapeHtml(path)}" data-area="${area}" open>
             <summary style="--tree-depth:${depth}"><span class="folder-caret">›</span><svg class="folder-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M1.5 4.5h5l1.5 1.5h6.5v7.5h-13z"></path><path d="M1.5 4.5V3h4.5l1.5 1.5"></path></svg><span class="folder-name">${escapeHtml(name)}</span><button class="folder-action ${area === "staged" ? "unstage-control" : "stage-control"}" type="button" data-action="${action}" data-path="${escapeHtml(path)}" title="${escapeHtml(title)}">${symbol}</button></summary>
             ${renderNode(child, depth + 1, path)}
           </details>`;
@@ -195,11 +195,11 @@ export function renderSidebarHtml(state: any, notice: any = null, options: { loc
 
   const stagedRows = renderChangeTree(stagedChanges, "staged");
   const unstagedRows = renderChangeTree(unstagedChanges, "unstaged");
-  const stagedGroup = stagedChanges.length ? `<details class="scm-group scm-card" open>
+  const stagedGroup = stagedChanges.length ? `<details class="scm-group scm-card" data-area="staged" open>
     <summary class="scm-group-head"><span class="group-caret">›</span><span class="group-title">${escapeHtml(tFn("sidebar.staged"))}</span><span class="group-count">${stagedChanges.length}</span><button class="group-action" type="button" data-action="sidebarUnstageAll" title="${escapeHtml(tFn("sidebar.unstageAllTitle"))}">${escapeHtml(tFn("sidebar.unstageAllButton"))}</button></summary>
     <div class="changes-mini">${stagedRows}</div>
   </details>` : "";
-  const unstagedGroup = unstagedChanges.length ? `<details class="scm-group scm-card" open>
+  const unstagedGroup = unstagedChanges.length ? `<details class="scm-group scm-card" data-area="unstaged" open>
     <summary class="scm-group-head"><span class="group-caret">›</span><span class="group-title">${escapeHtml(tFn("sidebar.unstaged"))}</span><span class="group-count">${unstagedChanges.length}</span><button class="group-action" type="button" data-action="sidebarStageAll" title="${escapeHtml(tFn("sidebar.stageAllTitle"))}">${escapeHtml(tFn("sidebar.stageAllButton"))}</button></summary>
     <div class="changes-mini">${unstagedRows}</div>
   </details>` : "";
@@ -213,7 +213,12 @@ export function renderSidebarHtml(state: any, notice: any = null, options: { loc
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Git Next</title>
-  <style>${SIDEBAR_SHELL_STYLES}${SIDEBAR_CHANGES_STYLES}${SIDEBAR_TOOLS_STYLES}</style>
+  <style>${SIDEBAR_SHELL_STYLES}${SIDEBAR_CHANGES_STYLES}${SIDEBAR_TOOLS_STYLES}
+  @keyframes git-next-refresh-spin { to { transform: rotate(360deg); } }
+  button[data-action="refresh"].is-refreshing { opacity: .75; cursor: progress; }
+  button[data-action="refresh"].is-refreshing svg { animation: git-next-refresh-spin .8s linear infinite; }
+  button.guard-next-action.is-refreshing::before { content: "◌"; display: inline-block; margin-right: 5px; animation: git-next-refresh-spin .8s linear infinite; }
+  </style>
 </head>
 <body>
   <main class="stack">
