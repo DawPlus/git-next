@@ -100,7 +100,7 @@ This board is the status source of truth.
 | T-261008-03 | Avoid full sidebar DOM replacement for one-file moves | ready | worker | worker | implementation | 1+2 | [ticket](active/T-261008-03.md) | Depends on T-261008-01,02; confirmed render bottleneck only |
 | T-261008-04 | Deduplicate Stage-triggered external refreshes | ready_for_qa | human | worker | implementation | 1+2 | [ticket](active/T-261008-04.md) | Guarded echo check implemented; manual latency/externals QA pending |
 | T-261008-05 | Diagnose slow Git refresh and skip redundant redraw | ready_for_qa | human | worker | implementation | 1+2 | [ticket](active/T-261008-05.md) | Skip render on verified internal echoes; 5s Git command spikes require separate QA |
-| T-261008-22 | Open VS Code Merge Editor for conflicted files | ready | worker | worker | implementation | 1+2 | [ticket](active/T-261008-22.md) | Next version; conflict file list → built-in Merge Editor → save/Stage |
+| T-261008-22 | Resolve conflicts and finish Merge/Rebase safely | ready | worker | worker | implementation | 1+2 | [ticket](active/T-261008-22.md) | Next version; Merge Editor, reviewed bulk accept, plain-language Safe Guard guidance, staged progress and completion |
 
 Allowed states: `draft`, `ready`, `in_progress`, `review`, `ready_for_qa`, `blocked`, `done`, `superseded`.
 
