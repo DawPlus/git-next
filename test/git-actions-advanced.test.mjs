@@ -259,3 +259,45 @@ test("force-with-lease sends the reviewed local history when the remote tip stil
   assert.equal(result.ok, true);
   assert.equal(git(remote, ["rev-parse", "refs/heads/main"]), git(repo, ["rev-parse", "HEAD"]));
 });
+
+
+test("publishes a selected local branch under another name without switching or including dirty files", async () => {
+  const remote = mkdtempSync(join(tmpdir(), "git-next-publish-"));
+  git(remote, ["init", "--bare"]);
+  const repo = makeRepo();
+  git(repo, ["remote", "add", "origin", remote]);
+  git(repo, ["branch", "feature/main"]);
+  git(repo, ["commit", "--allow-empty", "-m", "main only"]);
+  writeFileSync(join(repo, "uncommitted.txt"), "keep me");
+  const result = await pushWithUpstream(repo, "origin", "feature/published", "feature/main");
+  assert.equal(result.ok, true);
+  assert.equal(git(repo, ["branch", "--show-current"]), "main");
+  assert.equal(git(remote, ["rev-parse", "refs/heads/feature/published"]), git(repo, ["rev-parse", "refs/heads/feature/main"]));
+  assert.equal(git(repo, ["config", "branch.feature/main.merge"]), "refs/heads/feature/published");
+  assert.match(git(repo, ["status", "--porcelain"]), /uncommitted.txt/);
+});
+
+test("first push remote name is a destination, not another local source", async () => {
+  const remote = mkdtempSync(join(tmpdir(), "git-next-destination-"));
+  git(remote, ["init", "--bare"]);
+  const repo = makeRepo();
+  git(repo, ["remote", "add", "origin", remote]);
+  const result = await pushWithUpstream(repo, "origin", "feature/main");
+  assert.equal(result.ok, true);
+  assert.equal(git(remote, ["rev-parse", "refs/heads/feature/main"]), git(repo, ["rev-parse", "HEAD"]));
+});
+
+test("unborn repository can choose its branch name and guides first commit before push", async () => {
+  const repo = mkdtempSync(join(tmpdir(), "git-next-unborn-"));
+  git(repo, ["init", "-b", "main"]);
+  writeFileSync(join(repo, "first.txt"), "first");
+  git(repo, ["add", "first.txt"]);
+  assert.equal((await createBranch(repo, "feature/main")).ok, true);
+  assert.equal(git(repo, ["symbolic-ref", "--short", "HEAD"]), "feature/main");
+  assert.match(git(repo, ["diff", "--cached", "--name-only"]), /first.txt/);
+  assert.equal((await pushWithUpstream(repo, "origin", "feature/main")).code, "no-commits");
+  const { preflightPushSafety } = await import("../src/git-preflight.mts");
+  assert.equal((await preflightPushSafety(repo)).code, "no-commits");
+  const { recommendNextAction } = await import("../src/git-diagnostics.mts");
+  assert.equal(recommendNextAction({ head: null, tracking: { kind: "no-upstream" } }).kind, "initial-commit");
+});

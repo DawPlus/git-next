@@ -80,6 +80,7 @@ export function renderSidebarHtml(state: any, notice: any = null, options: { loc
     "push-dirty": "warning",
     pull: "warning",
     "first-push": "warning",
+    "initial-commit": "warning",
     unknown: "warning",
     diverged: "blocked",
     operation: "blocked",
@@ -182,14 +183,18 @@ export function renderSidebarHtml(state: any, notice: any = null, options: { loc
 
   const contextualAction = (() => {
     if (!nextAction) return null;
+    if (nextAction.kind === "initial-commit") return { action: "createFirstFile", label: tFn("guidance.firstPush.createFile") };
     if (nextAction.kind === "operation") return { action: "operationRecovery", label: tFn("sidebar.actions.continueAbort") };
     if (nextAction.kind === "pull") return { action: "pull", label: incomingCount > 0 ? tFn("sidebar.actions.pullCount", { count: incomingCount }) : "Pull" };
     if (["push", "push-dirty", "first-push"].includes(nextAction.kind)) return { action: "push", label: outgoingCount > 0 ? tFn("sidebar.actions.pushCount", { count: outgoingCount }) : "Push" };
     if (["unknown", "refresh"].includes(nextAction.kind)) return { action: "refresh", label: tFn("sidebar.actions.refreshRemote") };
     if (nextAction.kind === "remote-missing") return { action: "branchMenu", label: tFn("sidebar.actions.checkBranch") };
-    if (nextAction.kind === "pull-blocked-dirty") return { action: "stashMenu", label: tFn("sidebar.actions.stashChanges") };
-    if (nextAction.kind === "dirty" && unstagedChanges.length) return { action: "sidebarStageAll", label: tFn("sidebar.actions.stageAll") };
+    if (nextAction.kind === "pull-blocked-dirty") return { action: "stashBeforePull", label: tFn("sidebar.actions.stashChanges") };
+    if (nextAction.kind === "stash-restore") return { action: "stashRestore", label: tFn("guidance.stashFlow.restoreButton") };
+    if (nextAction.kind === "stash-cleanup") return { action: "stashCleanup", label: tFn("guidance.stashFlow.cleanupButton") };
+    if (nextAction.kind === "stash-conflict") return { action: "operationRecovery", label: tFn("guidance.stashFlow.conflictButton") };
     if (nextAction.kind === "dirty" && stagedChanges.length) return { action: "focusCommit", label: tFn("sidebar.actions.focusCommit") };
+    if (nextAction.kind === "dirty" && unstagedChanges.length) return { action: "focusChanges", label: tFn("sidebar.actions.selectChanges") };
     return null;
   })();
 
@@ -263,7 +268,7 @@ export function renderSidebarHtml(state: any, notice: any = null, options: { loc
           <button class="guard-message-button" type="button" data-action="openSafeGuard" data-notice-message="${escapeHtml(notice?.message ?? tFn("sidebar.noInspectionResults"))}" data-notice-detail="${escapeHtml(notice?.detail ?? "")}" aria-label="${escapeHtml(tFn("sidebar.viewInspectionDetails"))}" title="${escapeHtml(tFn("sidebar.viewInspectionDetails"))}"><svg viewBox="0 0 24 24"><path d="M4 6h16v12H4z"></path><path d="m5 7 7 6 7-6"></path></svg></button>
         </span>
       </div>
-      ${contextualAction ? `<div class="guard-recommendation"><span class="guard-recommendation-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 12h12"></path><path d="m13 8 4 4-4 4"></path></svg></span><span class="guard-recommendation-copy"><span class="guard-recommendation-label">${escapeHtml(tFn("sidebar.nextRecommendation"))}</span><button class="guard-next-action" type="button" data-action="${contextualAction.action}" title="${escapeHtml(tFn("sidebar.recommendedActionTitle", { action: contextualAction.label }))}">${escapeHtml(contextualAction.label)}</button></span></div>` : ""}
+      ${contextualAction ? `<div class="guard-recommendation"><span class="guard-recommendation-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 12h12"></path><path d="m13 8 4 4-4 4"></path></svg></span><span class="guard-recommendation-copy"><span class="guard-recommendation-label">${escapeHtml(tFn("sidebar.nextRecommendation"))}</span><button class="guard-next-action" type="button" data-action="${contextualAction.action}" data-stash-id="${escapeHtml(nextAction?.stashId ?? "")}" title="${escapeHtml(tFn("sidebar.recommendedActionTitle", { action: contextualAction.label }))}">${escapeHtml(contextualAction.label)}</button></span></div>` : ""}
       ${notice?.actions?.includes("operation-recovery") && contextualAction?.action !== "operationRecovery" ? `<button class="linkish" type="button" data-action="operationRecovery">${escapeHtml(tFn("sidebar.operationRecoveryLink"))}</button>` : ""}
     </section>
 

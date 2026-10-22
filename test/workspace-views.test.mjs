@@ -170,7 +170,7 @@ test("AI history and practice stay compact and action-oriented", () => {
   });
   assert.match(practice, /직접 해보기/);
   assert.match(practice, /상태 확인/);
-  assert.match(practice, /✓ 완료/);
+  assert.match(practice, /Git 상태 확인 완료/);
   assert.match(practice, /관련 Git 작업 열기/);
 });
 
@@ -210,4 +210,14 @@ test("knowledge terms show live repository examples and keep generic examples", 
   assert.match(html, /현재 저장소/);
   assert.match(html, /origin\/feature로 보낼 커밋 2개/);
   assert.match(html, /main ↔ origin\/main/);
+});
+
+
+test("local-only branch exposes publish and unborn repository explains its first commit", () => {
+  const html = renderBranchWorkspace({ branch: "main", head: "abc", refs: [{ kind: "local", name: "feature/main", target: "abc", upstream: null }] });
+  assert.match(html, /data-action="publish"/);
+  assert.match(html, /원격에 올리기/);
+  const empty = renderBranchWorkspace({ branch: "feature/main", head: null, refs: [] });
+  assert.match(empty, /feature\/main/);
+  assert.match(empty, /첫 Commit/);
 });

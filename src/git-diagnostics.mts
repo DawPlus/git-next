@@ -1,7 +1,7 @@
 import { t } from "./i18n.mjs";
 
 export function recommendNextAction(
-  { tracking, upstreamState = null, changes = [], incomingFiles = [], operation = null }: { tracking?: { kind?: string; ahead?: number; behind?: number } | null; upstreamState?: { kind?: string; upstream?: string | null; remote?: string | null } | null; changes?: Array<{ path?: string }>; incomingFiles?: string[]; operation?: { operation: string } | null } = {},
+  { tracking, head, stashFlow = null, upstreamState = null, changes = [], incomingFiles = [], operation = null }: { stashFlow?: { phase: string; commit: string; ref?: string } | null; head?: string | null; tracking?: { kind?: string; ahead?: number; behind?: number } | null; upstreamState?: { kind?: string; upstream?: string | null; remote?: string | null } | null; changes?: Array<{ path?: string }>; incomingFiles?: string[]; operation?: { operation: string } | null } = {},
   tFn: typeof t = t,
 ) {
   if (operation) {
@@ -10,6 +10,16 @@ export function recommendNextAction(
       title: tFn("guidance.nextAction.operation.title", { operation: operation.operation }),
       detail: tFn("guidance.nextAction.operation.detail"),
     };
+  }
+
+  if (head === null) {
+    return { kind: changes.length ? "dirty" : "initial-commit", title: tFn("guidance.firstPush.noCommits"), detail: tFn("guidance.firstPush.initialNext") };
+  }
+
+  if (stashFlow && stashFlow.phase !== "pull") {
+    const conflicted = stashFlow.phase === "conflict" && changes.some((change: any) => /U|AA|DD/.test(change.status ?? ""));
+    const kind = conflicted ? "stash-conflict" : stashFlow.phase === "restore" ? "stash-restore" : "stash-cleanup";
+    return { kind, stashId: stashFlow.commit, title: tFn(`guidance.stashFlow.${kind}.title`), detail: tFn(`guidance.stashFlow.${kind}.detail`, { ref: stashFlow.ref ?? "Stash" }) };
   }
 
   if (upstreamState?.kind === "remote-branch-missing") {

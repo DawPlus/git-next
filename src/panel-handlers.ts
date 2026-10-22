@@ -14,8 +14,10 @@ function createPanelHandlers(core, getMenus) {
     setWebviewHtml,
     recordActivity,
     confirmMutation,
+    onRepositoryMessage = (webview, handler) => webview.onDidReceiveMessage(handler),
     guardWorkingState,
   } = core;
+  const stashSessions = new WeakMap<any, any>();
   const askName = (...args) => getMenus().askName(...args);
   async function promptStashMessage() {
     const choice = await vscode.window.showQuickPick([
@@ -167,7 +169,7 @@ async function openChangesPanel(context) {
     }
   };
 
-  panel.webview.onDidReceiveMessage(async (message) => {
+  onRepositoryMessage(panel.webview, async (message) => {
     const cwd = getCwd();
     if (!cwd) return;
     notice = null;
@@ -365,7 +367,7 @@ async function openComparePanel(context) {
       : { ok: false, message: "Git 저장소가 없습니다.", files: [] };
     setWebviewHtml(panel.webview, renderCompareWorkspace(comparison));
   };
-  panel.webview.onDidReceiveMessage(async (message) => {
+  onRepositoryMessage(panel.webview, async (message) => {
     const cwd = getCwd();
     if (!cwd) return;
     if (message?.type === "refresh") return refresh();
@@ -501,29 +503,7 @@ async function openBranchWorkspace(context) {
     }
 
     if (tracking.kind === "no-upstream") {
-      const remotes = await workflows.listRemotes(cwd);
-      if (!remotes.length) {
-        await vscode.window.showWarningMessage("연결된 원격 저장소가 없어요. 먼저 원격 저장소를 등록해주세요.");
-        return;
-      }
-      const selected = remotes.length === 1
-        ? remotes[0]
-        : (await vscode.window.showQuickPick(remotes.map((remote) => ({ label: remote.name, description: remote.pushUrl ?? remote.fetchUrl, remote })), { placeHolder: "첫 Push를 보낼 원격 저장소를 선택하세요." }))?.remote;
-      if (!selected || !state.branch) return;
-      const ok = await confirmMutation({
-        action: "첫 Push",
-        target: `${selected.name}/${state.branch}`,
-        effect: "현재 로컬 브랜치를 원격에도 만들고 서로 연결합니다. 이후에는 Push/Pull 대상이 자동으로 정해집니다.",
-        confirmLabel: "원격에도 만들기",
-      });
-      if (!ok) return;
-      const result = await vscode.window.withProgress({
-        location: vscode.ProgressLocation.Notification,
-        title: "Git Next · 동기화 · 첫 Push",
-        cancellable: false,
-      }, () => workflows.runWithGitStateDelta(cwd, () => actions.pushWithUpstream(cwd, selected.name, state.branch)));
-      await vscode.window.showInformationMessage(result.message);
-      return;
+      return getMenus().publishBranch(panel, "graph", {}, cwd, state.branch);
     }
 
     const action = tracking.kind === "ahead" ? "push" : tracking.kind === "behind" ? "pull" : null;
@@ -580,10 +560,16 @@ async function openBranchWorkspace(context) {
     await vscode.window.showInformationMessage(result.message);
   };
 
-  panel.webview.onDidReceiveMessage(async (message) => {
+  onRepositoryMessage(panel.webview, async (message) => {
     const cwd = getCwd();
     if (!cwd) return;
     const state = await getState(cwd);
+    if (message?.type === "publish") {
+      const branch = state.refs.find((ref) => ref.kind === "local" && ref.name === message.branch);
+      if (!branch || branch.upstream) return;
+      await runBranchMutation(() => getMenus().publishBranch(panel, "graph", {}, cwd, branch.name));
+      return refresh();
+    }
     if (message?.type === "sync") {
       await syncCurrentBranch(cwd, state, message.branch, message.kind);
       await refreshState(cwd).catch(() => {});
@@ -600,7 +586,7 @@ async function openBranchWorkspace(context) {
         return check.ok ? null : check.message;
       });
       if (!name) return;
-      const ok = await confirmMutation({ action: "브랜치 만들기", target: name, effect: "현재 로컬에 새로운 브랜치를 생성합니다. (원격에는 생성되지 않아요)\nPush할 때 원격에도 브랜치가 생성됩니다.", confirmLabel: "브랜치 만들기" });
+      const ok = await confirmMutation({ action: "브랜치 만들기", target: name, effect: state.head ? "현재 로컬에 새로운 브랜치를 생성합니다. (원격에는 생성되지 않아요)\nPush할 때 원격에도 브랜치가 생성됩니다." : (await import("./i18n.mjs")).t("guidance.firstPush.unbornBranch", { branch: name }), confirmLabel: "브랜치 만들기" });
       if (!ok) return;
       const result = await runBranchMutation(() => actions.createBranch(cwd, name, "HEAD"));
       if (result?.skipped) return;
@@ -730,7 +716,7 @@ async function openBranchWorkspace(context) {
   context.subscriptions.push(panel);
 }
 
-async function openStashWorkspace(context) {
+async function openStashWorkspace(context, options: { intent?: string; stashId?: string } = {}) {
   const { renderStashWorkspace } = await import("./workspace-views.mjs");
   const actions = await import("./git-actions.mjs");
   const workflows = await import("./git-workflows.mjs");
@@ -739,21 +725,38 @@ async function openStashWorkspace(context) {
     "Git Next · Stash",
     { enableScripts: true, retainContextWhenHidden: true },
   );
-  if (!created) return;
+  if (!created) {
+    const previous = stashSessions.get(panel);
+    if (previous) {
+      previous.intent = options.intent ?? null;
+      previous.stashId = options.stashId ?? null;
+      await previous.refresh();
+      await previous.runIntent();
+    }
+    return;
+  }
+  const session = { intent: options.intent ?? null, stashId: options.stashId ?? null, refresh: null as any, runIntent: null as any };
+  stashSessions.set(panel, session);
+  let shownStashes = [];
   let selected = null;
   let notice = null;
   const refresh = async () => {
     const cwd = getCwd();
     const stashes = cwd ? await actions.listStashes(cwd) : [];
+    shownStashes = stashes;
+    selected = session.stashId ? stashes.find((stash) => stash.commit === session.stashId)?.ref ?? null : selected;
     const details = cwd && selected ? await workflows.getStashDetails(cwd, selected) : null;
     setWebviewHtml(panel.webview, renderStashWorkspace(stashes, details, notice));
   };
 
-  panel.webview.onDidReceiveMessage(async (message) => {
+  session.refresh = refresh;
+
+  const receiveMessage = async (message) => {
     const cwd = getCwd();
     if (!cwd) return;
     if (message?.type === "select") {
       selected = message.ref;
+      session.stashId = shownStashes.find((stash) => stash.ref === message.ref)?.commit ?? null;
       return refresh();
     }
     if (message?.type === "push") {
@@ -770,11 +773,20 @@ async function openStashWorkspace(context) {
       });
       if (!ok) return;
       const result = await actions.stashPush(cwd, memo);
+      if (result.ok && session.intent === "before-pull") {
+        await (await import("./stash-flow.mjs")).rememberStashForPull(cwd, result.stashCommit);
+        session.intent = null;
+      }
+      await refreshState(cwd);
       notice = result;
       selected = null;
       return refresh();
     }
     if (!message.ref) return;
+    const expectedCommit = shownStashes.find((stash) => stash.ref === message.ref)?.commit;
+    const current = (await actions.listStashes(cwd)).find((stash) => stash.commit === expectedCommit);
+    if (!expectedCommit || !current) return refresh();
+    message = { ...message, ref: current.ref };
     if (message?.type === "apply" || message?.type === "pop") {
       const guard = await guardWorkingState(cwd, "stash-apply");
       if (!guard.ok) {
@@ -788,7 +800,8 @@ async function openStashWorkspace(context) {
       const preview = await workflows.getStashDetails(cwd, message.ref);
       const ok = await confirmMutation(stashActionConfirmation(preview, message.type));
       if (!ok) return;
-      const result = await (message.type === "apply" ? actions.stashApply(cwd, message.ref) : actions.stashPop(cwd, message.ref));
+      const result = await (message.type === "apply" ? actions.stashApply(cwd, message.ref, expectedCommit) : actions.stashPop(cwd, message.ref, expectedCommit));
+      await refreshState(cwd);
       const remaining = await actions.listStashes(cwd);
       notice = {
         ...result,
@@ -800,20 +813,31 @@ async function openStashWorkspace(context) {
             : "Pop이 충돌 또는 오류로 끝나면 Git은 작업 유실을 막기 위해 해당 Stash를 목록에 남깁니다. 충돌을 정리하고 결과를 확인한 뒤, 더 이상 필요 없으면 Drop으로 삭제하세요."
           : "Apply는 변경만 복원하고 Stash 항목은 의도적으로 그대로 남깁니다. 복원 결과를 확인한 뒤 더 이상 필요 없으면 Drop으로 정리할 수 있습니다.",
       };
-      if (message.type === "pop" && result.ok) selected = null;
+      if (message.type === "pop" && result.ok) { selected = null; session.stashId = null; }
       return refresh();
     }
     if (message?.type === "drop") {
       const ok = await confirmMutation({ action: "Stash Drop", target: message.ref, effect: "Stash 항목을 삭제합니다.", risk: "삭제 후 목록에서 복원할 수 없습니다.", level: "warning", confirmLabel: "Drop" });
       if (!ok) return;
-      const result = await actions.stashDrop(cwd, message.ref);
+      const result = await actions.stashDrop(cwd, message.ref, expectedCommit);
+      await refreshState(cwd);
+      if (result.ok) session.stashId = null;
       notice = result;
       selected = null;
       return refresh();
     }
-  });
+  };
+  onRepositoryMessage(panel.webview, receiveMessage);
+  session.runIntent = async () => {
+    const intent = session.intent;
+    if (intent === "before-pull") await receiveMessage({ type: "push" });
+    if (selected && intent === "restore") await receiveMessage({ type: "pop", ref: selected });
+    if (selected && intent === "cleanup") await receiveMessage({ type: "drop", ref: selected });
+    session.intent = null;
+  };
 
   await refresh();
+  await session.runIntent();
   context.subscriptions.push(panel);
 }
 
@@ -867,7 +891,7 @@ async function openCommitDetailsPanel(context, commit) {
   setWebviewHtml(panel.webview, renderCommitDetailsWorkspace(details));
 
   if (!created) return;
-  panel.webview.onDidReceiveMessage(async (message) => {
+  onRepositoryMessage(panel.webview, async (message) => {
     if (message?.type === "back-to-graph") {
       panel.dispose();
       await vscode.commands.executeCommand("gitNext.open");

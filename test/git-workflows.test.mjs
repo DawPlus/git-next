@@ -22,6 +22,10 @@ import {
   getCommitDetails,
   getCommitSuggestion,
   getPullRequestReadiness,
+  getPullRequestComparison,
+  getPullRequestTargets,
+  getConflictSides,
+  commitWithMessage,
   createPullRequestDraft,
   getIntegrationPreview,
   formatIntegrationPreview,
@@ -268,6 +272,7 @@ test("PR readiness reports tracking, local changes, and next actions", () => {
     upstream: "origin/feature",
     tracking: { kind: "ahead", ahead: 1, behind: 0 },
     changes: [],
+    comparison: { ok: true, commits: [{ id: "abc", subject: "Feature" }] },
   }).ready, true);
 });
 
@@ -277,6 +282,26 @@ test("PR draft uses the latest outgoing commit as title and commit list as body"
     { subject: "Test widget" },
   ]), { title: "Add widget", body: "- Add widget\n- Test widget" });
   assert.equal(createPullRequestDraft("feature", []), null);
+});
+
+test("PR readiness compares target branch rather than upstream synchronization", () => {
+  const state = { branch: "feature", upstream: "origin/feature", tracking: { kind: "up-to-date", ahead: 0, behind: 0 } };
+  assert.equal(getPullRequestReadiness({ ...state, comparison: { ok: true, commits: [{ id: "abc", subject: "Feature" }] } }).ready, true);
+  assert.equal(getPullRequestReadiness({ ...state, comparison: { ok: true, commits: [] } }).ready, false);
+  assert.equal(getPullRequestReadiness({ ...state, comparison: { ok: false, commits: [] } }).ready, false);
+});
+
+test("PR comparison uses published commits relative to the target and reports missing refs", async () => {
+  const cwd = await repo();
+  await git(cwd, "update-ref", "refs/remotes/origin/main", "HEAD");
+  await git(cwd, "commit", "--allow-empty", "-qm", "Published feature");
+  await git(cwd, "update-ref", "refs/remotes/origin/feature", "HEAD");
+  await git(cwd, "commit", "--allow-empty", "-qm", "Not pushed yet");
+  const comparison = await getPullRequestComparison(cwd, "refs/remotes/origin/main", "refs/remotes/origin/feature");
+  assert.equal(comparison.ok, true);
+  assert.deepEqual(comparison.commits.map((commit) => commit.subject), ["Published feature"]);
+  assert.deepEqual(await getPullRequestComparison(cwd, "refs/remotes/origin/main", "refs/remotes/origin/main"), { ok: true, commits: [] });
+  assert.equal((await getPullRequestComparison(cwd, "refs/remotes/origin/missing", "refs/remotes/origin/feature")).ok, false);
 });
 
 test("undo recommendations choose a safe path for recent successful actions", () => {
@@ -593,4 +618,61 @@ test("rebases diverged local work onto the reviewed target", async () => {
   const result = await rebaseCurrentOnto(cwd, "remote");
   assert.equal(result.ok, true);
   await git(cwd, "merge-base", "--is-ancestor", "remote", "HEAD");
+});
+
+
+test("conflict sides identify local merge branches and rebase roles", async () => {
+  for (const operation of ["merge", "rebase"]) {
+    const cwd = await repo();
+    await git(cwd, "switch", "-qc", "feature");
+    await writeFile(join(cwd, "app.txt"), "feature\n");
+    await git(cwd, "commit", "-qam", "feature change");
+    await git(cwd, "switch", "main");
+    await writeFile(join(cwd, "app.txt"), "main\n");
+    await git(cwd, "commit", "-qam", "main change");
+    if (operation === "rebase") await git(cwd, "switch", "feature");
+    await assert.rejects(git(cwd, operation, operation === "merge" ? "feature" : "main"));
+    const sides = await getConflictSides(cwd, operation);
+    assert.match(sides.mine.label, /main/);
+    assert.match(sides.theirs.label, /feature/);
+    assert.doesNotMatch(sides.theirs.description, /서버/);
+    if (operation === "rebase") {
+      assert.match(sides.mine.description, /기준/);
+      assert.match(sides.theirs.description, /재적용/);
+    }
+    assert.equal((await resolveConflictSide(cwd, "app.txt", "mine")).ok, true);
+    assert.equal(await (await import("node:fs/promises")).readFile(join(cwd, "app.txt"), "utf8"), "main\n");
+  }
+});
+
+test("commit feedback describes actual committed and remaining files", async () => {
+  const cwd = await repo();
+  await writeFile(join(cwd, "app.txt"), "selected\n");
+  await git(cwd, "add", "app.txt");
+  await writeFile(join(cwd, "app.txt"), "selected plus later\n");
+  await writeFile(join(cwd, "later.txt"), "untracked\n");
+  const result = await commitWithMessage(cwd, "Selected change");
+  assert.equal(result.ok, true);
+  assert.match(result.message, /1개 파일/);
+  assert.match(result.message, /미커밋 변경 2개/);
+  assert.match(result.message, /로컬.*Push/);
+  assert.equal(await git(cwd, "show", "HEAD:app.txt"), "selected");
+});
+
+
+test("PR targets preserve branch names and exclude symbolic remote HEAD", async () => {
+  const cwd = await repo();
+  for (const branch of ["main", "develop", "release/v1", "feature"]) {
+    await git(cwd, "update-ref", `refs/remotes/origin/${branch}`, "HEAD");
+  }
+  await git(cwd, "symbolic-ref", "refs/remotes/origin/HEAD", "refs/remotes/origin/main");
+  await git(cwd, "update-ref", "refs/remotes/other/develop", "HEAD");
+  const targets = await getPullRequestTargets(cwd, "origin");
+  assert.equal(targets.ok, true);
+  assert.deepEqual(targets.targets, ["develop", "feature", "main", "release/v1"]);
+  for (const target of targets.targets) {
+    assert.equal((await getPullRequestComparison(cwd, `refs/remotes/origin/${target}`, "refs/remotes/origin/feature")).ok, true);
+    assert.ok(derivePullRequestUrl("git@github.com:owner/repo.git", "feature", target).includes(`/compare/${encodeURIComponent(target)}...feature`));
+    assert.ok(derivePullRequestUrl("git@gitlab.com:owner/repo.git", "feature", target).includes(`target_branch]=${encodeURIComponent(target)}`));
+  }
 });

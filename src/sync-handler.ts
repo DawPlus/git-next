@@ -160,6 +160,73 @@ async function withNetworkProgress(title, action) {
   }, action));
 }
 
+async function publishBranch(host, mode, options, cwd, currentBranch) {
+  const { t } = await import("./i18n.mjs");
+  const { validateCommitish } = await import("./git-actions.mjs");
+  const source = await validateCommitish(cwd, `refs/heads/${currentBranch}`);
+  if (!source.ok) {
+    await renderPanel(host, { ok: false, level: "blocked", code: "no-commits", message: t("guidance.firstPush.noCommits"), detail: t("guidance.firstPush.initialNext") }, mode, options);
+    return;
+  }
+  const operation = await (await import("./git-safety.mjs")).getInProgressOperation(cwd);
+  if (operation) {
+    await renderPanel(host, { ok: false, level: "blocked", message: t("guidance.firstPush.operationPending") }, mode, options);
+    return;
+  }
+  const workflows = await import("./git-workflows.mjs");
+  let remotes = await workflows.listRemotes(cwd);
+  if (!remotes.length) {
+    const url = await vscode.window.showInputBox({
+      prompt: t("guidance.firstPush.remoteUrl"),
+      placeHolder: "https://github.com/owner/repo.git",
+      validateInput: (value) => value.trim() ? null : t("guidance.firstPush.remoteUrlRequired"),
+    });
+    if (!url?.trim()) return;
+    if (!await confirmMutation({ action: t("guidance.firstPush.registerRemote"), target: `origin · ${url.trim()}`, effect: t("guidance.firstPush.registerEffect"), confirmLabel: t("guidance.firstPush.registerAndContinue") })) return;
+    const registered = await workflows.addRemote(cwd, "origin", url.trim());
+    if (!registered.ok) { await showResult(host, mode, options, registered, "blocked"); return; }
+    remotes = await workflows.listRemotes(cwd);
+  }
+
+  const selected = await vscode.window.showQuickPick(remotes.map((remote) => ({
+    label: remote.name,
+    description: remote.pushUrl ?? remote.fetchUrl ?? "",
+    remote,
+  })), { placeHolder: "첫 Push를 보낼 Remote를 선택하세요." });
+  if (!selected) return;
+
+  const branch = await vscode.window.showInputBox({
+    prompt: "Remote에 연결할 브랜치 이름을 확인하세요.",
+    value: currentBranch ?? "",
+    validateInput: async (value) => {
+      const result = await (await import("./git-actions.mjs")).validateBranchName(cwd, value);
+      return result.ok ? null : result.message;
+    },
+  });
+  if (!branch) return;
+  const branchName = branch.trim();
+
+  if (!await confirmMutation({
+    action: "첫 Push 설정",
+    target: `${currentBranch} → ${selected.remote.name}/${branchName}`,
+    effect: `선택한 로컬 브랜치 ${currentBranch}를 Remote에 보내고 해당 브랜치의 Pull/Push 대상으로 ${selected.remote.name}/${branchName}를 연결합니다.`,
+    risk: "선택한 브랜치의 커밋이 공유 Remote에 올라갑니다. 미커밋 변경은 포함되지 않습니다.",
+    confirmLabel: "첫 Push 실행",
+  })) return;
+
+  const actions = await import("./git-actions.mjs");
+  const firstPush = await withNetworkProgress(
+    `Git Next · Push · ${selected.remote.name}/${branchName}`,
+    async () => (await import("./git-workflows.mjs")).runWithGitStateDelta(
+      cwd,
+      () => actions.pushWithUpstream(cwd, selected.remote.name, branchName, currentBranch),
+    ),
+  );
+  await refreshState(cwd).catch(() => {});
+  await showResult(host, mode, options, firstPush, firstPush.ok ? null : "blocked");
+  return;
+}
+
 async function runSyncAction(host, action, mode = "graph", options = {}) {
   const cwd = getCwd();
   if (!cwd) {
@@ -240,6 +307,8 @@ async function runSyncAction(host, action, mode = "graph", options = {}) {
 
     const freshTracking = preflight.beforeSnapshot?.tracking ?? await getTrackingStatus(cwd);
     if (isPullUnnecessary(freshTracking)) {
+      await (await import("./stash-flow.mjs")).markStashPulled(cwd);
+      await refreshState(cwd);
       await renderPanel(host, {
         action: "pull",
         ok: true,
@@ -335,58 +404,8 @@ async function runSyncAction(host, action, mode = "graph", options = {}) {
   }
 
   if (preflight.code === "no-upstream") {
-    const remotes = await (await import("./git-workflows.mjs")).listRemotes(cwd);
-    if (!remotes.length) {
-      await renderPanel(host, {
-        ok: false,
-        action: "push",
-        code: "no-upstream",
-        level: "blocked",
-        message: "첫 Push를 하려면 먼저 Remote를 등록하세요.",
-        detail: "Git 도구에서 Remote를 추가한 뒤 다시 Push하세요.",
-        guideKey: await getGuideKey("push", preflight),
-      }, mode, options);
-      return;
-    }
-
-    const selected = await vscode.window.showQuickPick(remotes.map((remote) => ({
-      label: remote.name,
-      description: remote.pushUrl ?? remote.fetchUrl ?? "",
-      remote,
-    })), { placeHolder: "첫 Push를 보낼 Remote를 선택하세요." });
-    if (!selected) return;
-
-    const currentBranch = preflight.beforeSnapshot?.branch ?? (await getState(cwd)).branch;
-    const branch = await vscode.window.showInputBox({
-      prompt: "Remote에 연결할 브랜치 이름을 확인하세요.",
-      value: currentBranch ?? "",
-      validateInput: async (value) => {
-        const result = await (await import("./git-actions.mjs")).validateBranchName(cwd, value);
-        return result.ok ? null : result.message;
-      },
-    });
-    if (!branch) return;
-    const branchName = branch.trim();
-
-    if (!await confirmMutation({
-      action: "첫 Push 설정",
-      target: `${currentBranch} → ${selected.remote.name}/${branchName}`,
-      effect: `현재 브랜치를 Remote에 보내고 이후 Pull/Push의 기본 대상으로 ${selected.remote.name}/${branchName}를 연결합니다.`,
-      risk: "현재 브랜치의 커밋이 공유 Remote에 올라갑니다.",
-      confirmLabel: "첫 Push 실행",
-    })) return;
-
-    const actions = await import("./git-actions.mjs");
-    const firstPush = await withNetworkProgress(
-      `Git Next · Push · ${selected.remote.name}/${branchName}`,
-      async () => (await import("./git-workflows.mjs")).runWithGitStateDelta(
-        cwd,
-        () => actions.pushWithUpstream(cwd, selected.remote.name, branchName),
-      ),
-    );
-    await refreshState(cwd).catch(() => {});
-    await showResult(host, mode, options, firstPush, firstPush.ok ? null : "blocked");
-    return;
+    const branch = preflight.beforeSnapshot?.branch ?? (await getState(cwd)).branch;
+    return publishBranch(host, mode, options, cwd, branch);
   }
 
   if (!await confirmImpactPreview(host, mode, options, cwd, "push", preflight.beforeSnapshot)) return;
@@ -401,7 +420,7 @@ async function runSyncAction(host, action, mode = "graph", options = {}) {
 }
 
 
-  return { runSyncAction, withNetworkProgress, offerDivergedResolution };
+  return { publishBranch, runSyncAction, withNetworkProgress, offerDivergedResolution };
 }
 
 module.exports = { createSyncHandler };

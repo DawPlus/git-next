@@ -1,4 +1,11 @@
 export const dialog = {
+  repositoryOperation: {
+    "busy": "다른 Git Next 작업이 진행 중입니다. 완료 후 다시 시도하세요. 계속되면 다른 창의 작업과 잠금 파일을 확인하세요.",
+    "failed": "Git 작업을 완료하지 못했습니다. 오류 원인을 확인한 뒤 다시 시도하세요.",
+    "changed": "확인 중 저장소 상태가 바뀌어 실행하지 않았습니다. 변경 내용을 확인하고 다시 실행하세요.",
+    "fetching": "Fetch · 원격 상태 확인 중",
+    "retryFetch": "연결과 인증을 확인한 뒤 새로고침으로 다시 시도하세요."
+},
   confirmMutation: {
     actionLabel: "작업: {action}",
     targetLabel: "대상: {target}",

@@ -4,6 +4,7 @@ function createAiPanelHandlers(core: any, getMenus: any, openGuidePanel: any) {
     getState,
     getOrCreateWebviewPanel,
     setWebviewHtml,
+    onRepositoryMessage = (webview, handler) => webview.onDidReceiveMessage(handler),
   } = core;
   const aiDiagnosisState = new WeakMap<any, any>();
   const aiPracticeState = new WeakMap<any, any>();
@@ -19,7 +20,7 @@ function createAiPanelHandlers(core: any, getMenus: any, openGuidePanel: any) {
     setWebviewHtml(panel.webview, renderAiDiagnosisWorkspace({ diagnosis, provider } as any));
     if (!created) return panel;
 
-    panel.webview.onDidReceiveMessage(async (message) => {
+    onRepositoryMessage(panel.webview, async (message) => {
       const current = aiDiagnosisState.get(panel) ?? {};
       if (message?.type === "open-guide" && current.diagnosis?.guideKey) {
         await openGuidePanel(context, current.diagnosis.guideKey);
@@ -75,7 +76,7 @@ function createAiPanelHandlers(core: any, getMenus: any, openGuidePanel: any) {
     refresh();
     if (!created) return panel;
 
-    panel.webview.onDidReceiveMessage(async (message) => {
+    onRepositoryMessage(panel.webview, async (message) => {
       const current = aiPracticeState.get(panel);
       if (!current) return;
       if (message?.type === "back") {
@@ -93,13 +94,14 @@ function createAiPanelHandlers(core: any, getMenus: any, openGuidePanel: any) {
         );
         return;
       }
-      if (message?.type === "check-step") {
+      if (message?.type === "check-step" || message?.type === "confirm-step") {
         const index = Number(message.index);
         const step = current.plan[index];
         if (!step) return;
+        if (message.type === "confirm-step" && step.check !== "manual-review") return;
         const cwd = getCwd();
         const repositoryState = cwd ? await getState(cwd) : { kind: "no-repository" };
-        current.results[index] = evaluatePracticeStep(step, repositoryState);
+        current.results[index] = evaluatePracticeStep(step, repositoryState, { manualConfirmed: message.type === "confirm-step" });
         aiPracticeState.set(panel, current);
         refresh();
       }
@@ -122,7 +124,7 @@ function createAiPanelHandlers(core: any, getMenus: any, openGuidePanel: any) {
     refresh();
     if (!created) return panel;
 
-    panel.webview.onDidReceiveMessage(async (message) => {
+    onRepositoryMessage(panel.webview, async (message) => {
       if (message?.type !== "open-entry") return;
       const history = context.globalState.get("gitNext.aiDiagnosisHistory", []);
       const entry = history.find((item) => item?.id === message.id);

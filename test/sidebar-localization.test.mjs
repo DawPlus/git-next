@@ -98,8 +98,8 @@ test("sidebar renders in Korean with full surface coverage", () => {
 
   // Next recommendation
   assert.match(html, /class="guard-recommendation-label">다음 추천<\/span>/);
-  assert.match(html, /title="현재 상태에서 추천하는 다음 행동: 전체 Stage"/);
-  assert.match(html, /class="guard-next-action"[^>]*>전체 Stage<\/button>/);
+  assert.match(html, /title="현재 상태에서 추천하는 다음 행동: Commit 메시지 입력"/);
+  assert.match(html, /class="guard-next-action"[^>]*>Commit 메시지 입력<\/button>/);
 
   // Commit & Undo
   assert.match(html, /placeholder="Commit message 입력"/);
@@ -171,8 +171,8 @@ test("sidebar renders in English from the same state", () => {
 
   // Next recommendation
   assert.match(html, /class="guard-recommendation-label">Next Recommendation<\/span>/);
-  assert.match(html, /title="Recommended next action for current state: Stage All"/);
-  assert.match(html, /class="guard-next-action"[^>]*>Stage All<\/button>/);
+  assert.match(html, /title="Recommended next action for current state: Enter commit message"/);
+  assert.match(html, /class="guard-next-action"[^>]*>Enter commit message<\/button>/);
 
   // Commit & Undo
   assert.match(html, /placeholder="Enter commit message"/);
@@ -268,6 +268,22 @@ test("active locale setting changes renderSidebarHtml output", () => {
   resetLocale();
   const resetHtml = renderSidebarHtml(state);
   assert.match(resetHtml, /변경사항이 없습니다\./);
+});
+
+test("next action allows committing selected changes without staging everything", () => {
+  for (const changes of [
+    [{ status: "M ", path: "selected" }, { status: " M", path: "later" }, { status: "??", path: "new" }],
+    [{ status: "MM", path: "partial" }],
+    [{ status: "M ", path: "selected" }],
+    [{ status: " M", path: "later" }],
+  ]) {
+    for (const locale of ["ko", "en"]) {
+      const html = renderSidebarHtml(createMockState({ changes }), null, { locale });
+      const recommendation = html.match(/<button class="guard-next-action"[^>]+>/)?.[0];
+      const expected = changes.some((item) => item.status[0] === "M") ? "focusCommit" : "focusChanges";
+      assert.match(recommendation, new RegExp(`data-action="${expected}"`));
+    }
+  }
 });
 
 test("guard: no hardcoded Korean user-facing strings remain in sidebar-view.mts template markup", () => {

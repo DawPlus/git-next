@@ -77,14 +77,18 @@ function createWebviewMessageHandler({
       try {
         if (cwd) {
           const { refreshRemoteState } = await import("./git-safety.mjs");
-          const refreshed = await refreshRemoteState(cwd);
+          const refreshed = await vscode.window.withProgress({
+            location: vscode.ProgressLocation.Notification,
+            title: t("dialog.repositoryOperation.fetching"),
+            cancellable: false,
+          }, () => refreshRemoteState(cwd));
           if (!refreshed.ok) {
             await renderPanel(host, {
               ok: false,
               level: "warning",
               code: "fetch-failed",
               message: "원격 상태를 갱신하지 못했습니다.",
-              detail: refreshed.detail,
+              detail: [refreshed.detail, t("dialog.repositoryOperation.retryFetch")].filter(Boolean).join("\n"),
             }, mode, getOptions());
             return;
           }
@@ -215,7 +219,11 @@ function createWebviewMessageHandler({
     graphOptions: async (message) => updateGraphOptions(message, false),
     branchMenu: async () => openBranchWorkspace(context),
     tagMenu: async () => tagMenu(host, mode, getOptions()),
+    createFirstFile: async () => vscode.commands.executeCommand("workbench.action.files.newUntitledFile"),
     stashMenu: async () => openStashWorkspace(context),
+    stashBeforePull: async () => openStashWorkspace(context, { intent: "before-pull" }),
+    stashRestore: async (message) => openStashWorkspace(context, { intent: "restore", stashId: message.stashId }),
+    stashCleanup: async (message) => openStashWorkspace(context, { intent: "cleanup", stashId: message.stashId }),
     changeLanguage: async () => {
       const currentLocale = getLocale();
       const selected = await vscode.window.showQuickPick(

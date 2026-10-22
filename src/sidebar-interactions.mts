@@ -70,6 +70,7 @@ export const SIDEBAR_INTERACTIONS = `
       const message = {
         type: button.dataset.action,
         guideKey: button.dataset.guideKey ?? null,
+        stashId: button.dataset.stashId ?? null,
         noticeMessage: button.dataset.noticeMessage ?? null,
         noticeDetail: button.dataset.noticeDetail ?? null,
         path: button.dataset.path ?? null,
@@ -79,6 +80,16 @@ export const SIDEBAR_INTERACTIONS = `
       };
       if (message.type === "focusCommit") {
         document.querySelector("#sidebar-commit-message")?.focus();
+        return;
+      }
+      if (message.type === "focusChanges") {
+        const group = document.querySelector('.scm-group[data-area="unstaged"]');
+        if (group) {
+          group.open = true;
+          for (const folder of group.querySelectorAll("details")) folder.open = true;
+          group.scrollIntoView({ block: "nearest" });
+          group.querySelector(".file-open")?.focus();
+        }
         return;
       }
       if (message.type === "refresh") {

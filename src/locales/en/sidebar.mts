@@ -45,6 +45,7 @@ export const sidebar = {
     stashChanges: "Stash changes",
     stageAll: "Stage All",
     focusCommit: "Enter commit message",
+    selectChanges: "Select changes to commit",
     continueAbort: "Continue / Abort",
     pullCount: "Pull {count}",
     pushCount: "Push {count}",

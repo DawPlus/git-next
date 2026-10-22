@@ -229,9 +229,10 @@ async function conflictHelper(host, mode, options) {
     return;
   }
 
+  const sides = await workflows.getConflictSides(cwd, operation?.operation ?? null);
   const side = await vscode.window.showQuickPick([
-    { label: "내 변경 사용", id: "mine", description: "현재 브랜치 쪽 내용을 남깁니다." },
-    { label: "들어온 변경 사용", id: "incoming", description: "Merge/Pull로 들어온 쪽 내용을 남깁니다." },
+    { ...sides.mine, id: "mine" },
+    { ...sides.theirs, id: "incoming" },
     { label: "직접 편집", id: "edit", description: "파일을 열어 원하는 최종 내용을 직접 정리합니다." },
   ], { placeHolder: selected.path });
 
@@ -561,18 +562,41 @@ async function pullRequestHandoff() {
   if (!cwd) return;
   const state = await getState(cwd);
   const workflows = await import("./git-workflows.mjs");
+  const { t } = await import("./i18n.mjs");
   const remotes = await workflows.listRemotes(cwd);
   const remoteName = state.upstream?.split("/")[0] ?? "origin";
   const remote = remotes.find((item) => item.name === remoteName) ?? remotes[0];
   const branch = state.branch;
-  const url = workflows.derivePullRequestUrl(remote?.pushUrl ?? remote?.fetchUrl, branch, "main");
-  const readiness = workflows.getPullRequestReadiness(state);
-  const preview = state.upstream ? await workflows.getActionImpactPreview(cwd, "push") : null;
-  const draft = workflows.createPullRequestDraft(branch, preview?.commits ?? []);
+  if (!remote || !branch) {
+    await vscode.window.showInformationMessage(t("guidance.prTarget.unavailable"));
+    return;
+  }
+  const sourceBranch = state.upstream?.startsWith(`${remote.name}/`)
+    ? state.upstream.slice(remote.name.length + 1)
+    : branch;
+  const targetResult = await workflows.getPullRequestTargets(cwd, remote.name);
+  const targets = targetResult.targets.filter((target) => target !== sourceBranch);
+  if (!targetResult.ok || !targets.length) {
+    await vscode.window.showInformationMessage(t("guidance.prTarget.unavailable"));
+    return;
+  }
+  const selectedTarget = await vscode.window.showQuickPick(
+    targets.map((target) => ({ label: target, target })),
+    { placeHolder: t("guidance.prTarget.select") },
+  );
+  if (!selectedTarget) return;
+  const target = selectedTarget.target;
+  const url = workflows.derivePullRequestUrl(remote.pushUrl ?? remote.fetchUrl, sourceBranch, target);
+  const comparison = state.upstream && remote
+    ? await workflows.getPullRequestComparison(cwd, `refs/remotes/${remote.name}/${target}`, `refs/remotes/${state.upstream}`)
+    : null;
+  const readiness = workflows.getPullRequestReadiness({ ...state, comparison });
+  const draft = workflows.createPullRequestDraft(branch, comparison?.commits ?? []);
 
   const summary = [
     `PR 준비: ${readiness.ready ? "가능" : "확인 필요"}`,
     `브랜치: ${branch ?? "없음"}`,
+    t("guidance.prTarget.direction", { source: sourceBranch, target }),
     `원격: ${remote?.name ?? "없음"}`,
     `추적 상태: ${readiness.tracking} · ahead ${readiness.ahead} · behind ${readiness.behind}`,
     `작업 파일: ${readiness.dirtyCount}개 · 미추적 ${readiness.untrackedCount}개`,
@@ -852,6 +876,7 @@ async function toolsMenu(host, mode, options, context, toolId = null) {
 
 
   return {
+    publishBranch: sync.publishBranch,
     askName,
     tagMenu,
     commitMenu,

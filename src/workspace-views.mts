@@ -335,7 +335,7 @@ export function renderBranchWorkspace(state, options: { locale?: string } = {}) 
       <div><div class="pocket-title">${esc(tFn("workspace.branch.localPocketTitle"))}</div><div class="meta">${esc(tFn("workspace.branch.localPocketMeta"))}</div></div>
       <button class="btn" data-action="create">${esc(tFn("workspace.branch.createBtn"))}</button>
     </div>
-    <div class="branch-stack">${localCards || `<div class="empty">${esc(tFn("workspace.branch.localEmpty"))}</div>`}</div>
+    <div class="branch-stack">${localCards || `<div class="empty">${esc(state.head === null && state.branch ? tFn("guidance.firstPush.unbornBranch", { branch: state.branch }) : tFn("workspace.branch.localEmpty"))}</div>`}</div>
   </section>
   <section class="branch-pocket remote-pocket">
     <div class="pocket-head">
@@ -366,6 +366,7 @@ export function renderBranchWorkspace(state, options: { locale?: string } = {}) 
     <div class="detail-actions">
       <button class="btn primary detail-primary" data-action="switch">${esc(tFn("workspace.branch.switchBtn"))}</button>
       <button class="btn primary detail-primary" data-action="track">${esc(tFn("workspace.branch.trackBtn"))}</button>
+      <button class="btn primary detail-primary" data-action="publish">${esc(tFn("guidance.firstPush.publish"))}</button>
       <div class="detail-secondary">
         <button class="btn" data-action="merge">${esc(tFn("workspace.branch.mergeBtn"))}</button>
         <button class="btn" data-action="rename">${esc(tFn("workspace.branch.renameBtn"))}</button>
@@ -443,6 +444,7 @@ function selectCard(card){
       :(upstream?I18N.connectedSummary.replace("{upstream}",upstream):I18N.noUpstreamSummary));
   for(const b of selectionButtons)b.hidden=false;
   selection.querySelector('[data-action="track"]').hidden=kind!=="remote";
+  selection.querySelector('[data-action="publish"]').hidden=kind!=="local"||Boolean(upstream);
   selection.querySelector('[data-action="switch"]').hidden=kind!=="local"||isCurrent;
   selection.querySelector('[data-action="rename"]').hidden=kind!=="local";
   selection.querySelector('[data-action="delete"]').hidden=kind!=="local"||isCurrent;
@@ -644,22 +646,26 @@ export function renderAiHistoryWorkspace(history = []) {
   return shell("Git Next · AI 진단 기록", body, script);
 }
 
-export function renderAiPracticeWorkspace({ diagnosis, plan = [], results = [] }: any = {}) {
+export function renderAiPracticeWorkspace({ diagnosis, plan = [], results = [], locale = getLocale() }: any = {}) {
+  const tFn = getFixedT(locale);
   const rows = plan.map((step) => {
     const result = results[step.index] ?? null;
-    const status = result?.ok ? "✓ 완료" : result ? "아직" : "대기";
+    const manual = step.check === "manual-review";
+    const completed = manual ? tFn("guidance.practice.selfDone") : tFn("guidance.practice.gitDone");
+    const status = result?.ok ? completed : result ? tFn("guidance.practice.pending") : tFn("guidance.practice.waiting");
     const tone = result?.ok ? "" : result ? "warn" : "";
+    const criterion = tFn(`guidance.practice.criteria.${step.check}`);
     return `<article class="card">
-      <div class="row"><div class="grow"><h2>${step.index + 1}. ${esc(step.text)}</h2><div class="meta">${esc(result?.message || "이 단계 후 저장소 상태를 다시 확인합니다.")}</div></div><span class="badge ${tone}">${esc(status)}</span></div>
-      <div class="toolbar" style="margin-top:10px"><button class="btn" data-action="check-step" data-index="${step.index}">상태 확인</button></div>
+      <div class="row"><div class="grow"><h2>${step.index + 1}. ${esc(step.text)}</h2><div class="meta">${esc(criterion)}</div><div class="meta">${esc(result?.message || "")}</div></div><span class="badge ${tone}">${esc(status)}</span></div>
+      <div class="toolbar" style="margin-top:10px"><button class="btn" data-action="${manual ? "confirm-step" : "check-step"}" data-index="${step.index}">${esc(manual ? tFn("guidance.practice.confirm") : tFn("guidance.practice.check"))}</button></div>
     </article>`;
   }).join("");
-  const body = `<header><div><h1>직접 해보기</h1><div class="sub">${esc(diagnosis?.situation || "AI 진단")} · 클릭 여부가 아니라 실제 Git 상태로 확인합니다.</div></div><button class="btn" data-action="back">진단으로 돌아가기</button></header>
+  const body = `<header><div><h1>직접 해보기</h1><div class="sub">${esc(diagnosis?.situation || "AI 진단")} · ${esc(tFn("guidance.practice.intro"))}</div></div><button class="btn" data-action="back">진단으로 돌아가기</button></header>
   <section class="section"><div class="card">${renderKnowledgeFlow(["현재 저장소", diagnosis?.next || "다음 단계"], "warning", diagnosis?.animationPreset || "generic")}<div class="meta">목표 · ${esc(diagnosis?.next || "")}</div></div></section>
   <section class="section grid">${rows || '<div class="empty">이 상황에 연결된 단계가 없습니다.</div>'}</section>
   ${diagnosis?.recommendedAction ? '<div class="toolbar"><button class="btn primary" data-action="practice-action">관련 Git 작업 열기</button></div>' : ""}`;
   const script = `const vscode=acquireVsCodeApi();document.addEventListener("click",(event)=>{const button=event.target.closest("[data-action]");if(button)vscode.postMessage({type:button.dataset.action,index:Number(button.dataset.index)});});`;
-  return shell("Git Next · 직접 해보기", body, script);
+  return shell("Git Next · 직접 해보기", body, script, locale);
 }
 
 export function renderAiDiagnosisWorkspace({ diagnosis, provider = "AI" }: any = {}) {

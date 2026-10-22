@@ -138,3 +138,13 @@ Read Budget:
 - Expand only when needed and state why.
 
 Keep detail in ticket/project docs. Keep this board compact.
+
+| T-261022-01 | Git 학습 흐름 개선 | done | - | worker | implementation | focused | [ticket](archive/2026-10/t-261022-01.md) | 승인된 5개 개선 순차 실행 |
+
+| T-261022-02 | 새 브랜치 첫 Push 개선 | done | - | worker | implementation | focused | [ticket](archive/2026-10/t-261022-02.md) | - |
+
+| T-261022-03 | Stash Pull 복원 추천 연결 | done | - | worker | implementation | focused | [ticket](archive/2026-10/t-261022-03.md) | - |
+
+| T-261022-04 | 초기 저장소 안내와 취소 후 이어가기 | done | - | worker | implementation | focused | [ticket](archive/2026-10/t-261022-04.md) | - |
+
+| T-261022-05 | Git 작업 안전성 보강 | done | - | worker | implementation | focused | [ticket](archive/2026-10/t-261022-05.md) | 승인한 3개 보강 |

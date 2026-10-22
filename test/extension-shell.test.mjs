@@ -63,10 +63,10 @@ test("registers a visible Git Next activity-bar webview", () => {
   assert.match(source, /runWithGitStateDelta\(cwd, action\)/);
   assert.match(source, /runWithGitStateDelta\(cwd, \(\) => workflows\.commitWithMessage/);
   assert.match(source, /preflight\.code === "no-upstream"/);
-  assert.match(source, /workflows\.mjs"\)\)\.listRemotes\(cwd\)/);
-  assert.match(source, /actions\.pushWithUpstream\(cwd, selected\.remote\.name, branchName\)/);
-  assert.match(source, /workflows\.getPullRequestReadiness\(state\)/);
-  assert.match(source, /workflows\.createPullRequestDraft\(branch, preview\?\.commits/);
+  assert.match(source, /workflows\.listRemotes\(cwd\)/);
+  assert.match(source, /actions\.pushWithUpstream\(cwd, selected\.remote\.name, branchName, currentBranch\)/);
+  assert.match(source, /workflows\.getPullRequestReadiness\(\{ \.\.\.state, comparison \}\)/);
+  assert.match(source, /workflows\.createPullRequestDraft\(branch, comparison\?\.commits/);
   assert.match(source, /safety\.inspectCurrentUpstream\(cwd\)/);
   assert.match(source, /actions\.fetchPruneRemote\(cwd, selected\.r\.name\)/);
   assert.match(source, /getUndoRecommendation\(item\)/);

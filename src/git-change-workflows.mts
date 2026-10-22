@@ -1,4 +1,6 @@
 import { runGit, parseNameStatus } from "./git-command.mjs";
+import { getWorkingTreeChanges } from "./git-tracking.mjs";
+import { t } from "./i18n.mjs";
 import type { NameStatusEntry, WorkingTreeChange } from "./git-types.mjs";
 
 export function getCommitMessageHints(message: unknown): string[] {
@@ -21,10 +23,18 @@ export function formatStashPreview(changes: WorkingTreeChange[], message: string
 
 export async function commitWithMessage(cwd: string, message: string) {
   const result = await runGit(cwd, ["commit", "-m", message]);
+  if (!result.ok) return { ...result, action: "commit", message: "커밋을 만들지 못했습니다." };
+  const [committed, remaining] = await Promise.all([
+    runGit(cwd, ["diff-tree", "--root", "--no-commit-id", "--name-only", "-z", "-r", "--first-parent", "-m", "HEAD"]),
+    getWorkingTreeChanges(cwd).catch(() => null),
+  ]);
+  const feedback = committed.ok && remaining !== null
+    ? t("guidance.commitFeedback.summary", { committed: committed.detail.split("\0").filter(Boolean).length, remaining: remaining.length })
+    : t("guidance.commitFeedback.unverified");
   return {
     ...result,
     action: "commit",
-    message: result.ok ? `커밋을 만들었습니다: ${message}` : "커밋을 만들지 못했습니다.",
+    message: `커밋을 만들었습니다: ${message}\n${feedback}`,
   };
 }
 

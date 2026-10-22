@@ -1,0 +1,35 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { createRequire } from 'node:module';
+import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { execFileSync } from 'node:child_process';
+const require=createRequire(import.meta.url), Module=require('node:module'), original=Module._load;
+let cwd, onConfirm=()=>{}, warnings=[];
+const vscode={window:{showWarningMessage:async (text,options,label)=>{warnings.push(text); if(label){await onConfirm();return label;}}},workspace:{get workspaceFolders(){return [{uri:{fsPath:cwd}}];},getConfiguration:()=>({get:(_,value)=>value})}};
+Module._load=function(name,...args){return name==='vscode'?vscode:original.call(this,name,...args);};
+const core=require('../src/extension-core.ts'); Module._load=original;
+const git=(...args)=>execFileSync('git',args,{cwd,encoding:'utf8',stdio:['ignore','pipe','pipe']}).trim();
+test('confirmation rejects changes made while dialog is open, unchanged state proceeds',async t=>{
+ cwd=mkdtempSync(join(tmpdir(),'git-next-confirm-'));t.after(()=>rmSync(cwd,{recursive:true,force:true}));
+ git('init','-b','main');git('config','user.name','QA');git('config','user.email','qa@example.invalid');
+ writeFileSync(join(cwd,'a'),'first');git('add','.');git('commit','-m','base');
+ onConfirm=()=>{};assert.equal(await core.confirmMutation({action:'Commit'}),true);
+ onConfirm=()=>git('switch','-c','other');assert.equal(await core.confirmMutation({action:'Commit'}),false);
+ onConfirm=()=>{writeFileSync(join(cwd,'a'),'second');git('add','.');};assert.equal(await core.confirmMutation({action:'Commit'}),false);
+ git('stash','push');onConfirm=()=>git('stash','drop');assert.equal(await core.confirmMutation({action:'Stash Drop'}),false);
+ assert.equal(warnings.length,7);
+});
+test('message gate blocks another view and always releases after handler failure',async t=>{
+ cwd=mkdtempSync(join(tmpdir(),'git-next-message-'));t.after(()=>rmSync(cwd,{recursive:true,force:true}));git('init','-b','main');
+ let first,second,release,started;let calls=0;
+ const ready=new Promise(r=>started=r),hold=new Promise(r=>release=r),messages=[];
+ core.onRepositoryMessage({onDidReceiveMessage:fn=>first=fn,postMessage:async e=>messages.push(e)},async()=>{started();await hold;throw new Error('expected');});
+ core.onRepositoryMessage({onDidReceiveMessage:fn=>second=fn,postMessage:async e=>messages.push(e)},async()=>{calls++;});
+ const pending=first({type:'push'});await ready;
+ await second({type:'commit'});assert.equal(calls,0);
+ await first({type:'push'});release();await pending;
+ await second({type:'commit'});assert.equal(calls,1);
+ assert.ok(messages.some(e=>e.type==='syncPending'&&e.pending===false));
+});

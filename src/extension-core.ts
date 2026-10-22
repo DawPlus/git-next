@@ -15,6 +15,8 @@ const {
   DEFAULT_LOCALE,
 } = require("./i18n.js");
 
+const repositoryOperationContext = new (require("node:async_hooks").AsyncLocalStorage)();
+
 let activeContext = null;
 const diffDocumentContents = new Map();
 const webviewPanels = new Map();
@@ -174,6 +176,8 @@ function pathContains(root, candidate) {
 }
 
 function getCwd(resourceUri = vscode.window.activeTextEditor?.document.uri) {
+  const operationCwd = repositoryOperationContext.getStore();
+  if (operationCwd) return operationCwd;
   const resourcePath = resourceUri?.scheme === "file" ? resourceUri.fsPath : null;
   if (resourcePath) {
     const matched = knownRepositoryRoots
@@ -229,12 +233,13 @@ async function loadState(cwd) {
     return { ...state, pullBeforePush: isPullBeforePushEnabled() };
   }
 
-  const [tracking, upstreamState, changes, operation, incomingFiles] = await Promise.all([
+  const [tracking, upstreamState, changes, operation, incomingFiles, stashFlow] = await Promise.all([
     traceAsync("state:tracking", state.root, () => getTrackingStatus(state.root)),
     traceAsync("state:upstream", state.root, () => inspectCurrentUpstream(state.root)),
     traceAsync("state:working-tree", state.root, () => getWorkingTreeChanges(state.root)),
     traceAsync("state:operation", state.root, () => getInProgressOperation(state.root)),
     traceAsync("state:incoming-files", state.root, () => getIncomingChangedFiles(state.root)),
+    (await import("./stash-flow.mjs")).getStashFlow(state.root),
   ]);
 
   return {
@@ -244,7 +249,8 @@ async function loadState(cwd) {
     changes,
     incomingFiles,
     operation,
-    nextAction: recommendNextAction({ tracking, upstreamState, changes, incomingFiles, operation }),
+    stashFlow,
+    nextAction: recommendNextAction({ stashFlow, head: state.head, tracking, upstreamState, changes, incomingFiles, operation }),
     worktrees: await traceAsync("state:worktrees", state.root, () => getLinkedWorktrees(state.root)),
     relaxedRules: listSafeGuardRules([...relaxedSafeGuardRules] as string[]).filter((rule) => rule.relaxed).map(({ title }) => title),
     pullBeforePush: isPullBeforePushEnabled(),
@@ -322,6 +328,8 @@ async function setCachedWorkingTreeChanges(cwd, changes) {
     ...cached,
     changes,
     nextAction: recommendNextAction({
+      stashFlow: cached.stashFlow,
+      head: cached.head,
       tracking: cached.tracking,
       upstreamState: cached.upstreamState,
       changes,
@@ -382,6 +390,8 @@ async function relocalizeCachedState(cwd = null) {
     const state = entry?.state;
     if (!entry || !state || state.kind !== "repository") continue;
     const nextAction = recommendNextAction({
+      stashFlow: state.stashFlow,
+      head: state.head,
       tracking: state.tracking,
       upstreamState: state.upstreamState,
       changes: Array.isArray(state.changes) ? state.changes : [],
@@ -490,6 +500,27 @@ async function guardWorkingState(cwd, action) {
   return { ok: true };
 }
 
+function onRepositoryMessage(webview, handler) {
+  let running = false;
+  return webview.onDidReceiveMessage(async (message) => {
+    if (running) return;
+    running = true;
+    const cwd = getCwd();
+    try {
+      if (!cwd) return await handler(message);
+      const { withRepositoryOperation } = await import("./repository-operation.mjs");
+      return await withRepositoryOperation(cwd, () => repositoryOperationContext.run(cwd, () => handler(message)));
+    } catch (error) {
+      const key = error?.code === "repository-busy" ? "busy" : "failed";
+      await vscode.window.showWarningMessage(t(`dialog.repositoryOperation.${key}`), { detail: error instanceof Error ? error.message : String(error) });
+      await webview.postMessage({ type: "syncPending", pending: false });
+      await webview.postMessage({ type: "refreshPending", pending: false });
+    } finally {
+      running = false;
+    }
+  });
+}
+
 async function confirmMutation({ action, target = "", effect = "", risk = "", level = "safe", confirmLabel = null }) {
   let worktreeContext = null;
   const cwd = getCwd();
@@ -521,15 +552,24 @@ async function confirmMutation({ action, target = "", effect = "", risk = "", le
     return false;
   }
   const label = confirmLabel ?? t("dialog.confirmMutation.defaultConfirmLabel");
+  const { repositoryFingerprint } = await import("./repository-operation.mjs");
+  const before = cwd ? await repositoryFingerprint(cwd) : null;
   const choice = await vscode.window.showWarningMessage(lines, { modal: true }, label);
-  return Boolean(choice);
+  if (!choice) return false;
+  if (cwd && (!before || getCwd() !== cwd || before !== await repositoryFingerprint(cwd))) {
+    await vscode.window.showWarningMessage(t("dialog.repositoryOperation.changed"));
+    await refreshState(cwd);
+    return false;
+  }
+  return true;
 }
 
 
-function initialize(context) {
+async function initialize(context) {
   activeContext = context;
   selectedRepositoryRoot = context.workspaceState.get("gitNext.selectedRepositoryRoot", null);
   setLocale(context.globalState.get("gitNext.locale", vscode?.env?.language));
+  (await import("./stash-flow.mjs")).configureStashFlowStorage(context.workspaceState);
 }
 
 function getActiveContext() {
@@ -580,6 +620,7 @@ module.exports = {
   showStatefulResult,
   guardWorkingState,
   confirmMutation,
+  onRepositoryMessage,
   relaxedSafeGuardRules,
   t,
   getLocale,

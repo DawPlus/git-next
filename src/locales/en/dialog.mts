@@ -1,4 +1,11 @@
 export const dialog = {
+  repositoryOperation: {
+    "busy": "Another Git Next operation is running. Retry after it finishes. If this persists, check other windows and the lock file.",
+    "failed": "Could not complete the Git operation. Review the error before retrying.",
+    "changed": "Repository state changed during confirmation. Nothing was executed. Review the changes and try again.",
+    "fetching": "Fetch · Checking remote state",
+    "retryFetch": "Check your connection and authentication, then Refresh to retry."
+},
   confirmMutation: {
     actionLabel: "Action: {action}",
     targetLabel: "Target: {target}",

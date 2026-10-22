@@ -79,7 +79,7 @@ function renderMarkerGuide(tFn: (key: string) => string) {
     <div class="marker-grid">
       <div class="marker local"><span>${escapeHtml(tFn("guide.marker.localLabel"))}</span><code>&lt;&lt;&lt;&lt;&lt;&lt;&lt; HEAD</code><pre>${escapeHtml(tFn("guide.marker.localDesc"))}</pre></div>
       <div class="marker sep"><span>${escapeHtml(tFn("guide.marker.sepLabel"))}</span><code>=======</code><pre>${escapeHtml(tFn("guide.marker.sepDesc"))}</pre></div>
-      <div class="marker incoming"><span>${escapeHtml(tFn("guide.marker.incomingLabel"))}</span><code>&gt;&gt;&gt;&gt;&gt;&gt;&gt; origin/main</code><pre>${escapeHtml(tFn("guide.marker.incomingDesc"))}</pre></div>
+      <div class="marker incoming"><span>${escapeHtml(tFn("guide.marker.incomingLabel"))}</span><code>&gt;&gt;&gt;&gt;&gt;&gt;&gt; incoming</code><pre>${escapeHtml(tFn("guide.marker.incomingDesc"))}</pre></div>
     </div>
     <div class="choice-grid">
       <div><strong>${escapeHtml(tFn("guide.marker.choiceLocalTitle"))}</strong><span>${escapeHtml(tFn("guide.marker.choiceLocalDesc"))}</span></div>

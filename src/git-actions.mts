@@ -1,6 +1,7 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { t } from "./i18n.mjs";
+import { markStashPulled, recordStashOutcome } from "./stash-flow.mjs";
 
 const execFileAsync = promisify(execFile);
 
@@ -81,6 +82,7 @@ export async function validateCommitish(cwd, value) {
 
 export async function pullRepository(cwd) {
   const result = await run(cwd, ["pull", "--no-rebase", "--no-edit"]);
+  if (result.ok) await markStashPulled(cwd);
   return {
     ...result,
     action: "pull",
@@ -128,8 +130,13 @@ export async function pushWithForceWithLease(cwd, remote, remoteRef, expected) {
   };
 }
 
-export async function pushWithUpstream(cwd, remote, branch) {
-  const result = await run(cwd, ["push", "--set-upstream", remote, branch]);
+export async function pushWithUpstream(cwd, remote, branch, sourceBranch = null) {
+  const source = sourceBranch ?? (await run(cwd, ["symbolic-ref", "--quiet", "--short", "HEAD"])).detail;
+  const [sourceCheck, targetCheck] = await Promise.all([validateBranchName(cwd, source), validateBranchName(cwd, branch)]);
+  if (!sourceCheck.ok || !targetCheck.ok) return { ok: false, action: "push", message: sourceCheck.message ?? targetCheck.message };
+  const commit = await validateCommitish(cwd, `refs/heads/${sourceCheck.name}`);
+  if (!commit.ok) return { ok: false, action: "push", code: "no-commits", message: t("guidance.firstPush.noCommits") };
+  const result = await run(cwd, ["push", "--set-upstream", "--", remote, `refs/heads/${sourceCheck.name}:refs/heads/${targetCheck.name}`]);
   return {
     ...result,
     action: "push",
@@ -210,6 +217,13 @@ export async function deleteTag(cwd, name) {
 export async function createBranch(cwd, name, target = "HEAD") {
   const nameCheck = await validateBranchName(cwd, name);
   const targetCheck = await validateCommitish(cwd, target);
+  if (nameCheck.ok && target === "HEAD" && !targetCheck.ok) {
+    const current = await run(cwd, ["symbolic-ref", "--quiet", "--short", "HEAD"]);
+    if (current.ok) {
+      const result = await run(cwd, ["switch", "-c", nameCheck.name]);
+      return { ...result, action: "create-branch", message: result.ok ? t("guidance.firstPush.unbornBranch", { branch: nameCheck.name }) : t("actions.branch.createFailed") };
+    }
+  }
   if (!nameCheck.ok || !targetCheck.ok) {
     return { ok: false, action: "create-branch", message: nameCheck.message ?? targetCheck.message };
   }
@@ -325,7 +339,7 @@ export async function deleteBranch(cwd, name, force = false) {
 }
 
 export async function listStashes(cwd) {
-  const result = await run(cwd, ["stash", "list", "--format=%gd%x1f%gs%x1f%cr"]);
+  const result = await run(cwd, ["stash", "list", "--format=%gd%x1f%gs%x1f%cr%x1f%H"]);
   if (!result.ok || !result.detail) {
     return [];
   }
@@ -334,16 +348,19 @@ export async function listStashes(cwd) {
     .split("\n")
     .filter(Boolean)
     .map((line) => {
-      const [ref, message = "", relative = ""] = line.split("\x1f");
-      return { ref, message, relative };
+      const [ref, message = "", relative = "", commit = ""] = line.split("\x1f");
+      return { ref, message, relative, commit };
     });
 }
 
 export async function stashPush(cwd, message) {
   const stashMessage = message ?? t("actions.stash.defaultMessage");
+  const before = await run(cwd, ["rev-parse", "--verify", "refs/stash"]);
   const result = await run(cwd, ["stash", "push", "-u", "-m", stashMessage]);
+  const after = result.ok ? await run(cwd, ["rev-parse", "--verify", "refs/stash"]) : null;
   return {
     ...result,
+    stashCommit: after?.ok && after.detail !== before.detail ? after.detail : null,
     action: "stash-push",
     message: result.ok
       ? t("actions.stash.pushSuccess")
@@ -351,9 +368,12 @@ export async function stashPush(cwd, message) {
   };
 }
 
-export async function stashApply(cwd, ref) {
+export async function stashApply(cwd, ref, expectedCommit = null) {
   if (!isSafeStashRef(ref)) return { ok: false, action: "stash-apply", message: t("actions.stash.invalidRef") };
+  const commit = await run(cwd, ["rev-parse", "--verify", ref]);
+  if (expectedCommit && (!commit.ok || commit.detail !== expectedCommit)) return { ok: false, action: "stash-apply", code: "stash-changed", message: t("guidance.stashFlow.changed") };
   const result = await run(cwd, ["stash", "apply", "--", ref]);
+  await recordStashOutcome(cwd, commit.detail, "apply", result.ok, /CONFLICT/.test(result.detail));
   return {
     ...result,
     action: "stash-apply",
@@ -363,9 +383,12 @@ export async function stashApply(cwd, ref) {
   };
 }
 
-export async function stashPop(cwd, ref) {
+export async function stashPop(cwd, ref, expectedCommit = null) {
   if (!isSafeStashRef(ref)) return { ok: false, action: "stash-pop", message: t("actions.stash.invalidRef") };
+  const commit = await run(cwd, ["rev-parse", "--verify", ref]);
+  if (expectedCommit && (!commit.ok || commit.detail !== expectedCommit)) return { ok: false, action: "stash-pop", code: "stash-changed", message: t("guidance.stashFlow.changed") };
   const result = await run(cwd, ["stash", "pop", "--", ref]);
+  await recordStashOutcome(cwd, commit.detail, "pop", result.ok, /CONFLICT/.test(result.detail));
   return {
     ...result,
     action: "stash-pop",
@@ -375,9 +398,12 @@ export async function stashPop(cwd, ref) {
   };
 }
 
-export async function stashDrop(cwd, ref) {
+export async function stashDrop(cwd, ref, expectedCommit = null) {
   if (!isSafeStashRef(ref)) return { ok: false, action: "stash-drop", message: t("actions.stash.invalidRef") };
+  const commit = await run(cwd, ["rev-parse", "--verify", ref]);
+  if (expectedCommit && (!commit.ok || commit.detail !== expectedCommit)) return { ok: false, action: "stash-drop", code: "stash-changed", message: t("guidance.stashFlow.changed") };
   const result = await run(cwd, ["stash", "drop", "--", ref]);
+  await recordStashOutcome(cwd, commit.detail, "drop", result.ok);
   return {
     ...result,
     action: "stash-drop",

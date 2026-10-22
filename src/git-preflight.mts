@@ -4,6 +4,7 @@ import { isAbsolute, resolve } from "node:path";
 
 import { runGitInspection, getTrackingStatus, getHeadSafety, getWorkingTreeChanges, parseMergeTreeConflictOutput, getPushGuidance, markCurrentUpstreamFreshFromTracking } from "./git-tracking.mjs";
 import { guidanceNotice } from "./git-guidance.mjs";
+import { t } from "./i18n.mjs";
 
 export async function getInProgressOperation(cwd) {
   const candidates = [
@@ -111,6 +112,11 @@ export async function preflightPushSafety(cwd) {
     });
   }
 
+  try {
+    await runGitInspection(cwd, ["rev-parse", "--verify", "HEAD^{commit}"]);
+  } catch {
+    return guidanceNotice({ level: "blocked", code: "no-commits", state: t("guidance.firstPush.noCommits"), risk: t("guidance.firstPush.noCommitsRisk"), next: t("guidance.firstPush.initialNext"), detail: null, affected: [] });
+  }
   const operation = await getInProgressOperation(cwd);
   if (operation) {
     return guidanceNotice({

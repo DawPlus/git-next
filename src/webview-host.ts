@@ -15,6 +15,7 @@ function createWebviewHost(core, panels, menus, sync) {
     renderPanel,
     recordActivity,
     confirmMutation,
+    onRepositoryMessage = (webview, handler) => webview.onDidReceiveMessage(handler),
     getOrCreateWebviewPanel,
     getLocale,
     setLocale,
@@ -222,7 +223,7 @@ function createWebviewHost(core, panels, menus, sync) {
       setLocale,
       t,
     });
-    const messages = host.webview.onDidReceiveMessage(handleMessage);
+    const messages = onRepositoryMessage(host.webview, handleMessage);
     context.subscriptions.push(messages);
 
     try {

@@ -17,10 +17,10 @@ test("renders human-readable merge conflict marker guide", () => {
   const html = renderGuideHtml("pull-conflict");
 
   assert.match(html, /상황별 Git 가이드/);
-  assert.match(html, /내 변경/);
-  assert.match(html, /서버에서 들어온 변경/);
+  assert.match(html, /현재 쪽 변경/);
+  assert.match(html, /상대 쪽 변경/);
   assert.match(html, /&lt;&lt;&lt;&lt;&lt;&lt;&lt; HEAD/);
-  assert.match(html, /HEAD.*서버 이름이 아니라/s);
+  assert.match(html, /Rebase.*기준/s);
   assert.match(html, /이유를 모른 채 Force Push/);
 });
 

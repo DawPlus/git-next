@@ -1,120 +1,120 @@
 {
-  "name": "git-next",
-  "displayName": "Git Next",
-  "description": "Git 그래프, Safe Guard, 한국어 가이드와 AI 진단으로 Git 상태와 다음 행동을 이해하기 쉽게 보여주는 VS Code 확장입니다.",
-  "version": "0.2.3",
-  "publisher": "DawChae",
-  "license": "MIT",
-  "private": true,
-  "engines": {
-    "vscode": "^1.100.0"
-  },
-  "categories": [
-    "SCM Providers",
-    "Education"
-  ],
-  "activationEvents": [
-    "onCommand:gitNext.open",
-    "onCommand:gitNext.fileHistory",
-    "onView:gitNext.sidebar"
-  ],
-  "main": "./dist/extension.js",
-  "contributes": {
-    "commands": [
-      {
-        "command": "gitNext.open",
-        "title": "Git Next: 그래프 열기"
-      },
-      {
-        "command": "gitNext.fileHistory",
-        "title": "Git Next: 파일 커밋 이력 그래프에서 보기"
-      }
-    ],
-    "menus": {
-      "explorer/context": [
-        {
-          "command": "gitNext.fileHistory",
-          "when": "resourceScheme == file",
-          "group": "navigation"
-        }
-      ]
-    },
-    "viewsContainers": {
-      "activitybar": [
-        {
-          "id": "gitNext",
-          "title": "Git Next",
-          "icon": "assets/git-next.svg"
-        }
-      ]
-    },
-    "views": {
-      "gitNext": [
-        {
-          "type": "webview",
-          "id": "gitNext.sidebar",
-          "name": "Git Next"
-        }
-      ]
-    },
-    "configuration": {
-      "title": "Git Next",
-      "properties": {
-        "gitNext.pullBeforePush": {
-          "type": "boolean",
-          "default": false,
-          "description": "Push 전에 안전한 Pull을 먼저 실행합니다. 안전하게 업데이트할 수 없으면 Push를 중단합니다."
-        },
-        "gitNext.ai.provider": {
-          "type": "string",
-          "enum": [
-            "off",
-            "codex",
-            "ollama"
-          ],
-          "default": "off",
-          "description": "Git 상황 진단에 사용할 AI Provider입니다."
-        },
-        "gitNext.ai.ollamaEndpoint": {
-          "type": "string",
-          "default": "http://127.0.0.1:11434",
-          "description": "Ollama 로컬 API 주소입니다."
-        },
-        "gitNext.ai.ollamaModel": {
-          "type": "string",
-          "default": "",
-          "description": "AI 진단에 사용할 Ollama 모델 이름입니다."
-        },
-        "gitNext.protectedBranches": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          },
-          "default": [
-            "main",
-            "master",
-            "release/*"
-          ],
-          "description": "위험한 이력 변경 작업에서 추가 경고를 표시할 보호 브랜치 패턴입니다."
-        }
-      }
-    }
-  },
-  "scripts": {
-    "typecheck": "tsc -p tsconfig.typecheck.json",
-    "build": "node scripts/build.mjs",
-    "test": "tsx --test test/*.test.mjs",
-    "package": "node scripts/package-vsix.mjs",
-    "setup": "npm test && npm run typecheck && npm run build && npm run package"
-  },
-  "devDependencies": {
-    "@types/node": "^20.19.43",
-    "@types/vscode": "^1.100.0",
-    "tsx": "^4.23.15",
-    "typescript": "^7.0.2"
-  },
-  "icon": "assets/icon.png",
-  "author": {
-    "name": "Daw Chae"
-  }
+	"name": "git-next",
+	"displayName": "Git Next",
+	"description": "Git 그래프, Safe Guard, 한국어 가이드와 AI 진단으로 Git 상태와 다음 행동을 이해하기 쉽게 보여주는 VS Code 확장입니다.",
+	"version": "0.2.4",
+	"publisher": "DawChae",
+	"license": "MIT",
+	"private": true,
+	"engines": {
+		"vscode": "^1.100.0"
+	},
+	"categories": [
+		"SCM Providers",
+		"Education"
+	],
+	"activationEvents": [
+		"onCommand:gitNext.open",
+		"onCommand:gitNext.fileHistory",
+		"onView:gitNext.sidebar"
+	],
+	"main": "./dist/extension.js",
+	"contributes": {
+		"commands": [
+			{
+				"command": "gitNext.open",
+				"title": "Git Next: 그래프 열기"
+			},
+			{
+				"command": "gitNext.fileHistory",
+				"title": "Git Next: 파일 커밋 이력 그래프에서 보기"
+			}
+		],
+		"menus": {
+			"explorer/context": [
+				{
+					"command": "gitNext.fileHistory",
+					"when": "resourceScheme == file",
+					"group": "navigation"
+				}
+			]
+		},
+		"viewsContainers": {
+			"activitybar": [
+				{
+					"id": "gitNext",
+					"title": "Git Next",
+					"icon": "assets/git-next.svg"
+				}
+			]
+		},
+		"views": {
+			"gitNext": [
+				{
+					"type": "webview",
+					"id": "gitNext.sidebar",
+					"name": "Git Next"
+				}
+			]
+		},
+		"configuration": {
+			"title": "Git Next",
+			"properties": {
+				"gitNext.pullBeforePush": {
+					"type": "boolean",
+					"default": false,
+					"description": "Push 전에 안전한 Pull을 먼저 실행합니다. 안전하게 업데이트할 수 없으면 Push를 중단합니다."
+				},
+				"gitNext.ai.provider": {
+					"type": "string",
+					"enum": [
+						"off",
+						"codex",
+						"ollama"
+					],
+					"default": "off",
+					"description": "Git 상황 진단에 사용할 AI Provider입니다."
+				},
+				"gitNext.ai.ollamaEndpoint": {
+					"type": "string",
+					"default": "http://127.0.0.1:11434",
+					"description": "Ollama 로컬 API 주소입니다."
+				},
+				"gitNext.ai.ollamaModel": {
+					"type": "string",
+					"default": "",
+					"description": "AI 진단에 사용할 Ollama 모델 이름입니다."
+				},
+				"gitNext.protectedBranches": {
+					"type": "array",
+					"items": {
+						"type": "string"
+					},
+					"default": [
+						"main",
+						"master",
+						"release/*"
+					],
+					"description": "위험한 이력 변경 작업에서 추가 경고를 표시할 보호 브랜치 패턴입니다."
+				}
+			}
+		}
+	},
+	"scripts": {
+		"typecheck": "tsc -p tsconfig.typecheck.json",
+		"build": "node scripts/build.mjs",
+		"test": "tsx --test test/*.test.mjs",
+		"package": "node scripts/package-vsix.mjs",
+		"setup": "npm test && npm run typecheck && npm run build && npm run package"
+	},
+	"devDependencies": {
+		"@types/node": "^20.19.43",
+		"@types/vscode": "^1.100.0",
+		"tsx": "^4.23.15",
+		"typescript": "^7.0.2"
+	},
+	"icon": "assets/icon.png",
+	"author": {
+		"name": "Daw Chae"
+	}
 }

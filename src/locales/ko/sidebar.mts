@@ -45,6 +45,7 @@ export const sidebar = {
     stashChanges: "Stash로 보관",
     stageAll: "전체 Stage",
     focusCommit: "Commit 메시지 입력",
+    selectChanges: "Commit할 변경 선택",
     continueAbort: "Continue / Abort",
     pullCount: "Pull {count}",
     pushCount: "Push {count}",

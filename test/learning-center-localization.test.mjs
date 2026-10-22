@@ -77,9 +77,9 @@ test("situational Git guides render in Korean and English", () => {
   assert.match(koHtml, /<strong>피할 것<\/strong>/);
   assert.match(koHtml, /지금 변경이 커밋 가능한 상태면 먼저 Commit해요/);
   // Marker conflict
-  assert.match(koHtml, /내 변경/);
-  assert.match(koHtml, /서버에서 들어온 변경/);
-  assert.match(koHtml, /내 변경 사용/);
+  assert.match(koHtml, /현재 쪽 변경/);
+  assert.match(koHtml, /상대 쪽 변경/);
+  assert.match(koHtml, /현재 쪽 사용/);
 
   // English
   const enHtml = renderGuideHtml("dirty-pull", { locale: "en" });
@@ -91,7 +91,7 @@ test("situational Git guides render in Korean and English", () => {
   assert.match(enHtml, /If current changes are ready, commit them first/);
   // Marker conflict
   assert.match(enHtml, /Current changes/);
-  assert.match(enHtml, /Incoming changes from server/);
+  assert.match(enHtml, /Incoming side/);
   assert.match(enHtml, /Accept Current/);
   assert.match(enHtml, /&lt;&lt;&lt;&lt;&lt;&lt;&lt; HEAD/);
 });

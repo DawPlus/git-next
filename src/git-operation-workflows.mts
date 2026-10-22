@@ -1,4 +1,5 @@
 import { runGit, parseNameStatus, parseSubjects } from "./git-command.mjs";
+import { t } from "./i18n.mjs";
 
 import { getTrackingStatus, getWorkingTreeChanges } from "./git-safety.mjs";
 
@@ -19,6 +20,35 @@ export async function listConflictedFiles(cwd: string): Promise<string[]> {
   return result.ok && result.detail ? result.detail.split("\n").filter(Boolean) : [];
 }
 
+export async function getConflictSides(cwd: string, operation: string | null) {
+  const describe = async (ref: string) => {
+    const [commit, name] = await Promise.all([
+      runGit(cwd, ["show", "-s", "--format=%h %s", ref, "--"]),
+      runGit(cwd, ["name-rev", "--name-only", "--no-undefined", ref]),
+    ]);
+    return [ref, name.ok ? name.detail : null, commit.ok ? commit.detail : null].filter(Boolean).join(" · ");
+  };
+  const incomingRef = ({ merge: "MERGE_HEAD", rebase: "REBASE_HEAD", "cherry-pick": "CHERRY_PICK_HEAD", revert: "REVERT_HEAD^" })[operation ?? ""];
+  const [current, incoming] = await Promise.all([
+    describe("HEAD"),
+    incomingRef ? describe(incomingRef) : Promise.resolve(t("guidance.conflict.incoming")),
+  ]);
+  let currentDescription = t("guidance.conflict.currentDescription");
+  let incomingDescription = t("guidance.conflict.incomingDescription");
+  if (operation === "rebase") {
+    currentDescription = t("guidance.conflict.rebaseCurrent");
+    incomingDescription = t("guidance.conflict.rebaseIncoming");
+  } else if (operation === "cherry-pick") {
+    incomingDescription = t("guidance.conflict.cherryPickIncoming");
+  } else if (operation === "revert") {
+    incomingDescription = t("guidance.conflict.revertIncoming");
+  }
+  return {
+    mine: { label: current, description: currentDescription },
+    theirs: { label: incoming, description: incomingDescription },
+  };
+}
+
 export async function resolveConflictSide(cwd: string, path: string, side: "mine" | "theirs"): Promise<WorkflowResult> {
   const checkout = await runGit(cwd, ["checkout", side === "mine" ? "--ours" : "--theirs", "--", path]);
   if (!checkout.ok) {
@@ -29,7 +59,7 @@ export async function resolveConflictSide(cwd: string, path: string, side: "mine
     ...add,
     action: "resolve-conflict",
     message: add.ok
-      ? `${path}: ${side === "mine" ? "내 변경" : "들어온 변경"}을 선택하고 해결됨으로 표시했습니다.`
+      ? t("guidance.conflict.resolved", { path, side: side === "mine" ? "ours (HEAD)" : "theirs" })
       : "파일을 해결됨으로 표시하지 못했습니다.",
   };
 }

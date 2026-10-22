@@ -1,4 +1,6 @@
-import { runGit, parseNameStatus } from "./git-command.mjs";
+import { t } from "./i18n.mjs";
+
+import { runGit, parseNameStatus, parseSubjects } from "./git-command.mjs";
 
 import { getChangeWorkspace } from "./git-change-workflows.mjs";
 
@@ -18,7 +20,7 @@ export async function listRemotes(cwd) {
 }
 
 export async function addRemote(cwd, name, url) {
-  const result = await runGit(cwd, ["remote", "add", name, url]);
+  const result = await runGit(cwd, ["remote", "add", "--", name, url]);
   return { ...result, action: "remote-add", message: result.ok ? `원격 '${name}'을 추가했습니다.` : "원격을 추가하지 못했습니다." };
 }
 
@@ -99,7 +101,22 @@ export function derivePullRequestUrl(remoteUrl, branch, target = "main") {
   return null;
 }
 
-export function getPullRequestReadiness({ branch, upstream, tracking, changes = [] }) {
+export async function getPullRequestComparison(cwd, base, source) {
+  const result = await runGit(cwd, ["log", "--oneline", `${base}..${source}`, "--"]);
+  return { ok: result.ok, commits: result.ok ? parseSubjects(result.detail) : [] };
+}
+
+export async function getPullRequestTargets(cwd, remote) {
+  const prefix = `refs/remotes/${remote}/`;
+  const result = await runGit(cwd, ["for-each-ref", "--format=%(refname)%00%(symref)", prefix]);
+  const targets = result.ok ? result.detail.split("\n").flatMap((line) => {
+    const [ref, symbolic] = line.split("\0");
+    return ref.startsWith(prefix) && !symbolic ? [ref.slice(prefix.length)] : [];
+  }) : [];
+  return { ok: result.ok, targets };
+}
+
+export function getPullRequestReadiness({ branch, upstream, tracking, changes = [], comparison = null }) {
   const ahead = tracking?.ahead ?? 0;
   const behind = tracking?.behind ?? 0;
   const untrackedCount = changes.filter((change) => change.status === "??").length;
@@ -123,9 +140,12 @@ export function getPullRequestReadiness({ branch, upstream, tracking, changes = 
       ? "Remote 연결을 확인하고 새로고침하세요."
       : "Branch 비교에서 차이를 확인하고 동기화하세요.");
   }
-  if (upstream && tracking?.kind === "up-to-date" && ahead === 0) {
-    blockers.push("PR에 포함할 로컬 커밋이 없습니다.");
-    nextActions.push("변경 내용을 Commit한 뒤 Push하세요.");
+  if (!comparison?.ok) {
+    blockers.push(t("guidance.verification.prUnverified"));
+    nextActions.push(t("guidance.verification.prFetch"));
+  } else if (!comparison.commits.length) {
+    blockers.push(t("guidance.verification.prEmpty"));
+    nextActions.push(t("guidance.verification.prCheck"));
   }
 
   const warnings = changes.length
