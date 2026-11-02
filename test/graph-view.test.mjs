@@ -244,7 +244,7 @@ test("keeps the status hint and Safe Guard compact above collapsible change grou
   assert.ok(html.indexOf("class=\"status-hints\"") < changesIndex);
   assert.ok(html.indexOf("class=\"safe-guard\"") === -1);
   assert.doesNotMatch(html, /현재 변경 파일 \d+개가 있습니다/);
-  assert.match(html, /class="scm-count">1개<\/span>/);
+  assert.match(html, /class="scm-count"[^>]*>1개<\/span>/);
   assert.match(html, /class="guard-summary warning"/);
   assert.match(html, /class="guard-message-button"/);
   assert.match(html, /class="guard-hint"/);

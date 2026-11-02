@@ -98,21 +98,46 @@ const operationCommands: Record<GitOperationName, Record<OperationAction, string
   revert: { continue: ["-c", "core.editor=true", "revert", "--continue"], abort: ["revert", "--abort"] },
 };
 
+export function operationFinishLabel(operation: GitOperationName | string | null | undefined): string {
+  return ({
+    merge: t("guidance.conflict.finishMerge"),
+    rebase: t("guidance.conflict.finishRebase"),
+    "cherry-pick": t("guidance.conflict.finishCherryPick"),
+    revert: t("guidance.conflict.finishRevert"),
+  } as Record<string, string>)[operation ?? ""] ?? t("guidance.conflict.finishGeneric");
+}
+
+export function operationCancelLabel(operation: GitOperationName | string | null | undefined): string {
+  return ({
+    merge: t("guidance.conflict.cancelMerge"),
+    rebase: t("guidance.conflict.cancelRebase"),
+    "cherry-pick": t("guidance.conflict.cancelCherryPick"),
+    revert: t("guidance.conflict.cancelRevert"),
+  } as Record<string, string>)[operation ?? ""] ?? t("guidance.conflict.cancelGeneric");
+}
+
 export function formatOperationActionPreview(operation: GitOperationName | string, action: OperationAction, conflictedFiles: string[] = []): string {
-  const name = ({ merge: "Merge", rebase: "Rebase", "cherry-pick": "Cherry-pick", revert: "Revert" } as Record<string, string>)[operation] ?? operation;
-  const conflicts = `충돌 파일 ${conflictedFiles.length}개`;
-  return action === "continue"
-    ? `${name}를 계속하면 ${conflicts}의 정리 내용을 반영하고 진행 중인 Git 작업을 이어갑니다.`
-    : `${name}를 취소하면 ${conflicts}의 해결 내용은 반영되지 않고 시작 전 위치로 돌아갑니다.`;
+  const finish = operationFinishLabel(operation);
+  const cancel = operationCancelLabel(operation);
+  if (action === "continue") {
+    return conflictedFiles.length
+      ? t("guidance.conflict.continueBlocked", { count: conflictedFiles.length, finish })
+      : t("guidance.conflict.continueConfirm", { finish });
+  }
+  return t("guidance.conflict.abortConfirm", { cancel, count: conflictedFiles.length });
 }
 
 export function buildOperationGuard(operation: { operation?: string; path?: string | null } | null | undefined, conflictedFiles: string[] = []) {
   const name = ({ merge: "Merge", rebase: "Rebase", "cherry-pick": "Cherry-pick", revert: "Revert" })[operation?.operation] ?? operation?.operation ?? "Git";
-  const state = `${name} 진행 중`;
-  const risk = "진행 중인 작업을 끝내기 전에 다른 Git 작업을 겹치면 상태가 더 복잡해질 수 있습니다.";
+  const finish = operationFinishLabel(operation?.operation);
+  const cancel = operationCancelLabel(operation?.operation);
+  const state = conflictedFiles.length
+    ? t("guidance.conflict.progressNeedResolve", { operation: name, count: conflictedFiles.length })
+    : t("guidance.conflict.progressReady", { operation: name, finish });
+  const risk = t("guidance.conflict.progressRisk");
   const next = conflictedFiles.length
-    ? `충돌 파일 ${conflictedFiles.length}개를 정리한 뒤 Continue하거나, 원치 않으면 Abort하세요.`
-    : "Continue로 작업을 이어가거나 Abort로 시작 전 상태로 돌아가세요.";
+    ? t("guidance.conflict.progressNextResolve", { count: conflictedFiles.length, cancel })
+    : t("guidance.conflict.progressNextFinish", { finish, cancel });
   return guidanceNotice({
     ok: false,
     level: "blocked",
@@ -122,7 +147,7 @@ export function buildOperationGuard(operation: { operation?: string; path?: stri
     risk,
     next,
     detail: conflictedFiles.length
-      ? `충돌 파일:\n${conflictedFiles.join("\n")}`
+      ? `${t("guidance.conflict.filesHeading")}\n${conflictedFiles.join("\n")}`
       : operation?.path ?? null,
     actions: ["operation-recovery"],
   });

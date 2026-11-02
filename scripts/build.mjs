@@ -8,7 +8,14 @@ const tsc = new URL("../node_modules/typescript/bin/tsc", import.meta.url);
 
 await rm(dist, { recursive: true, force: true });
 
-execFileSync(process.execPath, [fileURLToPath(tsc), "-p", fileURLToPath(new URL("../tsconfig.json", import.meta.url))], {
-  cwd: fileURLToPath(root),
-  stdio: "inherit",
-});
+const cwd = fileURLToPath(root);
+const runTsc = (configUrl) =>
+  execFileSync(process.execPath, [fileURLToPath(tsc), "-p", fileURLToPath(configUrl)], {
+    cwd,
+    stdio: "inherit",
+  });
+
+// Fail closed on type errors before emit. Emit config may keep noCheck for JS interop,
+// but shipping without a type gate undermines Safe Guard correctness.
+runTsc(new URL("../tsconfig.typecheck.json", import.meta.url));
+runTsc(new URL("../tsconfig.json", import.meta.url));

@@ -7,6 +7,7 @@ function createPanelHandlers(core, getMenus) {
     getCwd,
     getState,
     refreshState,
+    noteSoftFailure,
     refreshWorkingTreeState,
     applyWorkingTreeCacheAction,
     getOrCreateWebviewPanel,
@@ -175,7 +176,7 @@ async function openChangesPanel(context) {
     notice = null;
 
     if (message?.type === "refresh") {
-      await refreshWorkingTreeState(cwd).catch(() => {});
+      await refreshWorkingTreeState(cwd).catch(() => noteSoftFailure());
       return refresh();
     }
     if (message?.type === "compare-remote") {
@@ -206,7 +207,7 @@ async function openChangesPanel(context) {
         return;
       }
       await recordActivity(result);
-      await refreshWorkingTreeState(cwd).catch(() => {});
+      await refreshWorkingTreeState(cwd).catch(() => noteSoftFailure());
       return refresh();
     }
     if (message?.type === "stage-all" || message?.type === "unstage-all") {
@@ -222,7 +223,7 @@ async function openChangesPanel(context) {
         return;
       }
       await recordActivity(result);
-      await refreshWorkingTreeState(cwd).catch(() => {});
+      await refreshWorkingTreeState(cwd).catch(() => noteSoftFailure());
       return refresh();
     }
     if (message?.type === "discard") {
@@ -238,7 +239,7 @@ async function openChangesPanel(context) {
       const result = await workflows.discardFile(cwd, message.path, { untracked: message.untracked });
       notice = result;
       await recordActivity(result);
-      await refreshWorkingTreeState(cwd).catch(() => {});
+      await refreshWorkingTreeState(cwd).catch(() => noteSoftFailure());
       return refresh();
     }
     if (message?.type === "commit") {
@@ -262,7 +263,7 @@ async function openChangesPanel(context) {
       const result = await workflows.runWithGitStateDelta(cwd, () => workflows.commitWithMessage(cwd, commitMessage));
       notice = result;
       await recordActivity(result);
-      await refreshState(cwd).catch(() => {});
+      await refreshState(cwd).catch(() => noteSoftFailure());
       return refresh();
     }
     if (message?.type === "undo-commit") {
@@ -283,7 +284,7 @@ async function openChangesPanel(context) {
       const result = await workflows.runWithGitStateDelta(cwd, () => workflows.undoLastLocalCommit(cwd));
       notice = result;
       await recordActivity(result);
-      await refreshState(cwd).catch(() => {});
+      await refreshState(cwd).catch(() => noteSoftFailure());
       return refresh();
     }
   });
@@ -404,7 +405,7 @@ async function openBranchWorkspace(context) {
       return await action();
     } finally {
       const cwd = getCwd();
-      if (cwd) await refreshState(cwd).catch(() => {});
+      if (cwd) await refreshState(cwd).catch(() => noteSoftFailure());
       branchMutationRunning = false;
     }
   };
@@ -572,12 +573,12 @@ async function openBranchWorkspace(context) {
     }
     if (message?.type === "sync") {
       await syncCurrentBranch(cwd, state, message.branch, message.kind);
-      await refreshState(cwd).catch(() => {});
+      await refreshState(cwd).catch(() => noteSoftFailure());
       return refresh();
     }
     if (message?.type === "refresh-remote") {
       await refreshRemoteBranches(cwd);
-      await refreshState(cwd).catch(() => {});
+      await refreshState(cwd).catch(() => noteSoftFailure());
       return refresh();
     }
     if (message?.type === "create") {
@@ -618,7 +619,7 @@ async function openBranchWorkspace(context) {
         target: `${message.branch} → ${state.branch}`,
         effect: workflows.formatIntegrationPreview(preview, "merge"),
         risk: preview.conflictRisk
-          ? "충돌 가능성이 있습니다. 충돌 시 기존 Continue / Abort 흐름에서 정리합니다."
+          ? "충돌 가능성이 있습니다. 충돌이 나면 충돌 정리 / 작업 마무리 흐름에서 안내합니다."
           : "선택한 브랜치의 커밋을 현재 브랜치에 반영합니다.",
         level: preview.conflictRisk ? "warning" : "safe",
         confirmLabel: "Merge 실행",

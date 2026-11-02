@@ -1,4 +1,4 @@
-import { escapeHtml } from "./view-shared.mjs";
+import { escapeHtml, t } from "./view-shared.mjs";
 import { getActionRisk } from "./git-safety.mjs";
 import { GRAPH_STYLES } from "./graph-styles.mjs";
 import { GRAPH_INTERACTIONS } from "./graph-interactions.mjs";
@@ -164,8 +164,12 @@ function renderBody(state: any, options: any = {}) {
       <span class="empty-icon" aria-hidden="true">
         <svg viewBox="0 0 24 24"><path d="M3.5 6.5h6l2 2h9v10h-17z"></path><path d="M3.5 8.5h17"></path></svg>
       </span>
-      <h2>Git 저장소가 없습니다</h2>
-      <p>Git 저장소가 들어 있는 폴더를 열면 그래프와 Safe Guard가 시작됩니다.</p>
+      <h2>${escapeHtml(t("guidance.onboarding.noRepoTitle"))}</h2>
+      <p>${escapeHtml(t("guidance.onboarding.noRepoBody"))}</p>
+      <div class="empty-actions">
+        <button class="commit-action" type="button" data-action="openWorkspaceFolder">${escapeHtml(t("guidance.onboarding.openFolder"))}</button>
+        <button class="commit-action" type="button" data-action="initRepository">${escapeHtml(t("guidance.onboarding.initRepo"))}</button>
+      </div>
     </section>`;
   }
 
@@ -174,8 +178,12 @@ function renderBody(state: any, options: any = {}) {
       <span class="empty-icon" aria-hidden="true">
         <svg viewBox="0 0 24 24"><path d="M5 12h5M14 12h5"></path><circle cx="12" cy="12" r="3"></circle></svg>
       </span>
-      <h2>아직 커밋이 없습니다</h2>
-      <p>첫 Commit을 만들면 여기에서 기록의 흐름을 볼 수 있습니다.</p>
+      <h2>${escapeHtml(t("guidance.onboarding.zeroCommitTitle"))}</h2>
+      <p>${escapeHtml(t("guidance.onboarding.zeroCommitBody"))}</p>
+      <div class="empty-actions">
+        <button class="commit-action" type="button" data-action="startFirstCommitGuide">${escapeHtml(t("guidance.onboarding.startFirstCommit"))}</button>
+        <button class="commit-action" type="button" data-action="createFirstFile">${escapeHtml(t("guidance.firstPush.createFile"))}</button>
+      </div>
     </section>`;
   }
 
@@ -297,7 +305,7 @@ export function renderGraphHtml(state: any, notice: any = null, options: any = {
       ${notice.detail ? `<div class="git-detail-label">Git 상세 정보</div><pre>${escapeHtml(notice.detail)}</pre>` : ""}
       <div class="notice-actions">
         <button class="commit-action" type="button" data-action="openCompare">Local ↔ Remote 비교</button>
-        ${notice.actions?.includes("operation-recovery") ? '<button class="commit-action" type="button" data-action="operationRecovery">Continue / Abort</button>' : ""}
+        ${notice.actions?.includes("operation-recovery") ? `<button class="commit-action" type="button" data-action="operationRecovery">${escapeHtml(t("sidebar.actions.continueAbort"))}</button>` : ""}
         ${notice.guideKey ? `<button class="commit-action" type="button" data-action="openGuide" data-guide-key="${escapeHtml(notice.guideKey)}">이 상황 해결 방법</button>` : ""}
       </div>
     </div>` : ""}

@@ -15,8 +15,15 @@ menus = createGitMenus(core, sync, panels, () => webviewHost);
 webviewHost = createWebviewHost(core, panels, menus, sync);
 
 async function activate(context: vscode.ExtensionContext) {
+  const perf = require("./perf-trace.js");
   if (context.extensionMode === vscode.ExtensionMode.Development) {
-    require("./perf-trace.js").enableDevelopmentPerfTracing();
+    perf.enableDevelopmentPerfTracing();
+  }
+  if (perf.isPerfTracingEnabled()) {
+    const logPath = perf.getPerfLogPath();
+    if (logPath) {
+      void vscode.window.setStatusBarMessage(`Git Next perf → ${logPath}`, 8000);
+    }
   }
   await core.initialize(context);
   void webviewHost.registerBuiltInGitStateRefresh(context);

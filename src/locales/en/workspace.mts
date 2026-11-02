@@ -133,7 +133,7 @@ export const workspace = {
     createConfirm: "Create branch",
     mergeSameBranch: "Cannot merge a branch into itself.",
     mergeAction: "Merge branch",
-    mergeRiskConflict: "Conflicts may occur. If conflicts arise, resolve via continue/abort workflow.",
+    mergeRiskConflict: "Conflicts may occur. If they do, the conflict cleanup / finish-work flow will guide you.",
     mergeRiskSafe: "Applies commits from selected branch into current branch.",
     mergeConfirm: "Execute Merge",
     switchSameBranch: "Already on this branch.",

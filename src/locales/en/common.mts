@@ -13,4 +13,6 @@ export const common = {
   greeting: "Hello, {name}!",
   itemsCount: "{count} items",
   worktreeCount: "{count} other worktrees",
+  refreshFailed: "Could not refresh repository status. The panel may be out of date.",
+  actionBusy: "Another Git action is still running. Wait a moment, then try again.",
 };

@@ -133,7 +133,7 @@ export const workspace = {
     createConfirm: "브랜치 만들기",
     mergeSameBranch: "현재 브랜치는 자기 자신과 Merge할 수 없습니다.",
     mergeAction: "브랜치 Merge",
-    mergeRiskConflict: "충돌 가능성이 있습니다. 충돌 시 기존 Continue / Abort 흐름에서 정리합니다.",
+    mergeRiskConflict: "충돌 가능성이 있습니다. 충돌이 나면 충돌 정리 / 작업 마무리 흐름에서 안내합니다.",
     mergeRiskSafe: "선택한 브랜치의 커밋을 현재 브랜치에 반영합니다.",
     mergeConfirm: "Merge 실행",
     switchSameBranch: "이미 현재 브랜치입니다.",

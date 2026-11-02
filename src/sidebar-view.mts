@@ -257,7 +257,7 @@ export function renderSidebarHtml(state: any, notice: any = null, options: { loc
 
     ${otherWorktrees.length ? `<div class="worktree-note">${escapeHtml(tFn("sidebar.worktreeNote", { count: otherWorktrees.length, details: otherWorktrees.map((item) => `${item.branch ?? tFn("sidebar.detachedHead")} · ${item.path}`).join(" / ") }))}</div>` : ""}
     ${relaxedRules.length ? `<div class="worktree-note" role="status">${escapeHtml(tFn("sidebar.relaxedRules", { rules: relaxedRules.join(", ") }))}</div>` : ""}
-    <section class="status-hints">
+    <section class="status-hints" data-status-hints-patch><!--status-hints-start-->
       <div class="guard-summary ${safeLevel}" aria-label="${escapeHtml(tFn("sidebar.safeGuardAriaLabel", { status: safeLabel }))}">
         <span class="guard-summary-main">
           <span class="guard-mark" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3 19 6v5c0 4.5-2.8 8-7 10-4.2-2-7-5.5-7-10V6z"></path><path d="m9 12 2 2 4-4"></path></svg></span>
@@ -270,7 +270,7 @@ export function renderSidebarHtml(state: any, notice: any = null, options: { loc
       </div>
       ${contextualAction ? `<div class="guard-recommendation"><span class="guard-recommendation-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 12h12"></path><path d="m13 8 4 4-4 4"></path></svg></span><span class="guard-recommendation-copy"><span class="guard-recommendation-label">${escapeHtml(tFn("sidebar.nextRecommendation"))}</span><button class="guard-next-action" type="button" data-action="${contextualAction.action}" data-stash-id="${escapeHtml(nextAction?.stashId ?? "")}" title="${escapeHtml(tFn("sidebar.recommendedActionTitle", { action: contextualAction.label }))}">${escapeHtml(contextualAction.label)}</button></span></div>` : ""}
       ${notice?.actions?.includes("operation-recovery") && contextualAction?.action !== "operationRecovery" ? `<button class="linkish" type="button" data-action="operationRecovery">${escapeHtml(tFn("sidebar.operationRecoveryLink"))}</button>` : ""}
-    </section>
+    <!--status-hints-end--></section>
 
     <section class="section action-panel">
       <div class="commit-compose">
@@ -301,17 +301,38 @@ export function renderSidebarHtml(state: any, notice: any = null, options: { loc
       <div class="scm-head">
         <div class="eyebrow">${escapeHtml(tFn("sidebar.changesHead"))}</div>
         <div class="scm-summary-actions">
-          <span class="scm-count">${escapeHtml(tFn("sidebar.changesCount", { count: changes.length }))}</span>
+          <span class="scm-count" data-scm-count>${escapeHtml(tFn("sidebar.changesCount", { count: changes.length }))}</span>
         </div>
       </div>
-      <div class="scm-groups">
+      <div class="scm-groups" data-scm-patch-root><!--scm-patch-start-->
         ${stagedGroup}
         ${unstagedGroup}
         ${emptyChanges}
-      </div>
+      <!--scm-patch-end--></div>
     </section>
   </main>
   <script>${SIDEBAR_INTERACTIONS}</script>
 </body>
 </html>`;
+}
+
+function extractMarked(html: string, start: string, end: string) {
+  const from = html.indexOf(start);
+  const to = html.indexOf(end);
+  if (from < 0 || to < 0 || to < from) return null;
+  return html.slice(from + start.length, to);
+}
+
+/** Working-tree stage patch: SCM groups + Safe Guard hints without replacing whole <main>. */
+export function renderSidebarStagePatch(state: any, notice: any = null, options: { locale?: string } = {}) {
+  const html = renderSidebarHtml(state, notice, options);
+  const scmGroupsHtml = extractMarked(html, "<!--scm-patch-start-->", "<!--scm-patch-end-->");
+  const statusHintsHtml = extractMarked(html, "<!--status-hints-start-->", "<!--status-hints-end-->");
+  const countMatch = html.match(/data-scm-count[^>]*>([^<]*)</);
+  if (scmGroupsHtml == null || statusHintsHtml == null || !countMatch) return null;
+  return {
+    scmGroupsHtml,
+    statusHintsHtml,
+    scmCountLabel: countMatch[1],
+  };
 }

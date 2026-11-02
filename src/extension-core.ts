@@ -49,32 +49,72 @@ function secureWebviewHtml(webview, html) {
 window.gitNextPerfEnabled = ${isPerfTracingEnabled()};
 window.addEventListener("message", (event) => {
   const data = event.data;
-  if (!data || data.type !== "gitNextRefresh" || typeof data.mainHtml !== "string") return;
+  if (!data) return;
+  const domStart = window.gitNextPerfEnabled && data.stageTraceId ? performance.now() : null;
+  const captureFolds = (root) => new Map([...root.querySelectorAll("details.scm-group, details.scm-folder")].map((element) => [
+    element.classList.contains("scm-folder")
+      ? "folder:" + element.dataset.area + ":" + element.dataset.folderPath
+      : "group:" + element.dataset.area,
+    element.open,
+  ]));
+  const restoreFolds = (root, foldStates) => {
+    for (const element of root.querySelectorAll("details.scm-group, details.scm-folder")) {
+      const key = element.classList.contains("scm-folder")
+        ? "folder:" + element.dataset.area + ":" + element.dataset.folderPath
+        : "group:" + element.dataset.area;
+      if (foldStates.has(key)) element.open = foldStates.get(key);
+    }
+  };
+  const finishPerf = () => {
+    if (domStart == null) return;
+    const end = performance.now();
+    const domMs = Math.round(end - domStart);
+    console.debug("[Git Next perf] op=stage:dom:" + data.stageTraceId + " ms=" + domMs);
+    const samples = [{ op: "stage:dom:" + data.stageTraceId, ms: domMs }];
+    const clickStart = window.gitNextStageClicks?.get(data.stageTraceId);
+    if (clickStart != null) {
+      const totalMs = Math.round(end - clickStart);
+      const rows = document.querySelectorAll(".scm-file").length;
+      console.debug("[Git Next perf] op=stage:total:" + data.stageTraceId + " ms=" + totalMs + " rows=" + rows);
+      samples.push({ op: "stage:total:" + data.stageTraceId, ms: totalMs, rows: rows });
+      window.gitNextStageClicks.delete(data.stageTraceId);
+    }
+    window.gitNextVscode?.postMessage({ type: "gitNextPerf", samples: samples });
+  };
+  if (data.type === "gitNextScmRefresh" && typeof data.scmGroupsHtml === "string") {
+    const scmRoot = document.querySelector("[data-scm-patch-root]");
+    const hints = document.querySelector("[data-status-hints-patch]");
+    const count = document.querySelector("[data-scm-count]");
+    if (!scmRoot) return;
+    const foldStates = captureFolds(document);
+    const activeId = document.activeElement?.id || null;
+    const scrollX = window.scrollX;
+    const scrollY = window.scrollY;
+    scmRoot.innerHTML = data.scmGroupsHtml;
+    if (hints && typeof data.statusHintsHtml === "string") hints.innerHTML = data.statusHintsHtml;
+    if (count && typeof data.scmCountLabel === "string") count.textContent = data.scmCountLabel;
+    restoreFolds(document, foldStates);
+    window.scrollTo(scrollX, scrollY);
+    if (activeId) document.getElementById(activeId)?.focus({ preventScroll: true });
+    window.dispatchEvent(new CustomEvent("gitnext:refresh"));
+    finishPerf();
+    return;
+  }
+  if (data.type !== "gitNextRefresh" || typeof data.mainHtml !== "string") return;
   const main = document.querySelector("main");
   if (!main) return;
-  const domStart = window.gitNextPerfEnabled && data.stageTraceId ? performance.now() : null;
   const controls = [...document.querySelectorAll("input, textarea, select")].map((element, index) => ({
     key: element.id || element.name || String(index),
     value: element.value,
     selectionStart: typeof element.selectionStart === "number" ? element.selectionStart : null,
     selectionEnd: typeof element.selectionEnd === "number" ? element.selectionEnd : null,
   }));
-  const foldStates = new Map([...main.querySelectorAll("details.scm-group, details.scm-folder")].map((element) => [
-    element.classList.contains("scm-folder")
-      ? "folder:" + element.dataset.area + ":" + element.dataset.folderPath
-      : "group:" + element.dataset.area,
-    element.open,
-  ]));
+  const foldStates = captureFolds(main);
   const activeId = document.activeElement?.id || null;
   const scrollX = window.scrollX;
   const scrollY = window.scrollY;
   main.innerHTML = data.mainHtml;
-  for (const element of main.querySelectorAll("details.scm-group, details.scm-folder")) {
-    const key = element.classList.contains("scm-folder")
-      ? "folder:" + element.dataset.area + ":" + element.dataset.folderPath
-      : "group:" + element.dataset.area;
-    if (foldStates.has(key)) element.open = foldStates.get(key);
-  }
+  restoreFolds(main, foldStates);
   for (const [index, element] of [...document.querySelectorAll("input, textarea, select")].entries()) {
     const key = element.id || element.name || String(index);
     const saved = controls.find((item) => item.key === key);
@@ -87,15 +127,7 @@ window.addEventListener("message", (event) => {
   window.scrollTo(scrollX, scrollY);
   if (activeId) document.getElementById(activeId)?.focus({ preventScroll: true });
   window.dispatchEvent(new CustomEvent("gitnext:refresh"));
-  if (domStart != null) {
-    const end = performance.now();
-    console.debug("[Git Next perf] op=stage:dom:" + data.stageTraceId + " ms=" + Math.round(end - domStart));
-    const clickStart = window.gitNextStageClicks?.get(data.stageTraceId);
-    if (clickStart != null) {
-      console.debug("[Git Next perf] op=stage:total:" + data.stageTraceId + " ms=" + Math.round(end - clickStart) + " rows=" + document.querySelectorAll(".scm-file").length);
-      window.gitNextStageClicks.delete(data.stageTraceId);
-    }
-  }
+  finishPerf();
 });
 </script>`;
   return withCsp
@@ -446,6 +478,26 @@ async function renderPanel(panel, notice = null, mode = "graph", options = {}) {
   return traceAsync(`render:${mode}`, getCwd(), () => renderPanelImpl(panel, notice, mode, options));
 }
 
+/** One-file Stage/Unstage fast path: patch SCM + Safe Guard only; keep commit draft and non-SCM DOM. */
+async function renderSidebarStagePatch(panel, cwd, notice = null) {
+  if (!cwd || !panel?.webview || !patchableWebviews.has(panel.webview)) return false;
+  const state = getCachedState(cwd);
+  if (!state || state.kind !== "repository") return false;
+  const stageTraceId = isPerfTracingEnabled() ? notice?.stageTraceId : null;
+  const { renderSidebarStagePatch: buildPatch } = await import("./sidebar-view.mjs");
+  const patch = buildPatch(state, notice);
+  if (!patch) return false;
+  await traceAsync(`stage:postMessage:${stageTraceId || "none"}`, cwd, () =>
+    panel.webview.postMessage({
+      type: "gitNextScmRefresh",
+      scmGroupsHtml: patch.scmGroupsHtml,
+      statusHintsHtml: patch.statusHintsHtml,
+      scmCountLabel: patch.scmCountLabel,
+      ...(stageTraceId ? { stageTraceId } : {}),
+    }));
+  return true;
+}
+
 async function getGuideKey(action, data: any = {}) {
   const { classifyGuide } = await import("./git-guide.mjs");
   return classifyGuide({
@@ -500,10 +552,54 @@ async function guardWorkingState(cwd, action) {
   return { ok: true };
 }
 
+function noteSoftFailure(messageKey = "common.refreshFailed") {
+  const setStatus = vscode.window?.setStatusBarMessage;
+  if (typeof setStatus !== "function") return;
+  void setStatus.call(vscode.window, `Git Next: ${t(messageKey)}`, 4000);
+}
+
+async function refreshStateVisible(cwd) {
+  try {
+    return await refreshState(cwd);
+  } catch (error) {
+    noteSoftFailure("common.refreshFailed");
+    throw error;
+  }
+}
+
+async function refreshWorkingTreeStateVisible(cwd) {
+  try {
+    return await refreshWorkingTreeState(cwd);
+  } catch (error) {
+    noteSoftFailure("common.refreshFailed");
+    throw error;
+  }
+}
+
 function onRepositoryMessage(webview, handler) {
   let running = false;
   return webview.onDidReceiveMessage(async (message) => {
-    if (running) return;
+    // Perf samples must bypass the busy lock; they arrive while Stage is still finishing.
+    if (message?.type === "gitNextPerf" && Array.isArray(message.samples)) {
+      const { emitPerfTrace, formatPerfTrace, isPerfTracingEnabled } = require("./perf-trace.js");
+      if (!isPerfTracingEnabled()) return;
+      for (const sample of message.samples) {
+        const op = String(sample?.op ?? "").trim();
+        if (!op) continue;
+        const extra = sample?.rows != null ? `rows=${Number(sample.rows) || 0}` : "";
+        emitPerfTrace(formatPerfTrace({
+          label: op,
+          durationMs: Number(sample?.ms) || 0,
+          cwd: getCwd(),
+          extra,
+        }));
+      }
+      return;
+    }
+    if (running) {
+      noteSoftFailure("common.actionBusy");
+      return;
+    }
     running = true;
     const cwd = getCwd();
     try {
@@ -615,6 +711,8 @@ module.exports = {
   relocalizeCachedState,
   invalidateSharedStateLoad,
   renderPanel,
+  renderSidebarStagePatch,
+  noteSoftFailure,
   getGuideKey,
   showResult,
   showStatefulResult,

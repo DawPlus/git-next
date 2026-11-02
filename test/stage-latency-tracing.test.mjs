@@ -22,7 +22,11 @@ test("Stage instrumentation measures dispatch, Git, cache and render with a shar
 
 test("Stage UI tracing measures DOM work and is opt-in", () => {
   const core = read("../src/extension-core.ts");
+  const interactions = read("../src/sidebar-interactions.mts");
   assert.match(core, /stage:dom:/);
   assert.match(core, /isPerfTracingEnabled/);
   assert.match(core, /stageTraceId/);
+  assert.match(core, /type: "gitNextPerf"/);
+  assert.match(core, /message\?\.type === "gitNextPerf"/);
+  assert.match(interactions, /window\.gitNextVscode = vscode/);
 });

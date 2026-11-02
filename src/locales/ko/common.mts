@@ -13,4 +13,6 @@ export const common = {
   greeting: "안녕하세요, {name}님!",
   itemsCount: "{count}개 항목",
   worktreeCount: "다른 작업 폴더 {count}개",
+  refreshFailed: "저장소 상태를 새로고침하지 못했습니다. 화면이 예전일 수 있어요.",
+  actionBusy: "이전 Git 작업을 처리 중이라 이번 클릭은 잠시 기다렸다가 다시 시도해주세요.",
 };

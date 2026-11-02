@@ -11,6 +11,7 @@ function createSyncHandler(core) {
     showResult,
     getState,
     refreshState,
+    noteSoftFailure,
     isPullBeforePushEnabled,
     relaxedSafeGuardRules,
   } = core;
@@ -113,7 +114,7 @@ async function offerForceWithLease(host, mode, options, cwd, reason) {
   const actions = await import("./git-actions.mjs");
   const result = await workflows.runWithGitStateDelta(cwd, () =>
     actions.pushWithForceWithLease(cwd, preview.remote, preview.remoteRef, preview.expected));
-  await refreshState(cwd).catch(() => {});
+  await refreshState(cwd).catch(() => noteSoftFailure());
   await showResult(host, mode, options, result, result.ok ? null : "blocked");
 }
 
@@ -132,7 +133,7 @@ async function offerDivergedResolution(host, mode, options, cwd) {
   }
 
   const baseRisk = preview.conflictRisk
-    ? "충돌 가능성이 있습니다. 충돌 시 기존 Continue / Abort 흐름에서 정리합니다."
+    ? "충돌 가능성이 있습니다. 충돌이 나면 충돌 정리 / 작업 마무리 흐름에서 안내합니다."
     : "원격 변경을 현재 브랜치에 Merge합니다.";
   const ok = await confirmMutation({
     action: "Diverged Merge",
@@ -146,7 +147,7 @@ async function offerDivergedResolution(host, mode, options, cwd) {
 
   const result = await workflows.runWithGitStateDelta(cwd, () =>
     workflows.mergeIntoCurrent(cwd, preview.target));
-  await refreshState(cwd).catch(() => {});
+  await refreshState(cwd).catch(() => noteSoftFailure());
   await showResult(host, mode, options, result, result.ok ? null : "blocked");
 }
 
@@ -222,7 +223,7 @@ async function publishBranch(host, mode, options, cwd, currentBranch) {
       () => actions.pushWithUpstream(cwd, selected.remote.name, branchName, currentBranch),
     ),
   );
-  await refreshState(cwd).catch(() => {});
+  await refreshState(cwd).catch(() => noteSoftFailure());
   await showResult(host, mode, options, firstPush, firstPush.ok ? null : "blocked");
   return;
 }
@@ -336,7 +337,7 @@ async function runSyncAction(host, action, mode = "graph", options = {}) {
         );
       }
     }
-    await refreshState(cwd).catch(() => {});
+    await refreshState(cwd).catch(() => noteSoftFailure());
     await showResult(host, mode, options, pullResult, pullResult.ok ? null : "blocked");
     if (!pullResult.ok && (await getTrackingStatus(cwd)).kind === "diverged") {
       await offerDivergedResolution(host, mode, options, cwd);
@@ -375,7 +376,7 @@ async function runSyncAction(host, action, mode = "graph", options = {}) {
     }
 
     const pullResult = await withNetworkProgress("Git Next · Push 전 Pull", () => pullRepository(cwd));
-    await refreshState(cwd).catch(() => {});
+    await refreshState(cwd).catch(() => noteSoftFailure());
     if (!pullResult.ok) {
       await showResult(host, mode, options, pullResult, "blocked");
       return;
@@ -412,7 +413,7 @@ async function runSyncAction(host, action, mode = "graph", options = {}) {
   const workflows = await import("./git-workflows.mjs");
   const result = await withNetworkProgress("Git Next · Push", () =>
     workflows.runWithGitStateDelta(cwd, () => pushRepository(cwd)));
-  await refreshState(cwd).catch(() => {});
+  await refreshState(cwd).catch(() => noteSoftFailure());
   await showResult(host, mode, options, result, result.ok ? null : "blocked");
   if (!result.ok && /non-fast-forward|rejected/i.test(`${result.detail ?? ""} ${result.message ?? ""}`)) {
     await offerForceWithLease(host, mode, options, cwd, "일반 Push가 Remote에서 거절됐습니다.");

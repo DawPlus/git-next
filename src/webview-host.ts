@@ -9,10 +9,12 @@ function createWebviewHost(core, panels, menus, sync) {
     getCachedState,
     refreshState,
     refreshWorkingTreeState,
+    noteSoftFailure,
     applyWorkingTreeCacheAction,
     relocalizeCachedState,
     invalidateSharedStateLoad,
     renderPanel,
+    renderSidebarStagePatch,
     recordActivity,
     confirmMutation,
     onRepositoryMessage = (webview, handler) => webview.onDidReceiveMessage(handler),
@@ -106,8 +108,8 @@ function createWebviewHost(core, panels, menus, sync) {
     } finally {
       invalidateSharedStateLoad(cwd);
       if (cwd) {
-        if (refresh === "working-tree") await refreshWorkingTreeState(cwd).catch(() => {});
-        else if (refresh !== "none") await refreshState(cwd).catch(() => {});
+        if (refresh === "working-tree") await refreshWorkingTreeState(cwd).catch(() => noteSoftFailure());
+        else if (refresh !== "none") await refreshState(cwd).catch(() => noteSoftFailure());
       }
       internalGitOperationDepth -= 1;
       if (internalGitOperationDepth === 0 && externalGitRefreshPending) {
@@ -145,10 +147,10 @@ function createWebviewHost(core, panels, menus, sync) {
         const root = repository.rootUri?.fsPath;
         if (root) {
           gitRepositoriesByRoot.set(root, repository);
-          void refreshState(root).catch(() => {});
+          void refreshState(root).catch(() => noteSoftFailure());
           void import("./git-safety.mjs")
             .then(({ refreshCurrentUpstreamState }) => refreshCurrentUpstreamState(root))
-            .catch(() => {});
+            .catch(() => noteSoftFailure());
         }
         const disposable = repository.state?.onDidChange?.(() => scheduleExternalGitRefresh(root));
         if (disposable) context.subscriptions.push(disposable);
@@ -199,6 +201,7 @@ function createWebviewHost(core, panels, menus, sync) {
       applyWorkingTreeCacheAction,
       relocalizeCachedState,
       renderPanel,
+      renderSidebarStagePatch,
       recordActivity,
       confirmMutation,
       getOrCreateWebviewPanel,

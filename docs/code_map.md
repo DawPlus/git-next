@@ -26,3 +26,23 @@ Entry: src/stash-flow.mts
 Related: src/git-actions.mts, src/panel-handlers.ts
 
 - Git 작업 공통 보호: `src/repository-operation.mts` (창 간 common-dir 잠금/상태 지문), `src/extension-core.ts` (`onRepositoryMessage`, 확인 후 재검증). 패널/AI 경로 포함. 강제 종료 후 남은 `git-next-operation.lock`은 실행 중 작업 부재 확인 후 수동 삭제.
+
+## Safe Guard
+Entry: src/safe-guard.mts
+Related: src/git-preflight.mts, src/git-operation-workflows.mts
+
+## Conflict recovery
+Entry: src/git-menu-handlers.ts
+Related: src/git-operation-workflows.mts, src/locales/ko/guidance.mts
+
+## Sidebar stage patch
+Entry: src/webview-message-handler.ts
+Related: src/extension-core.ts, src/sidebar-view.mts
+
+## First success / empty repo
+Entry: src/graph-view.mts
+Related: src/webview-message-handler.ts, src/locales/ko/guidance.mts
+
+## Perf bench (Stage/Sync host paths)
+Entry: scripts/perf-bench.mjs
+Related: src/perf-trace.ts, src/git-preflight.mts

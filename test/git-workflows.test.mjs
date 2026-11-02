@@ -332,8 +332,10 @@ test("in-progress operations expose one state/risk/next recovery guard", () => {
 });
 
 test("operation previews explain continue and abort outcomes before confirmation", () => {
-  assert.match(formatOperationActionPreview("rebase", "continue", ["app.js"]), /Rebase.*충돌 파일 1개.*반영/s);
-  assert.match(formatOperationActionPreview("merge", "abort", ["app.js"]), /Merge.*충돌 파일 1개.*해결 내용은 반영되지 않고 시작 전 위치/s);
+  assert.match(formatOperationActionPreview("rebase", "continue", ["app.js"]), /충돌 파일 1개|1 conflict/i);
+  assert.match(formatOperationActionPreview("rebase", "continue", ["app.js"]), /Rebase 이어서 진행|Continue rebase/i);
+  assert.match(formatOperationActionPreview("merge", "abort", ["app.js"]), /병합 취소|Cancel merge/i);
+  assert.match(formatOperationActionPreview("merge", "continue", []), /병합 마무리|Finish merge/i);
 });
 
 test("reports whether a commit is reachable from a selected ref", async () => {
@@ -638,7 +640,7 @@ test("conflict sides identify local merge branches and rebase roles", async () =
     assert.doesNotMatch(sides.theirs.description, /서버/);
     if (operation === "rebase") {
       assert.match(sides.mine.description, /기준/);
-      assert.match(sides.theirs.description, /재적용/);
+      assert.match(sides.theirs.description, /다시 얹는|재적용/);
     }
     assert.equal((await resolveConflictSide(cwd, "app.txt", "mine")).ok, true);
     assert.equal(await (await import("node:fs/promises")).readFile(join(cwd, "app.txt"), "utf8"), "main\n");

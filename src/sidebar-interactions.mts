@@ -1,5 +1,6 @@
 export const SIDEBAR_INTERACTIONS = `
     const vscode = acquireVsCodeApi();
+    window.gitNextVscode = vscode;
     let syncPendingAction = null;
     let refreshPending = false;
     const applyRefreshPending = () => {

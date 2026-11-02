@@ -1,0 +1,34 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Run Extension",
+      "type": "extensionHost",
+      "request": "launch",
+      "args": [
+        "--extensionDevelopmentPath=${workspaceFolder}",
+        "${env:TMPDIR}/git-next-stage-perf/stage-perf.code-workspace"
+      ],
+      "outFiles": ["${workspaceFolder}/dist/**/*.js"],
+      "preLaunchTask": "npm: build",
+      "env": {
+        "GIT_NEXT_PERF": "1",
+        "GIT_NEXT_PERF_LOG": "${env:TMPDIR}/git-next-stage-perf.log"
+      }
+    },
+    {
+      "name": "Run Extension (current folder)",
+      "type": "extensionHost",
+      "request": "launch",
+      "args": [
+        "--extensionDevelopmentPath=${workspaceFolder}"
+      ],
+      "outFiles": ["${workspaceFolder}/dist/**/*.js"],
+      "preLaunchTask": "npm: build",
+      "env": {
+        "GIT_NEXT_PERF": "1",
+        "GIT_NEXT_PERF_LOG": "${env:TMPDIR}/git-next-stage-perf.log"
+      }
+    }
+  ]
+}

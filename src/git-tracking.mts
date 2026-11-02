@@ -220,8 +220,10 @@ async function inspectCurrentUpstreamLocal(cwd: string, useCache = true): Promis
   }
 
   try {
-    remote = await runGitInspection(cwd, ["config", "--get", `branch.${branch}.remote`]);
-    mergeRef = await runGitInspection(cwd, ["config", "--get", `branch.${branch}.merge`]);
+    [remote, mergeRef] = await Promise.all([
+      runGitInspection(cwd, ["config", "--get", `branch.${branch}.remote`]),
+      runGitInspection(cwd, ["config", "--get", `branch.${branch}.merge`]),
+    ]);
   } catch {
     return { kind: "no-upstream", branch, upstream: null };
   }
@@ -229,15 +231,14 @@ async function inspectCurrentUpstreamLocal(cwd: string, useCache = true): Promis
   const remoteBranch = mergeRef.replace(/^refs\/heads\//, "");
   const upstream = `${remote}/${remoteBranch}`;
 
-  try {
-    await runGitInspection(cwd, ["remote", "get-url", remote]);
-  } catch {
+  const [remoteUrlResult, trackingRefResult] = await Promise.all([
+    runGitInspection(cwd, ["remote", "get-url", remote]).then(() => true).catch(() => false),
+    runGitInspection(cwd, ["rev-parse", `refs/remotes/${remote}/${remoteBranch}`]).then(() => true).catch(() => false),
+  ]);
+  if (!remoteUrlResult) {
     return { kind: "remote-missing", branch, upstream, remote };
   }
-
-  try {
-    await runGitInspection(cwd, ["rev-parse", `refs/remotes/${remote}/${remoteBranch}`]);
-  } catch {
+  if (!trackingRefResult) {
     return { kind: "tracking-ref-missing", branch, upstream, remote };
   }
 

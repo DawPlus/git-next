@@ -65,15 +65,15 @@ This board is the status source of truth.
 | T-261005-28 | Post-consolidation code diet and duplicate-handler cleanup | done | - | worker | implementation | 1+2 | [ticket](archive/2026-10/T-261005-28.md) | Dead code + duplicate handlers + Branch unification + handler slimming |
 | T-261005-29 | Refresh README for current Git Next UX | done | - | worker | implementation | 1+2 | [ticket](archive/2026-10/T-261005-29.md) | Depends on T-261005-28; document current AI/Branch/Recovery/tool layout |
 | T-261005-30 | Pre-release cleanup and smoke checklist | done | - | worker | implementation | 1+2 | [ticket](archive/2026-10/T-261005-30.md) | Final diff review + code diet + package verification + manual smoke checklist |
-| T-261005-31 | Fix Codex provider hanging on additional stdin | ready_for_qa | human | worker | implementation | 1+2 | [ticket](active/T-261005-31.md) | Codex 0.160.0 waits on additional stdin during non-interactive diagnosis |
-| T-261005-32 | Refine Safe Guard status presentation | ready_for_qa | human | worker | implementation | 1+2 | [ticket](active/T-261005-32.md) | Icon color + subtle status background + hint alignment cleanup |
-| T-261005-33 | Compact commit compose into one row | ready_for_qa | human | worker | implementation | 1+2 | [ticket](active/T-261005-33.md) | Inline message generator + primary Commit beside input; remove partial-commit guide button |
-| T-261005-34 | Hide empty SCM change groups | ready_for_qa | human | worker | implementation | 1+2 | [ticket](active/T-261005-34.md) | Hide zero-count Staged/Changes groups; show them when items appear |
-| T-261005-35 | Fix sidebar flicker during repeated Stage actions | ready_for_qa | human | worker | implementation | 1+2 | [ticket](active/T-261005-35.md) | Repeated single-file Stage intermittently looks like full sidebar refresh |
-| T-261005-36 | Fix Push button silent failure | ready_for_qa | human | worker | implementation | 1+2 | [ticket](active/T-261005-36.md) | Missing Push preflight import caused silent ReferenceError |
-| T-261005-37 | Make Safe Guard guidance action-first and beginner-friendly | ready_for_qa | human | worker | implementation | 1+2 | [ticket](active/T-261005-37.md) | Safe Guard should tell beginners exactly what to do next, not just expose Git state |
-| T-261005-38 | Simplify beginner-facing Git messages | ready_for_qa | human | worker | implementation | 1+2 | [ticket](active/T-261005-38.md) | Rewrite normal action copy so users do not need Git internals to understand what happens next |
-| T-261005-39 | Redesign Branch workspace around Local ↔ Remote relationship | ready_for_qa | human | worker | implementation | 1+2 | [ticket](active/T-261005-39.md) | Repair 3 complete: branch mutation lock releases after Git work; compact + 브랜치 control |
+| T-261005-31 | Fix Codex provider hanging on additional stdin | done | - | worker | implementation | 1+2 | [ticket](archive/2026-11/T-261005-31.md) | Codex 0.160.0 waits on additional stdin during non-interactive diagnosis |
+| T-261005-32 | Refine Safe Guard status presentation | done | - | worker | implementation | 1+2 | [ticket](archive/2026-11/T-261005-32.md) | Icon color + subtle status background + hint alignment cleanup |
+| T-261005-33 | Compact commit compose into one row | done | - | worker | implementation | 1+2 | [ticket](archive/2026-11/T-261005-33.md) | Inline message generator + primary Commit beside input; remove partial-commit guide button |
+| T-261005-34 | Hide empty SCM change groups | done | - | worker | implementation | 1+2 | [ticket](archive/2026-11/T-261005-34.md) | Hide zero-count Staged/Changes groups; show them when items appear |
+| T-261005-35 | Fix sidebar flicker during repeated Stage actions | done | - | worker | implementation | 1+2 | [ticket](archive/2026-11/T-261005-35.md) | Repeated single-file Stage intermittently looks like full sidebar refresh |
+| T-261005-36 | Fix Push button silent failure | done | - | worker | implementation | 1+2 | [ticket](archive/2026-11/T-261005-36.md) | Missing Push preflight import caused silent ReferenceError |
+| T-261005-37 | Make Safe Guard guidance action-first and beginner-friendly | done | - | worker | implementation | 1+2 | [ticket](archive/2026-11/T-261005-37.md) | Safe Guard should tell beginners exactly what to do next, not just expose Git state |
+| T-261005-38 | Simplify beginner-facing Git messages | done | - | worker | implementation | 1+2 | [ticket](archive/2026-11/T-261005-38.md) | Rewrite normal action copy so users do not need Git internals to understand what happens next |
+| T-261005-39 | Redesign Branch workspace around Local ↔ Remote relationship | done | - | worker | implementation | 1+2 | [ticket](archive/2026-11/T-261005-39.md) | Repair 3 complete: branch mutation lock releases after Git work; compact + 브랜치 control |
 | T-261005-40 | Introduce TypeScript runtime build | done | - | worker | implementation | 1+2 | [ticket](archive/2026-10/T-261005-40.md) | Runtime shell migrated to TypeScript; .mjs domain modules remain as typed-boundary follow-up |
 | T-261005-41 | Complete TypeScript source migration | done | - | worker | implementation | 1+2 | [ticket](archive/2026-10/T-261005-41.md) | All implementation source is now .ts/.mts; runtime dist paths preserved; type hardening remains a follow-up |
 | T-261005-42 | Add foundational Git domain types | done | - | worker | implementation | 1+2 | [ticket](archive/2026-10/T-261005-42.md) | Added reusable Git domain types and removed @ts-nocheck from state/tracking/command foundations |
@@ -95,12 +95,21 @@ This board is the status source of truth.
 | T-261007-06 | Add lightweight performance tracing for Git Next | done | - | worker | implementation | 1+2 | [ticket](archive/2026-10/T-261007-06.md) | Debug-only timing for Git subprocesses, state loads, renders, Help, and Push/Pull flows |
 | T-261007-07 | Introduce repository snapshot store for instant UI reads | done | - | worker | implementation | 1+2 | [ticket](archive/2026-10/T-261007-07.md) | Cache-only UI reads; refresh repository snapshots only at mutation, sync, external-change, and explicit-refresh boundaries |
 
-| T-261008-01 | Measure Stage/Unstage end-to-end latency | ready_for_qa | human | worker | implementation | 1+2 | [ticket](active/T-261008-01.md) | Instrumented; real VS Code 10/100/500 baseline pending |
-| T-261008-02 | Remove presentation-only Stage/Unstage delay | ready_for_qa | human | worker | implementation | 1+2 | [ticket](active/T-261008-02.md) | 180ms timer removed; actual VS Code latency QA pending |
-| T-261008-03 | Avoid full sidebar DOM replacement for one-file moves | ready | worker | worker | implementation | 1+2 | [ticket](active/T-261008-03.md) | Depends on T-261008-01,02; confirmed render bottleneck only |
-| T-261008-04 | Deduplicate Stage-triggered external refreshes | ready_for_qa | human | worker | implementation | 1+2 | [ticket](active/T-261008-04.md) | Guarded echo check implemented; manual latency/externals QA pending |
-| T-261008-05 | Diagnose slow Git refresh and skip redundant redraw | ready_for_qa | human | worker | implementation | 1+2 | [ticket](active/T-261008-05.md) | Skip render on verified internal echoes; 5s Git command spikes require separate QA |
-| T-261008-22 | Resolve conflicts and finish Merge/Rebase safely | ready | worker | worker | implementation | 1+2 | [ticket](active/T-261008-22.md) | Next version; Merge Editor, reviewed bulk accept, plain-language Safe Guard guidance, staged progress and completion |
+| T-261008-01 | Measure Stage/Unstage end-to-end latency | done | - | worker | implementation | 1+2 | [ticket](archive/2026-11/T-261008-01.md) | Instrumented; real VS Code 10/100/500 baseline pending |
+| T-261008-02 | Remove presentation-only Stage/Unstage delay | done | - | worker | implementation | 1+2 | [ticket](archive/2026-11/T-261008-02.md) | 180ms timer removed; actual VS Code latency QA pending |
+| T-261008-03 | Avoid full sidebar DOM replacement for one-file moves | done | - | worker | implementation | 1+2 | [ticket](archive/2026-11/T-261008-03.md) | Depends on T-261008-01,02; confirmed render bottleneck only |
+| T-261008-04 | Deduplicate Stage-triggered external refreshes | done | - | worker | implementation | 1+2 | [ticket](archive/2026-11/T-261008-04.md) | Guarded echo check implemented; manual latency/externals QA pending |
+| T-261008-05 | Diagnose slow Git refresh and skip redundant redraw | done | - | worker | implementation | 1+2 | [ticket](archive/2026-11/T-261008-05.md) | Skip render on verified internal echoes; 5s Git command spikes require separate QA |
+| T-261008-22 | Resolve conflicts and finish Merge/Rebase safely | done | - | worker | implementation | 1+2 | [ticket](archive/2026-11/T-261008-22.md) | Next version; Merge Editor, reviewed bulk accept, plain-language Safe Guard guidance, staged progress and completion |
+
+| T-261102-01 | Empty-repo first-success onboarding path | done | - | worker | implementation | 1+2 | [ticket](archive/2026-11/T-261102-01.md) | Fear-reduction program phase |
+| T-261102-02 | Surface silent refresh and busy-click failures | done | - | worker | implementation | 1+2 | [ticket](archive/2026-11/T-261102-02.md) | Fear-reduction program phase |
+| T-261102-03 | Enforce TypeScript checking on build emit | done | - | worker | implementation | 1+2 | [ticket](archive/2026-11/T-261102-03.md) | Fear-reduction program phase |
+| T-261102-04 | Align README and Safe Guard promise with mistake-prevention goal | done | - | worker | implementation | 1+2 | [ticket](archive/2026-11/T-261102-04.md) | Fear-reduction program phase |
+
+| T-261102-05 | Cut Push/Pull preflight latency after perf bench | done | - | worker | implementation | 1+2 | [ticket](archive/2026-11/T-261102-05.md) | Push/Pull preflight ~75-87ms (was ~175-200ms) |
+
+| T-261102-06 | Capture Extension Host Stage click-to-paint baseline | done | - | worker | implementation | 1+2 | [ticket](archive/2026-11/T-261102-06.md) | Host Stage ~10ms PASS; EH stage:total partial |
 
 Allowed states: `draft`, `ready`, `in_progress`, `review`, `ready_for_qa`, `blocked`, `done`, `superseded`.
 

@@ -13,6 +13,7 @@ function createGitMenus(core, sync, panels, getWebviewHost) {
     selectRepository,
     relaxedSafeGuardRules,
     getActiveContext,
+    t,
   } = core;
   const { runSyncAction, withNetworkProgress, offerDivergedResolution } = sync;
   const { openComparePanel, openBranchWorkspace, openStashWorkspace, openGuidePanel, openAiDiagnosisPanel } = panels;
@@ -175,6 +176,20 @@ async function openMarkdown(title, content) {
   await vscode.window.showTextDocument(document, { preview: true });
 }
 
+async function openConflictMergeEditor(cwd, relativePath) {
+  const uri = vscode.Uri.file(require("node:path").join(cwd, relativePath));
+  for (const command of ["git.openMergeEditor", "_git.openMergeEditor"]) {
+    try {
+      await vscode.commands.executeCommand(command, uri);
+      return true;
+    } catch {
+      // try next command id
+    }
+  }
+  await vscode.window.showTextDocument(uri, { preview: false });
+  return false;
+}
+
 async function conflictHelper(host, mode, options) {
   const cwd = getCwd();
   if (!cwd) return;
@@ -185,68 +200,117 @@ async function conflictHelper(host, mode, options) {
     workflows.listConflictedFiles(cwd),
   ]);
   if (!operation && !files.length) {
-    await vscode.window.showInformationMessage("진행 중인 Git 작업과 충돌 파일이 없습니다.");
+    await vscode.window.showInformationMessage(t("guidance.conflict.noConflicts"));
     return;
   }
 
-  const choices: Array<{ label: string; id: string; path?: string; description?: string }> = files.map((path) => ({ label: path, id: "file", path, description: "충돌 파일 · VS Code에서 정리" }));
+  const finishLabel = workflows.operationFinishLabel(operation?.operation);
+  const cancelLabel = workflows.operationCancelLabel(operation?.operation);
+  const choices: Array<{ label: string; id: string; path?: string; description?: string }> = [];
   if (operation) {
-    choices.unshift({
-      label: `${operation.operation} 진행 중`,
+    choices.push({
+      label: files.length
+        ? t("guidance.conflict.helperStatus", { operation: operation.operation, count: files.length })
+        : t("guidance.conflict.helperReady", { operation: operation.operation }),
       id: "status",
-      description: `충돌 파일 ${files.length}개 · 계속 또는 취소를 선택하세요.`,
+      description: files.length
+        ? t("guidance.conflict.progressNextResolve", { count: files.length, cancel: cancelLabel })
+        : t("guidance.conflict.progressNextFinish", { finish: finishLabel, cancel: cancelLabel }),
     });
-    if (!files.length) choices.push({ label: `${operation.operation} 계속`, id: "continue" });
-    choices.push({ label: `${operation.operation} 취소`, id: "abort" });
+  }
+  for (const path of files) {
+    choices.push({
+      label: path,
+      id: "file",
+      path,
+      description: t("guidance.conflict.openMergeEditor"),
+    });
+  }
+  if (files.length) {
+    choices.push({
+      label: t("guidance.conflict.acceptAllCurrent"),
+      id: "accept-all-mine",
+      description: t("guidance.conflict.useCurrent"),
+    });
+    choices.push({
+      label: t("guidance.conflict.acceptAllIncoming"),
+      id: "accept-all-theirs",
+      description: t("guidance.conflict.useIncoming"),
+    });
+  }
+  if (operation && !files.length) {
+    choices.push({ label: finishLabel, id: "continue" });
+  }
+  if (operation) {
+    choices.push({ label: cancelLabel, id: "abort" });
   }
 
   const selected = await vscode.window.showQuickPick(choices, {
-    placeHolder: operation ? `${operation.operation} · 충돌 파일 ${files.length}개` : "충돌 파일 선택",
+    placeHolder: operation
+      ? (files.length
+        ? t("guidance.conflict.helperStatus", { operation: operation.operation, count: files.length })
+        : t("guidance.conflict.helperReady", { operation: operation.operation }))
+      : t("guidance.conflict.filesHeading"),
   });
   if (!selected || selected.id === "status") return;
 
   if (selected.id === "continue") {
     const preview = workflows.formatOperationActionPreview(operation.operation, "continue", files);
-    const confirm = await vscode.window.showInformationMessage(
-      preview,
-      { modal: true },
-      "계속 실행",
-    );
+    const confirm = await vscode.window.showInformationMessage(preview, { modal: true }, finishLabel);
     if (!confirm) return;
-    await showResult(host, mode, options, await workflows.continueGitOperation(cwd, operation.operation));
+    const result = await workflows.continueGitOperation(cwd, operation.operation);
+    await showResult(host, mode, options, result);
+    if (result.ok) {
+      const still = await safety.getInProgressOperation(cwd);
+      if (!still) await vscode.window.showInformationMessage(t("guidance.conflict.completed"));
+    }
     return;
   }
 
   if (selected.id === "abort") {
     const preview = workflows.formatOperationActionPreview(operation.operation, "abort", files);
+    const confirm = await vscode.window.showWarningMessage(preview, { modal: true }, cancelLabel, t("guidance.conflict.keepResolving"));
+    if (!confirm || confirm === t("guidance.conflict.keepResolving")) return;
+    await showResult(host, mode, options, await workflows.abortGitOperation(cwd, operation.operation));
+    return;
+  }
+
+  if (selected.id === "accept-all-mine" || selected.id === "accept-all-theirs") {
+    const side = selected.id === "accept-all-mine" ? "mine" : "theirs";
+    const sideLabel = side === "mine" ? t("guidance.conflict.useCurrent") : t("guidance.conflict.useIncoming");
     const confirm = await vscode.window.showWarningMessage(
-      preview,
+      t("guidance.conflict.acceptAllConfirm", { count: files.length, side: sideLabel }),
       { modal: true },
-      "작업 취소",
+      sideLabel,
     );
     if (!confirm) return;
-    await showResult(host, mode, options, await workflows.abortGitOperation(cwd, operation.operation));
+    let last: { ok: boolean; message?: string; detail?: string; action?: string } = { ok: true, message: "" };
+    for (const path of files) {
+      last = await workflows.resolveConflictSide(cwd, path, side);
+      if (!last.ok) break;
+    }
+    await showResult(host, mode, options, last);
     return;
   }
 
   const sides = await workflows.getConflictSides(cwd, operation?.operation ?? null);
   const side = await vscode.window.showQuickPick([
-    { ...sides.mine, id: "mine" },
-    { ...sides.theirs, id: "incoming" },
-    { label: "직접 편집", id: "edit", description: "파일을 열어 원하는 최종 내용을 직접 정리합니다." },
+    { label: t("guidance.conflict.openMergeEditor"), id: "merge-editor", description: selected.path },
+    { label: t("guidance.conflict.useCurrent"), id: "mine", description: sides.mine.description },
+    { label: t("guidance.conflict.useIncoming"), id: "incoming", description: sides.theirs.description },
+    { label: t("guidance.conflict.editManually"), id: "edit", description: sides.mine.label },
   ], { placeHolder: selected.path });
 
   if (!side) return;
-  if (side.id === "edit") {
-    const uri = vscode.Uri.file(require("node:path").join(cwd, selected.path));
-    await vscode.window.showTextDocument(uri, { preview: false });
+  if (side.id === "merge-editor" || side.id === "edit") {
+    await openConflictMergeEditor(cwd, selected.path!);
     return;
   }
 
   const confirm = await vscode.window.showWarningMessage(
-    `${selected.path}에서 '${side.label}'을 적용합니다. 반대쪽 변경은 파일에서 제거될 수 있습니다.`,
+    t("guidance.conflict.acceptAllConfirm", { count: 1, side: side.label }),
     { modal: true },
-    "적용",
+    side.label,
   );
   if (!confirm) return;
   await showResult(host, mode, options, await workflows.resolveConflictSide(cwd, selected.path!, side.id === "mine" ? "mine" : "theirs"));
@@ -363,7 +427,7 @@ async function recoveryMenu(host, mode, options) {
   const choice = await vscode.window.showQuickPick([
     { label: "Undo / 되돌리기", id: "undo", description: "Commit, 파일 변경, tracked 변경을 안전하게 되돌립니다." },
     { label: "Reflog 복구", id: "reflog", description: "과거 커밋 위치에서 새 복구 브랜치를 만듭니다." },
-    { label: "진행 중 작업 / Conflict 복구", id: "conflict", description: "Merge, Rebase, Cherry-pick, Revert의 Continue / Abort 및 충돌 정리를 엽니다." },
+    { label: "진행 중 작업 / 충돌 복구", id: "conflict", description: "Merge, Rebase, Cherry-pick, Revert의 마무리·취소와 충돌 정리를 엽니다." },
   ], { placeHolder: "복구 방법을 선택하세요." });
   if (!choice) return;
   if (choice.id === "reflog") return reflogMenu(host, mode, options);

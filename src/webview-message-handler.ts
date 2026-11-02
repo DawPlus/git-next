@@ -13,9 +13,11 @@ function createWebviewMessageHandler({
   getRepositoryRoot,
   getCachedState,
   refreshState,
+  noteSoftFailure,
   applyWorkingTreeCacheAction,
   relocalizeCachedState,
   renderPanel,
+  renderSidebarStagePatch,
   recordActivity,
   confirmMutation,
   getOrCreateWebviewPanel,
@@ -93,7 +95,7 @@ function createWebviewMessageHandler({
             return;
           }
         }
-        if (cwd) await refreshState(cwd).catch(() => {});
+        if (cwd) await refreshState(cwd).catch(() => noteSoftFailure());
         await renderPanel(host, null, mode, getOptions());
       } finally {
         refreshActionsInFlight.delete(key);
@@ -220,6 +222,42 @@ function createWebviewMessageHandler({
     branchMenu: async () => openBranchWorkspace(context),
     tagMenu: async () => tagMenu(host, mode, getOptions()),
     createFirstFile: async () => vscode.commands.executeCommand("workbench.action.files.newUntitledFile"),
+    openWorkspaceFolder: async () => {
+      await vscode.commands.executeCommand("vscode.openFolder");
+    },
+    initRepository: async () => {
+      const folder = vscode.workspace.workspaceFolders?.[0];
+      if (!folder) {
+        await vscode.window.showWarningMessage(t("guidance.onboarding.initNeedFolder"));
+        return;
+      }
+      const confirm = await vscode.window.showWarningMessage(
+        t("guidance.onboarding.initConfirm"),
+        { modal: true },
+        t("guidance.onboarding.initConfirmAction"),
+      );
+      if (!confirm) return;
+      const { runGit } = await import("./git-command.mjs");
+      const result = await runGit(folder.uri.fsPath, ["init"]);
+      if (!result.ok) {
+        await renderPanel(host, {
+          ok: false,
+          level: "blocked",
+          message: t("guidance.onboarding.initRepo"),
+          detail: result.detail,
+        }, mode, getOptions());
+        return;
+      }
+      await refreshState(folder.uri.fsPath).catch(() => noteSoftFailure());
+      await renderPanel(host, { ok: true, message: t("guidance.onboarding.initDone") }, mode, getOptions());
+    },
+    startFirstCommitGuide: async () => {
+      const choice = await vscode.window.showInformationMessage(
+        t("guidance.onboarding.firstCommitSteps"),
+        t("guidance.firstPush.createFile"),
+      );
+      if (choice) await vscode.commands.executeCommand("workbench.action.files.newUntitledFile");
+    },
     stashMenu: async () => openStashWorkspace(context),
     stashBeforePull: async () => openStashWorkspace(context, { intent: "before-pull" }),
     stashRestore: async (message) => openStashWorkspace(context, { intent: "restore", stashId: message.stashId }),
@@ -271,8 +309,14 @@ function createWebviewMessageHandler({
       markInternalStage(root);
     }
     await recordActivity(result);
+    const notice = traceId ? { ...result, stageTraceId: traceId } : result;
+    if (result.ok && mode === "sidebar") {
+      const patched = await traceAsync(`stage:render:${traceId ?? "none"}`, root, () =>
+        renderSidebarStagePatch(host, cwd, notice));
+      if (patched) return;
+    }
     await traceAsync(`stage:render:${traceId ?? "none"}`, root, () =>
-      renderPanel(host, traceId ? { ...result, stageTraceId: traceId } : result, mode, getOptions()));
+      renderPanel(host, notice, mode, getOptions()));
   }
 
   async function updateSidebarStageAll(stage) {

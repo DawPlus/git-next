@@ -1,16 +1,27 @@
 import assert from "node:assert/strict";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import test from "node:test";
 
+import { existsSync } from "node:fs";
+
 import {
+  emitPerfTrace,
   formatPerfTrace,
+  getPerfLogPath,
   isPerfTracingEnabled,
+  PERF_HOME_FLAG,
   repositoryTraceId,
   traceAsync,
 } from "../src/perf-trace.ts";
 
 test("performance tracing is disabled by default and opt-in by environment flag", () => {
-  assert.equal(isPerfTracingEnabled({}), false);
-  assert.equal(isPerfTracingEnabled({ GIT_NEXT_PERF: "0" }), false);
+  // Home flag (~/.git-next-perf-on) may be present during a live measurement session.
+  if (!existsSync(PERF_HOME_FLAG)) {
+    assert.equal(isPerfTracingEnabled({}), false);
+    assert.equal(isPerfTracingEnabled({ GIT_NEXT_PERF: "0" }), false);
+  }
   assert.equal(isPerfTracingEnabled({ GIT_NEXT_PERF: "1" }), true);
   assert.equal(isPerfTracingEnabled({ GIT_NEXT_PERF: "true" }), true);
   assert.equal(isPerfTracingEnabled({ GIT_NEXT_PERF: "on" }), true);
@@ -53,5 +64,26 @@ test("traceAsync logs only when performance tracing is enabled", async () => {
     console.debug = originalDebug;
     if (previous === undefined) delete process.env.GIT_NEXT_PERF;
     else process.env.GIT_NEXT_PERF = previous;
+  }
+});
+
+test("emitPerfTrace appends to GIT_NEXT_PERF_LOG when set", () => {
+  const dir = mkdtempSync(join(tmpdir(), "git-next-perf-log-"));
+  const logPath = join(dir, "perf.log");
+  const previousLog = process.env.GIT_NEXT_PERF_LOG;
+  const originalDebug = console.debug;
+  console.debug = () => {};
+
+  try {
+    process.env.GIT_NEXT_PERF_LOG = logPath;
+    assert.equal(getPerfLogPath(), logPath);
+    emitPerfTrace("[Git Next perf] repo=none op=stage:total:1-2 ms=42 rows=10");
+    const body = readFileSync(logPath, "utf8");
+    assert.match(body, /op=stage:total:1-2 ms=42 rows=10/);
+  } finally {
+    console.debug = originalDebug;
+    if (previousLog === undefined) delete process.env.GIT_NEXT_PERF_LOG;
+    else process.env.GIT_NEXT_PERF_LOG = previousLog;
+    rmSync(dir, { recursive: true, force: true });
   }
 });

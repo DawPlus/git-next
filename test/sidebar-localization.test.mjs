@@ -115,7 +115,7 @@ test("sidebar renders in Korean with full surface coverage", () => {
 
   // Changes / SCM
   assert.match(html, /class="eyebrow">변경사항<\/div>/);
-  assert.match(html, /class="scm-count">5개<\/span>/);
+  assert.match(html, /class="scm-count"[^>]*>5개<\/span>/);
   assert.match(html, /class="group-title">Staged<\/span>/);
   assert.match(html, /title="전체 Unstage">전체 −<\/button>/);
   assert.match(html, /class="group-title">변경사항<\/span>/);
@@ -188,7 +188,7 @@ test("sidebar renders in English from the same state", () => {
 
   // Changes / SCM
   assert.match(html, /class="eyebrow">Changes<\/div>/);
-  assert.match(html, /class="scm-count">5 items<\/span>/);
+  assert.match(html, /class="scm-count"[^>]*>5 items<\/span>/);
   assert.match(html, /class="group-title">Staged<\/span>/);
   assert.match(html, /title="Unstage All">All −<\/button>/);
   assert.match(html, /class="group-title">Changes<\/span>/);

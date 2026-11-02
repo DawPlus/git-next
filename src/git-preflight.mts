@@ -1,10 +1,35 @@
 import { existsSync } from "node:fs";
 
-import { isAbsolute, resolve } from "node:path";
+import { isAbsolute, join, resolve } from "node:path";
 
 import { runGitInspection, getTrackingStatus, getHeadSafety, getWorkingTreeChanges, parseMergeTreeConflictOutput, getPushGuidance, markCurrentUpstreamFreshFromTracking } from "./git-tracking.mjs";
 import { guidanceNotice } from "./git-guidance.mjs";
 import { t } from "./i18n.mjs";
+
+type RewriteDetectResult = {
+  rewritten: boolean;
+  upstream: string | null;
+  before?: string | null;
+  after?: string | null;
+  fetchError?: string;
+  available?: boolean;
+};
+
+// Concurrent callers share one in-flight fetch. Sequential calls always re-fetch so
+// Pull incoming-file checks stay fail-closed when the remote moved between clicks.
+const rewriteDetectInFlight = new Map<string, Promise<RewriteDetectResult>>();
+
+function rewriteDetectKey(cwd: string): string {
+  return cwd;
+}
+
+export function clearRewriteDetectCache(cwd?: string): void {
+  if (cwd) {
+    rewriteDetectInFlight.delete(rewriteDetectKey(cwd));
+    return;
+  }
+  rewriteDetectInFlight.clear();
+}
 
 export async function getInProgressOperation(cwd) {
   const candidates = [
@@ -15,40 +40,46 @@ export async function getInProgressOperation(cwd) {
     ["revert", "REVERT_HEAD"],
   ];
 
-  for (const [operation, gitPath] of candidates) {
-    try {
-      const raw = await runGitInspection(cwd, ["rev-parse", "--git-path", gitPath]);
-      const path = isAbsolute(raw) ? raw : resolve(cwd, raw);
-      if (existsSync(path)) {
-        return { operation, path };
-      }
-    } catch {
-      // Ignore and continue checking the remaining operation markers.
+  let gitDir;
+  try {
+    gitDir = await runGitInspection(cwd, ["rev-parse", "--git-dir"]);
+  } catch {
+    return null;
+  }
+
+  const absGitDir = isAbsolute(gitDir) ? gitDir : resolve(cwd, gitDir);
+  for (const [operation, name] of candidates) {
+    const path = join(absGitDir, name);
+    if (existsSync(path)) {
+      return { operation, path };
     }
   }
 
   return null;
 }
 
-export async function detectRemoteHistoryRewrite(cwd) {
+async function detectRemoteHistoryRewriteUncached(cwd, runGit = runGitInspection): Promise<RewriteDetectResult> {
   let upstream;
   let before;
 
   try {
-    upstream = await runGitInspection(cwd, [
-      "rev-parse",
-      "--abbrev-ref",
-      "--symbolic-full-name",
-      "@{u}",
+    [upstream, before] = await Promise.all([
+      runGit(cwd, [
+        "rev-parse",
+        "--abbrev-ref",
+        "--symbolic-full-name",
+        "@{u}",
+      ]),
+      runGit(cwd, ["rev-parse", "@{u}"]),
     ]);
-    before = await runGitInspection(cwd, ["rev-parse", "@{u}"]);
   } catch {
     return { rewritten: false, upstream: null, before: null, after: null };
   }
 
   try {
-    await runGitInspection(cwd, ["fetch", "--prune"]);
-    await markCurrentUpstreamFreshFromTracking(cwd);
+    await runGit(cwd, ["fetch", "--prune"]);
+    // Freshness cache update is independent of rewrite result; do not block on it.
+    void markCurrentUpstreamFreshFromTracking(cwd).catch(() => {});
   } catch (error) {
     return {
       rewritten: false,
@@ -61,7 +92,7 @@ export async function detectRemoteHistoryRewrite(cwd) {
 
   let after;
   try {
-    after = await runGitInspection(cwd, ["rev-parse", "@{u}"]);
+    after = await runGit(cwd, ["rev-parse", "@{u}"]);
   } catch {
     return { rewritten: true, upstream, before, after: null };
   }
@@ -71,11 +102,24 @@ export async function detectRemoteHistoryRewrite(cwd) {
   }
 
   try {
-    await runGitInspection(cwd, ["merge-base", "--is-ancestor", before, after]);
+    await runGit(cwd, ["merge-base", "--is-ancestor", before, after]);
     return { rewritten: false, upstream, before, after };
   } catch {
     return { rewritten: true, upstream, before, after };
   }
+}
+
+export async function detectRemoteHistoryRewrite(cwd, runGit = runGitInspection) {
+  const key = rewriteDetectKey(cwd);
+  const existing = rewriteDetectInFlight.get(key);
+  if (existing) return existing;
+
+  const pending = detectRemoteHistoryRewriteUncached(cwd, runGit).finally(() => {
+    if (rewriteDetectInFlight.get(key) === pending) rewriteDetectInFlight.delete(key);
+  });
+
+  rewriteDetectInFlight.set(key, pending);
+  return pending;
 }
 
 export async function detectCachedRemoteHistoryRewrite(cwd, runGit = runGitInspection) {
@@ -99,7 +143,14 @@ export async function detectCachedRemoteHistoryRewrite(cwd, runGit = runGitInspe
 }
 
 export async function preflightPushSafety(cwd) {
-  const head = await getHeadSafety(cwd);
+  const [head, headCommitOk, operation] = await Promise.all([
+    getHeadSafety(cwd),
+    runGitInspection(cwd, ["rev-parse", "--verify", "HEAD^{commit}"])
+      .then(() => true)
+      .catch(() => false),
+    getInProgressOperation(cwd),
+  ]);
+
   if (head.detached) {
     return guidanceNotice({
       level: "blocked",
@@ -112,12 +163,9 @@ export async function preflightPushSafety(cwd) {
     });
   }
 
-  try {
-    await runGitInspection(cwd, ["rev-parse", "--verify", "HEAD^{commit}"]);
-  } catch {
+  if (!headCommitOk) {
     return guidanceNotice({ level: "blocked", code: "no-commits", state: t("guidance.firstPush.noCommits"), risk: t("guidance.firstPush.noCommitsRisk"), next: t("guidance.firstPush.initialNext"), detail: null, affected: [] });
   }
-  const operation = await getInProgressOperation(cwd);
   if (operation) {
     return guidanceNotice({
       level: "blocked",
@@ -176,7 +224,14 @@ export async function preflightPushSafety(cwd) {
 }
 
 export async function preflightPullSafety(cwd, runGit = runGitInspection) {
-  const head = await getHeadSafety(cwd);
+  const [head, operation, changesResult] = await Promise.all([
+    getHeadSafety(cwd),
+    getInProgressOperation(cwd),
+    getWorkingTreeChanges(cwd)
+      .then((changes) => ({ ok: true as const, changes }))
+      .catch((error) => ({ ok: false as const, error })),
+  ]);
+
   if (head.detached) {
     return guidanceNotice({
       level: "blocked",
@@ -189,7 +244,6 @@ export async function preflightPullSafety(cwd, runGit = runGitInspection) {
     });
   }
 
-  const operation = await getInProgressOperation(cwd);
   if (operation) {
     return guidanceNotice({
       level: "blocked",
@@ -203,22 +257,21 @@ export async function preflightPullSafety(cwd, runGit = runGitInspection) {
     });
   }
 
-  let changes = [];
-  try {
-    changes = await getWorkingTreeChanges(cwd);
-  } catch (error) {
+  if (changesResult.ok === false) {
+    const err = changesResult.error;
     return guidanceNotice({
       level: "blocked",
       code: "working-tree-check-failed",
       state: "로컬 변경 상태 확인 실패",
       risk: "작업 폴더 상태를 모른 채 Pull하면 로컬 변경과 원격 변경의 영향을 판단할 수 없습니다.",
       next: "Git 상태를 다시 확인한 뒤 Pull하세요.",
-      detail: String(error?.stderr ?? error?.message ?? error ?? ""),
+      detail: String(err?.stderr ?? err?.message ?? err ?? ""),
       affected: [],
     });
   }
+  const changes = changesResult.changes;
 
-  const rewrite = await detectRemoteHistoryRewrite(cwd);
+  const rewrite = await detectRemoteHistoryRewrite(cwd, runGit);
   if (rewrite.fetchError) {
     return guidanceNotice({
       level: "blocked",
@@ -247,7 +300,12 @@ export async function preflightPullSafety(cwd, runGit = runGitInspection) {
     });
   }
 
-  const tracking = await getTrackingStatus(cwd);
+  const [tracking, incomingResult] = await Promise.all([
+    getTrackingStatus(cwd),
+    runGit(cwd, ["diff", "--name-only", "HEAD..@{u}"])
+      .then((incomingRaw) => ({ ok: true as const, incomingRaw }))
+      .catch((error) => ({ ok: false as const, error })),
+  ]);
   if (tracking.kind === "no-upstream") {
     return guidanceNotice({
       level: "blocked",
@@ -260,21 +318,21 @@ export async function preflightPullSafety(cwd, runGit = runGitInspection) {
     });
   }
 
-  let incomingFiles = [];
-  try {
-    const incomingRaw = await runGit(cwd, ["diff", "--name-only", "HEAD..@{u}"]);
-    incomingFiles = incomingRaw ? incomingRaw.split("\n").filter(Boolean) : [];
-  } catch (error) {
+  if (incomingResult.ok === false) {
+    const err = incomingResult.error;
     return guidanceNotice({
       level: "blocked",
       code: "incoming-check-failed",
       state: "Pull로 들어올 파일 확인 실패",
       risk: "영향 파일을 모른 채 Pull하면 겹침과 충돌 가능성을 판단할 수 없습니다.",
       next: "Remote 상태를 다시 확인한 뒤 Pull하세요.",
-      detail: String(error?.stderr ?? error?.message ?? error ?? ""),
+      detail: String(err?.stderr ?? err?.message ?? err ?? ""),
       affected: [],
     });
   }
+  const incomingFiles = incomingResult.incomingRaw
+    ? incomingResult.incomingRaw.split("\n").filter(Boolean)
+    : [];
 
   const localFiles = changes.map((change) => change.path);
   const overlap = localFiles.filter((path) => incomingFiles.includes(path));

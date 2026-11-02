@@ -6,10 +6,14 @@ const core = readFileSync(new URL("../src/extension-core.ts", import.meta.url), 
 const view = readFileSync(new URL("../src/sidebar-view.mts", import.meta.url), "utf8");
 
 test("sidebar refresh restores folder and group open state across DOM replacement", () => {
-  const capture = core.indexOf("const foldStates = new Map");
-  const replacement = core.indexOf("main.innerHTML = data.mainHtml");
-  const restore = core.indexOf("if (foldStates.has(key)) element.open = foldStates.get(key)");
-  assert.ok(capture >= 0 && capture < replacement && replacement < restore);
+  assert.match(core, /const captureFolds = \(root\) => new Map/);
+  assert.match(core, /const restoreFolds = \(root, foldStates\)/);
+  const fullReplace = core.indexOf("main.innerHTML = data.mainHtml");
+  const scmReplace = core.indexOf("scmRoot.innerHTML = data.scmGroupsHtml");
+  assert.ok(fullReplace >= 0);
+  assert.ok(scmReplace >= 0);
+  assert.match(core, /restoreFolds\(main, foldStates\)/);
+  assert.match(core, /restoreFolds\(document, foldStates\)/);
   assert.match(core, /element\.dataset\.folderPath/);
   assert.match(core, /element\.dataset\.area/);
 });
