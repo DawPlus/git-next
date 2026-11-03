@@ -522,13 +522,14 @@ async function openBranchWorkspace(context) {
     }
 
     const count = action === "push" ? tracking.ahead : tracking.behind;
+    const { t } = await import("./i18n.mjs");
     const ok = await confirmMutation({
       action: action === "push" ? "동기화 · Push" : "동기화 · Pull",
       target: state.upstream ?? state.branch ?? "현재 브랜치",
       effect: action === "push"
-        ? `로컬에만 있는 Commit ${count}개를 원격에 보냅니다.`
-        : `원격에만 있는 Commit ${count}개를 현재 로컬 브랜치로 받아옵니다.`,
-      confirmLabel: action === "push" ? "Push" : "Pull",
+        ? t("dialog.confirm.syncPushEffect", { count })
+        : t("dialog.confirm.syncPullEffect", { count }),
+      confirmLabel: action === "push" ? t("dialog.confirm.pushConfirmLabel") : t("dialog.confirm.pullConfirmLabel"),
     });
     if (!ok) return;
 
@@ -692,18 +693,21 @@ async function openBranchWorkspace(context) {
         message.branch,
         vscode.workspace.getConfiguration("gitNext").get("protectedBranches", ["main", "master", "release/*"]),
       );
+      const { t } = await import("./i18n.mjs");
       const baseRisk = info.merged
-        ? "현재 브랜치에 이미 합쳐진 브랜치입니다."
-        : `병합되지 않은 커밋 ${info.uniqueCommitCount ?? "알 수 없음"}개가 남아 있을 수 있습니다.`;
+        ? t("dialog.confirm.deleteBranchRiskMerged")
+        : t("dialog.confirm.deleteBranchRiskUnmerged", { count: info.uniqueCommitCount ?? "알 수 없음" });
       const ok = await confirmMutation({
-        action: protectedGuard.protected ? "보호 브랜치 삭제" : "브랜치 삭제",
+        action: protectedGuard.protected
+          ? t("dialog.confirm.deleteBranchProtectedAction")
+          : t("dialog.confirm.deleteBranchAction"),
         target: message.branch,
-        effect: "선택한 로컬 브랜치를 삭제합니다.",
+        effect: t("dialog.confirm.deleteBranchEffect"),
         risk: protectedGuard.protected ? `${baseRisk} ${protectedGuard.message}` : baseRisk,
         level: "warning",
         confirmLabel: protectedGuard.protected
-          ? (info.merged ? "보호 브랜치 삭제" : "보호 브랜치 강제 삭제")
-          : (info.merged ? "삭제" : "강제 삭제"),
+          ? (info.merged ? t("dialog.confirm.deleteBranchConfirmProtectedLabel") : t("dialog.confirm.deleteBranchConfirmProtectedForceLabel"))
+          : (info.merged ? t("dialog.confirm.deleteBranchConfirmLabel") : t("dialog.confirm.deleteBranchConfirmForceLabel")),
       });
       if (!ok) return;
       const result = await runBranchMutation(() => actions.deleteBranch(cwd, message.branch, !info.merged));
@@ -818,7 +822,15 @@ async function openStashWorkspace(context, options: { intent?: string; stashId?:
       return refresh();
     }
     if (message?.type === "drop") {
-      const ok = await confirmMutation({ action: "Stash Drop", target: message.ref, effect: "Stash 항목을 삭제합니다.", risk: "삭제 후 목록에서 복원할 수 없습니다.", level: "warning", confirmLabel: "Drop" });
+      const { t } = await import("./i18n.mjs");
+      const ok = await confirmMutation({
+        action: t("dialog.confirm.deleteStashAction"),
+        target: message.ref,
+        effect: t("dialog.confirm.deleteStashEffect"),
+        risk: t("dialog.confirm.deleteStashRisk"),
+        level: "warning",
+        confirmLabel: t("dialog.confirm.deleteStashConfirmLabel"),
+      });
       if (!ok) return;
       const result = await actions.stashDrop(cwd, message.ref, expectedCommit);
       await refreshState(cwd);

@@ -106,7 +106,7 @@ test("sidebar renders in Korean with full surface coverage", () => {
   assert.match(html, /aria-label="Commit 메시지 도우미" title="Commit 메시지 도우미"/);
   assert.match(html, />Commit<\/button>/);
   assert.match(html, />마지막 Commit 취소<\/button>/);
-  assert.match(html, /title="아직 Push하지 않은 마지막 Commit만 취소하고 변경은 Staged 상태로 되돌립니다\."/);
+  assert.match(html, /title="아직 Push하지 않은 마지막 Commit만 취소하고 변경은 Commit 대기 목록으로 되돌립니다\."/);
 
   // Pull / Push & Risk badges
   assert.match(html, />Push 2<\/span>/);
@@ -116,18 +116,18 @@ test("sidebar renders in Korean with full surface coverage", () => {
   // Changes / SCM
   assert.match(html, /class="eyebrow">변경사항<\/div>/);
   assert.match(html, /class="scm-count"[^>]*>5개<\/span>/);
-  assert.match(html, /class="group-title">Staged<\/span>/);
-  assert.match(html, /title="전체 Unstage">전체 −<\/button>/);
-  assert.match(html, /class="group-title">변경사항<\/span>/);
-  assert.match(html, /title="전체 Stage">전체 \+<\/button>/);
+  assert.match(html, /class="group-title">Commit 대기<\/span>/);
+  assert.match(html, /title="Commit 대기에서 모두 빼기">전체 −<\/button>/);
+  assert.match(html, /class="group-title">아직 고르지 않음<\/span>/);
+  assert.match(html, /title="모두 Commit 대기로">전체 \+<\/button>/);
 
   // Tree actions & titles
-  assert.match(html, /title="폴더 전체 Stage"/);
-  assert.match(html, /title="폴더 전체 Unstage"/);
+  assert.match(html, /title="폴더 전체 Commit 대기로"/);
+  assert.match(html, /title="폴더 전체 대기에서 빼기"/);
   assert.match(html, /title="변경 내용 비교"/);
   assert.match(html, /title="파일 변경 되돌리기"/);
-  assert.match(html, /title="Staging에 넣기"/);
-  assert.match(html, /title="Staging에서 빼기"/);
+  assert.match(html, /title="Commit 대기로 넣기"/);
+  assert.match(html, /title="Commit 대기에서 빼기"/);
 
   // Status badges are language-independent one-character codes.
   assert.match(html, />U<\/span>/);
@@ -179,7 +179,7 @@ test("sidebar renders in English from the same state", () => {
   assert.match(html, /aria-label="Commit message helper" title="Commit message helper"/);
   assert.match(html, />Commit<\/button>/);
   assert.match(html, />Undo last Commit<\/button>/);
-  assert.match(html, /title="Undo only the last unpushed Commit and return changes to Staged state\."/);
+  assert.match(html, /title="Undo only the last unpushed Commit and return changes to the ready-to-commit list\."/);
 
   // Pull / Push & Risk badges
   assert.match(html, />Push 2<\/span>/);
@@ -189,18 +189,18 @@ test("sidebar renders in English from the same state", () => {
   // Changes / SCM
   assert.match(html, /class="eyebrow">Changes<\/div>/);
   assert.match(html, /class="scm-count"[^>]*>5 items<\/span>/);
-  assert.match(html, /class="group-title">Staged<\/span>/);
-  assert.match(html, /title="Unstage All">All −<\/button>/);
-  assert.match(html, /class="group-title">Changes<\/span>/);
-  assert.match(html, /title="Stage All">All \+<\/button>/);
+  assert.match(html, /class="group-title">Ready to commit<\/span>/);
+  assert.match(html, /title="Remove all from ready-to-commit">All −<\/button>/);
+  assert.match(html, /class="group-title">Not selected yet<\/span>/);
+  assert.match(html, /title="Mark all ready to commit">All \+<\/button>/);
 
   // Tree actions & titles
-  assert.match(html, /title="Stage entire folder"/);
-  assert.match(html, /title="Unstage entire folder"/);
+  assert.match(html, /title="Mark folder ready to commit"/);
+  assert.match(html, /title="Remove folder from ready-to-commit"/);
   assert.match(html, /title="Compare changes"/);
   assert.match(html, /title="Discard file changes"/);
-  assert.match(html, /title="Stage"/);
-  assert.match(html, /title="Unstage"/);
+  assert.match(html, /title="Mark ready to commit"/);
+  assert.match(html, /title="Remove from ready-to-commit"/);
 
   // Status badges are language-independent one-character codes.
   assert.match(html, />U<\/span>/);
@@ -306,20 +306,20 @@ test("guard: no hardcoded Korean user-facing strings remain in sidebar-view.mts 
     'aria-label="Git Doctor"',
     'aria-label="복구 도구"',
     'aria-label="Safe Guard 규칙"',
-    'title="폴더 전체 Stage"',
-    'title="폴더 전체 Unstage"',
+    'title="폴더 전체 Commit 대기로"',
+    'title="폴더 전체 대기에서 빼기"',
     'title="변경 내용 비교"',
     'title="파일 변경 되돌리기"',
-    'title="Staging에 넣기"',
-    'title="Staging에서 빼기"',
+    'title="Commit 대기로 넣기"',
+    'title="Commit 대기에서 빼기"',
     'placeholder="Commit message 입력"',
     'aria-label="Commit 메시지 도우미"',
     '>마지막 Commit 취소<',
     'title="아직 Push하지 않은 마지막 Commit만 취소',
     '<div class="eyebrow">변경사항</div>',
     '<div class="scm-empty">변경사항이 없습니다.</div>',
-    'title="전체 Stage">전체 +<',
-    'title="전체 Unstage">전체 −<',
+    'title="모두 Commit 대기로">전체 +<',
+    'title="Commit 대기에서 모두 빼기">전체 −<',
     'Safe Guard 상태: ',
     '현재 상태 안내: ',
     '다음 추천</span>',
@@ -361,4 +361,36 @@ test("guard: English rendering contains no untranslated Korean text in UI chrome
     null,
     `English UI should not contain Korean characters, found: ${koreanMatches?.join(", ")}`,
   );
+});
+
+test("sidebar orders graph entry, tracking, Safe Guard, and sync actions before changes", () => {
+  const state = createMockState({
+    branch: "main",
+    upstream: "origin/main",
+    tracking: { kind: "ahead", ahead: 2, behind: 0 },
+    changes: [
+      { status: "M ", path: "src/file1.ts" },
+      { status: "??", path: "src/file2.ts" },
+    ],
+    nextAction: { kind: "push", title: "Push", detail: "Push ready" },
+  });
+
+  const html = renderSidebarHtml(state, null, { locale: "ko" });
+
+  const graphIndex = html.indexOf('data-action="openGraph"');
+  const trackingIndex = html.indexOf('class="tracking"');
+  const safeGuardIndex = html.indexOf('class="status-hints"');
+  const syncRowIndex = html.indexOf('class="sync-row"');
+  const changesIndex = html.indexOf('class="section source-control"');
+
+  assert.ok(graphIndex !== -1, "graph entry should exist");
+  assert.ok(trackingIndex !== -1, "tracking should exist");
+  assert.ok(safeGuardIndex !== -1, "safe guard should exist");
+  assert.ok(syncRowIndex !== -1, "sync row should exist");
+  assert.ok(changesIndex !== -1, "changes section should exist");
+
+  assert.ok(graphIndex < changesIndex, "graph entry before changes");
+  assert.ok(trackingIndex < changesIndex, "tracking before changes");
+  assert.ok(safeGuardIndex < syncRowIndex, "safe guard before sync row");
+  assert.ok(syncRowIndex < changesIndex, "sync actions before changes section");
 });

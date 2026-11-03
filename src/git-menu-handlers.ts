@@ -64,9 +64,9 @@ async function tagMenu(host, mode, options) {
   });
   if (!selected) return;
   const choice = await vscode.window.showWarningMessage(
-    `로컬 태그 '${selected.ref.name}'를 삭제할까요? 원격 태그는 삭제되지 않습니다.`,
+    t("dialog.confirm.deleteTagMessage", { name: selected.ref.name }),
     { modal: true },
-    "로컬 태그 삭제",
+    t("dialog.confirm.deleteTagConfirmLabel"),
   );
   if (!choice) return;
   await showResult(host, mode, options, await actions.deleteTag(cwd, selected.ref.name));
@@ -206,7 +206,8 @@ async function conflictHelper(host, mode, options) {
 
   const finishLabel = workflows.operationFinishLabel(operation?.operation);
   const cancelLabel = workflows.operationCancelLabel(operation?.operation);
-  const choices: Array<{ label: string; id: string; path?: string; description?: string }> = [];
+  const sides = await workflows.getConflictSides(cwd, operation?.operation ?? null);
+  const choices: Array<{ label: string; id: string; path?: string; description?: string; detail?: string }> = [];
   if (operation) {
     choices.push({
       label: files.length
@@ -214,8 +215,9 @@ async function conflictHelper(host, mode, options) {
         : t("guidance.conflict.helperReady", { operation: operation.operation }),
       id: "status",
       description: files.length
-        ? t("guidance.conflict.progressNextResolve", { count: files.length, cancel: cancelLabel })
+        ? `${t("guidance.conflict.progressNextResolve", { count: files.length, cancel: cancelLabel })} · ${finishLabel}`
         : t("guidance.conflict.progressNextFinish", { finish: finishLabel, cancel: cancelLabel }),
+      detail: `${sides.mine.label} (${sides.mine.description}) vs ${sides.theirs.label} (${sides.theirs.description})`,
     });
   }
   for (const path of files) {
@@ -223,26 +225,37 @@ async function conflictHelper(host, mode, options) {
       label: path,
       id: "file",
       path,
-      description: t("guidance.conflict.openMergeEditor"),
+      description: `${t("guidance.conflict.openMergeEditor")} · ${sides.mine.label} vs ${sides.theirs.label}`,
+      detail: `${sides.mine.label}: ${sides.mine.description} | ${sides.theirs.label}: ${sides.theirs.description}`,
     });
   }
   if (files.length) {
     choices.push({
       label: t("guidance.conflict.acceptAllCurrent"),
       id: "accept-all-mine",
-      description: t("guidance.conflict.useCurrent"),
+      description: sides.mine.label,
+      detail: sides.mine.description,
     });
     choices.push({
       label: t("guidance.conflict.acceptAllIncoming"),
       id: "accept-all-theirs",
-      description: t("guidance.conflict.useIncoming"),
+      description: sides.theirs.label,
+      detail: sides.theirs.description,
     });
   }
-  if (operation && !files.length) {
-    choices.push({ label: finishLabel, id: "continue" });
-  }
   if (operation) {
-    choices.push({ label: cancelLabel, id: "abort" });
+    choices.push({
+      label: finishLabel,
+      id: "continue",
+      description: files.length
+        ? t("guidance.conflict.continueBlocked", { count: files.length, finish: finishLabel })
+        : t("guidance.conflict.continueConfirm", { finish: finishLabel }),
+    });
+    choices.push({
+      label: cancelLabel,
+      id: "abort",
+      description: t("guidance.conflict.abortConfirm", { cancel: cancelLabel, count: files.length }),
+    });
   }
 
   const selected = await vscode.window.showQuickPick(choices, {
@@ -293,7 +306,6 @@ async function conflictHelper(host, mode, options) {
     return;
   }
 
-  const sides = await workflows.getConflictSides(cwd, operation?.operation ?? null);
   const side = await vscode.window.showQuickPick([
     { label: t("guidance.conflict.openMergeEditor"), id: "merge-editor", description: selected.path },
     { label: t("guidance.conflict.useCurrent"), id: "mine", description: sides.mine.description },
@@ -338,13 +350,13 @@ async function undoMenu(host, mode, options, preferredId = null, recoveryPoint =
   if (choice.id === "commit") {
     const context = await workflows.getUndoContext(cwd);
     if (context.headIsInUpstream) {
-      vscode.window.showWarningMessage("마지막 Commit이 이미 원격에 올라가 있어 바로 취소하면 기록이 꼬일 수 있어요. 기존 기록은 남기고 반대 변경을 추가하는 ‘되돌리기(Revert)’를 사용해주세요.");
+      vscode.window.showWarningMessage(t("dialog.confirm.undoCommitPushedWarning"));
       return;
     }
     const confirm = await vscode.window.showWarningMessage(
-      "마지막 로컬 커밋만 취소하고 파일 변경은 그대로 남깁니다.",
+      t("dialog.confirm.undoCommitMessage"),
       { modal: true },
-      "Commit 취소",
+      t("dialog.confirm.undoCommitConfirmLabel"),
     );
     if (!confirm) return;
     const point = await workflows.createRecoveryPoint(cwd, "undo-local-commit");
@@ -394,9 +406,9 @@ async function undoMenu(host, mode, options, preferredId = null, recoveryPoint =
     });
     if (!selected) return;
     const confirm = await vscode.window.showWarningMessage(
-      `${selected.item.path}의 커밋하지 않은 변경을 버립니다. 되돌릴 수 없을 수 있습니다.`,
+      t("dialog.confirm.discardFileMessage", { path: selected.item.path }),
       { modal: true },
-      "변경 버리기",
+      t("dialog.confirm.discardFileConfirmLabel"),
     );
     if (!confirm) return;
     await showStatefulResult(host, mode, options, cwd, () => workflows.restoreFile(cwd, selected.item.path));
@@ -405,9 +417,9 @@ async function undoMenu(host, mode, options, preferredId = null, recoveryPoint =
 
   if (choice.id === "pushed") {
     const confirm = await vscode.window.showWarningMessage(
-      "이미 원격에 공유한 Commit은 삭제하지 않고, 내용을 되돌리는 새 Commit을 추가합니다.",
+      t("dialog.confirm.revertPushedMessage"),
       { modal: true },
-      "되돌리기 실행",
+      t("dialog.confirm.revertPushedConfirmLabel"),
     );
     if (!confirm) return;
     await showStatefulResult(host, mode, options, cwd, () => actions.revertCommit(cwd, "HEAD"));
@@ -415,9 +427,9 @@ async function undoMenu(host, mode, options, preferredId = null, recoveryPoint =
   }
 
   const confirm = await vscode.window.showWarningMessage(
-    "추적 중인 파일의 모든 커밋하지 않은 변경을 버립니다. 새로 만든 untracked 파일은 남습니다.",
+    t("dialog.confirm.discardAllTrackedMessage"),
     { modal: true },
-    "모든 tracked 변경 버리기",
+    t("dialog.confirm.discardAllTrackedConfirmLabel"),
   );
   if (!confirm) return;
   await showStatefulResult(host, mode, options, cwd, () => workflows.discardTrackedChanges(cwd));
@@ -600,20 +612,23 @@ async function commitHelper(host, mode, options) {
   const cwd = getCwd();
   if (!cwd) return;
   const workflows = await import("./git-workflows.mjs");
+  const { t } = await import("./i18n.mjs");
   const suggestion = await workflows.getCommitSuggestion(cwd);
   if (!suggestion.files.length) {
-    vscode.window.showInformationMessage("Commit 메시지를 만들 변경이 없습니다.");
+    vscode.window.showInformationMessage(t("guidance.commitHints.noChanges"));
     return;
   }
   const hints = workflows.getCommitMessageHints(suggestion.subject);
-  const hintText = hints.length ? ` 힌트: ${hints.join(" ")} 무시하고 그대로 진행해도 됩니다.` : "";
+  const hintText = hints.length
+    ? t("guidance.commitHints.helperHintPrefix", { hints: hints.join(" ") })
+    : "";
   const message = await vscode.window.showInputBox({
-    prompt: `제안 메시지를 자유롭게 수정하세요.${hintText} Commit은 내 로컬 Git에만 저장되고 원격은 아직 바뀌지 않습니다.`,
+    prompt: t("guidance.commitHints.helperPrompt", { hintText }),
     value: suggestion.subject,
   });
   if (!message) return;
   const confirm = await vscode.window.showInformationMessage(
-    `이 메시지로 로컬 Commit을 만들까요?\n${message}`,
+    t("guidance.commitHints.confirm", { message }),
     { modal: true },
     "Commit",
   );

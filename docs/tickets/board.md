@@ -110,6 +110,16 @@ This board is the status source of truth.
 | T-261102-05 | Cut Push/Pull preflight latency after perf bench | done | - | worker | implementation | 1+2 | [ticket](archive/2026-11/T-261102-05.md) | Push/Pull preflight ~75-87ms (was ~175-200ms) |
 
 | T-261102-06 | Capture Extension Host Stage click-to-paint baseline | done | - | worker | implementation | 1+2 | [ticket](archive/2026-11/T-261102-06.md) | Host Stage ~10ms PASS; EH stage:total partial |
+| T-261102-07 | Strengthen failure and recovery guides | done | - | worker | implementation | 1+2 | [ticket](archive/2026-11/T-261102-07.md) | Fear-reduction follow-up |
+| T-261102-08 | Beginnerize primary-UI jargon | done | - | worker | implementation | 1+2 | [ticket](archive/2026-11/T-261102-08.md) | Fear-reduction follow-up |
+| T-261102-09 | Deepen empty-repo first-success path | done | - | worker | implementation | 1+2 | [ticket](archive/2026-11/T-261102-09.md) | Fear-reduction follow-up |
+
+| T-261103-01 | Show the next click when Push is rejected | done | - | worker | implementation | 1+2 | [ticket](archive/2026-11/T-261103-01.md) | Fear-reduction reinforcement |
+| T-261103-02 | Put Merge safety on the diverged preview | done | - | worker | implementation | 1+2 | [ticket](archive/2026-11/T-261103-02.md) | Fear-reduction reinforcement |
+| T-261103-03 | Name conflict sides next to the finish control | done | - | worker | implementation | 1+2 | [ticket](archive/2026-11/T-261103-03.md) | Fear-reduction reinforcement |
+| T-261103-04 | Show busy clicks inside the panel | done | - | worker | implementation | 1+2 | [ticket](archive/2026-11/T-261103-04.md) | Follow-up to T-261102-02 |
+| T-261103-05 | Keep graph, sync, and Safe Guard first | done | - | worker | implementation | 1+2 | [ticket](archive/2026-11/T-261103-05.md) | Does not follow unregistered T-261008-21 |
+| T-261103-06 | Move risky confirm copy into locales | done | - | worker | implementation | 1+2 | [ticket](archive/2026-11/T-261103-06.md) | Push, Pull, delete, undo/discard only |
 
 Allowed states: `draft`, `ready`, `in_progress`, `review`, `ready_for_qa`, `blocked`, `done`, `superseded`.
 

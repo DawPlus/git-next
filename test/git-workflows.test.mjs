@@ -557,18 +557,68 @@ test("stash preview names its message and summarizes included files", () => {
 
 test("commit message hints flag vague, long, and bodyless drafts without blocking", () => {
   const hints = getCommitMessageHints("update: change things");
-  assert.match(hints.join(" "), /무엇을 바꿨는지/);
-  assert.match(hints.join(" "), /본문이 비어/);
-  assert.match(getCommitMessageHints(`${"x".repeat(73)}\n\nReason`)[0], /제목이 길어요/);
+  assert.match(hints.join(" "), /바뀌었|모호|example|예:/i);
+  assert.match(hints.join(" "), /본문이 비어|Body is empty|예:/i);
+  assert.match(getCommitMessageHints(`${"x".repeat(73)}\n\nReason`)[0], /제목이 길어요|long|72/i);
   assert.deepEqual(getCommitMessageHints("Refresh tokens on expiry\n\nPrevents expired sessions"), []);
   assert.deepEqual(getCommitMessageHints(""), []);
 });
 
+test("stage and commit feedback name the next safe step", async () => {
+  // Message-only check via locale templates (no repo mutation required for copy).
+  const { setLocale, resetLocale, t } = await import("../src/i18n.mts");
+  try {
+    setLocale("ko");
+    assert.match(t("guidance.stageFeedback.fileOk", { path: "a.txt" }), /Commit 대기|Push/);
+    assert.match(t("guidance.commitFeedback.summary", { committed: 1, remaining: 0 }), /원격에는 안|Push/);
+    assert.match(t("guidance.divergedHint.mergeWhy"), /Merge가 더 안전/);
+    setLocale("en");
+    assert.match(t("guidance.pushRejectHint.behind"), /Pull first/i);
+  } finally {
+    resetLocale();
+  }
+});
 
-test("failed-action retry guidance identifies the condition to recheck", () => {
-  assert.match(getRetryCheck({ action: "pull", code: "dirty-working-tree" }), /Commit 또는 Stash/);
-  assert.match(getRetryCheck({ action: "push", code: "diverged" }), /Remote/);
-  assert.match(getRetryCheck({ action: "stage-file" }), /저장소 상태/);
+
+test("push reject guidance explains remote commits, recommends Pull, and warns of overwrite", async () => {
+  const { setLocale, resetLocale, t } = await import("../src/i18n.mts");
+  try {
+    setLocale("ko");
+    const koBehind = t("guidance.pushRejectHint.behind");
+    assert.match(koBehind, /원격에 새 커밋/);
+    assert.match(koBehind, /먼저 Pull/);
+    assert.match(koBehind, /덮어쓰기.*지울 수 있습니다/);
+
+    const koRejected = t("guidance.pushRejectHint.rejected");
+    assert.match(koRejected, /새 커밋/);
+    assert.match(koRejected, /먼저 Pull/);
+    assert.match(koRejected, /덮어쓰기.*지울 수 있습니다/);
+
+    setLocale("en");
+    const enBehind = t("guidance.pushRejectHint.behind");
+    assert.match(enBehind, /new commits/i);
+    assert.match(enBehind, /Pull first/i);
+    assert.match(enBehind, /overwrit.*erase/i);
+
+    const enRejected = t("guidance.pushRejectHint.rejected");
+    assert.match(enRejected, /new commits/i);
+    assert.match(enRejected, /Pull first/i);
+    assert.match(enRejected, /overwrit.*erase/i);
+  } finally {
+    resetLocale();
+  }
+});
+
+test("failed-action retry guidance identifies the condition to recheck", async () => {
+  const { setLocale, resetLocale } = await import("../src/i18n.mts");
+  try {
+    setLocale("ko");
+    assert.match(getRetryCheck({ action: "pull", code: "dirty-working-tree" }), /Commit 또는 Stash/);
+    assert.match(getRetryCheck({ action: "push", code: "diverged" }), /비교|Merge|Rebase/);
+    assert.match(getRetryCheck({ action: "stage-file" }), /저장소 상태/);
+  } finally {
+    resetLocale();
+  }
 });
 
 
@@ -624,41 +674,53 @@ test("rebases diverged local work onto the reviewed target", async () => {
 
 
 test("conflict sides identify local merge branches and rebase roles", async () => {
-  for (const operation of ["merge", "rebase"]) {
-    const cwd = await repo();
-    await git(cwd, "switch", "-qc", "feature");
-    await writeFile(join(cwd, "app.txt"), "feature\n");
-    await git(cwd, "commit", "-qam", "feature change");
-    await git(cwd, "switch", "main");
-    await writeFile(join(cwd, "app.txt"), "main\n");
-    await git(cwd, "commit", "-qam", "main change");
-    if (operation === "rebase") await git(cwd, "switch", "feature");
-    await assert.rejects(git(cwd, operation, operation === "merge" ? "feature" : "main"));
-    const sides = await getConflictSides(cwd, operation);
-    assert.match(sides.mine.label, /main/);
-    assert.match(sides.theirs.label, /feature/);
-    assert.doesNotMatch(sides.theirs.description, /서버/);
-    if (operation === "rebase") {
-      assert.match(sides.mine.description, /기준/);
-      assert.match(sides.theirs.description, /다시 얹는|재적용/);
+  const { setLocale, resetLocale } = await import("../src/i18n.mts");
+  try {
+    setLocale("ko");
+    for (const operation of ["merge", "rebase"]) {
+      const cwd = await repo();
+      await git(cwd, "switch", "-qc", "feature");
+      await writeFile(join(cwd, "app.txt"), "feature\n");
+      await git(cwd, "commit", "-qam", "feature change");
+      await git(cwd, "switch", "main");
+      await writeFile(join(cwd, "app.txt"), "main\n");
+      await git(cwd, "commit", "-qam", "main change");
+      if (operation === "rebase") await git(cwd, "switch", "feature");
+      await assert.rejects(git(cwd, operation, operation === "merge" ? "feature" : "main"));
+      const sides = await getConflictSides(cwd, operation);
+      assert.match(sides.mine.label, /main/);
+      assert.match(sides.theirs.label, /feature/);
+      assert.doesNotMatch(sides.theirs.description, /서버/);
+      if (operation === "rebase") {
+        assert.match(sides.mine.description, /기준/);
+        assert.match(sides.theirs.description, /다시 얹는|재적용/);
+      }
+      assert.equal((await resolveConflictSide(cwd, "app.txt", "mine")).ok, true);
+      assert.equal(await (await import("node:fs/promises")).readFile(join(cwd, "app.txt"), "utf8"), "main\n");
     }
-    assert.equal((await resolveConflictSide(cwd, "app.txt", "mine")).ok, true);
-    assert.equal(await (await import("node:fs/promises")).readFile(join(cwd, "app.txt"), "utf8"), "main\n");
+  } finally {
+    resetLocale();
   }
 });
 
 test("commit feedback describes actual committed and remaining files", async () => {
-  const cwd = await repo();
-  await writeFile(join(cwd, "app.txt"), "selected\n");
-  await git(cwd, "add", "app.txt");
-  await writeFile(join(cwd, "app.txt"), "selected plus later\n");
-  await writeFile(join(cwd, "later.txt"), "untracked\n");
-  const result = await commitWithMessage(cwd, "Selected change");
-  assert.equal(result.ok, true);
-  assert.match(result.message, /1개 파일/);
-  assert.match(result.message, /미커밋 변경 2개/);
-  assert.match(result.message, /로컬.*Push/);
-  assert.equal(await git(cwd, "show", "HEAD:app.txt"), "selected");
+  const { setLocale, resetLocale } = await import("../src/i18n.mts");
+  try {
+    setLocale("ko");
+    const cwd = await repo();
+    await writeFile(join(cwd, "app.txt"), "selected\n");
+    await git(cwd, "add", "app.txt");
+    await writeFile(join(cwd, "app.txt"), "selected plus later\n");
+    await writeFile(join(cwd, "later.txt"), "untracked\n");
+    const result = await commitWithMessage(cwd, "Selected change");
+    assert.equal(result.ok, true);
+    assert.match(result.message, /1개 파일/);
+    assert.match(result.message, /미커밋 변경 2개/);
+    assert.match(result.message, /로컬.*Push/);
+    assert.equal(await git(cwd, "show", "HEAD:app.txt"), "selected");
+  } finally {
+    resetLocale();
+  }
 });
 
 

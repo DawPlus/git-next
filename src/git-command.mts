@@ -6,6 +6,16 @@ import { traceAsync } from "./perf-trace.js";
 
 const execFileAsync = promisify(execFile);
 
+// Network operations may legitimately take longer than local inspections.
+export function gitExecutionLimits(args: readonly string[]) {
+  const command = args[0] ?? "";
+  const network = new Set(["fetch", "pull", "push", "clone", "ls-remote"]);
+  return {
+    timeout: network.has(command) ? 10 * 60_000 : 2 * 60_000,
+    maxBuffer: 32 * 1024 * 1024,
+  };
+}
+
 type ExecFileError = Error & { stdout?: string; stderr?: string };
 
 export async function runGit(
@@ -19,7 +29,8 @@ export async function runGit(
       cwd,
       encoding: "utf8",
       windowsHide: true,
-      env: { ...process.env, ...env },
+      ...gitExecutionLimits(args),
+      env: { ...process.env, GIT_TERMINAL_PROMPT: "0", ...env },
     }));
     return { ok: true, detail: [stdout, stderr].filter(Boolean).join("\n").trim() };
   } catch (error) {

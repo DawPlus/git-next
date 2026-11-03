@@ -135,7 +135,8 @@ test("loads glossary repository context lazily without blocking initial render",
 test("shows advisory message hints beside editable commit drafts", () => {
   const source = runtimeSource;
   assert.match(source, /workflows\.getCommitMessageHints\(suggestion\.subject\)/);
-  assert.match(source, /무시하고 그대로 진행해도 됩니다/);
+  assert.match(source, /guidance\.commitHints\.helperHintPrefix/);
+  assert.match(source, /guidance\.commitHints\.helperPrompt/);
   assert.match(source, /value: suggestion\.subject/);
 });
 
@@ -185,12 +186,38 @@ test("offers Force-with-lease only after a rejected or blocked regular Push", ()
   const source = runtimeSource;
   assert.match(source, /async function offerForceWithLease\(/);
   assert.match(source, /getForceWithLeasePreview\(cwd\)/);
-  assert.match(source, /확인한 원격 최신 Commit: \$\{preview\.expected\.slice\(0, 12\)\}/);
-  assert.match(source, /누군가 원격을 변경하면 Git이 자동으로 Push를 취소합니다/);
+  assert.match(source, /dialog\.confirm\.forcePushConfirm/);
+  assert.match(source, /pullLabel = t\("dialog\.confirm\.pullConfirmLabel"\)/);
+  assert.match(source, /showWarningMessage\([\s\S]*?pullLabel,\s*forceLabel/);
+  assert.match(source, /confirm === pullLabel/);
+  assert.match(source, /runSyncAction\(host, "pull", mode, options\)/);
   assert.match(source, /actions\.pushWithForceWithLease\(cwd, preview\.remote, preview\.remoteRef, preview\.expected\)/);
   assert.match(source, /preflight\.code === "diverged"/);
   assert.match(source, /offerDivergedResolution/);
   assert.match(source, /preflight\.code === "behind"/);
   assert.match(source, /result\.detail \?\? ""\} \$\{result\.message/);
   assert.match(source, /safety\.code === "remote-history-rewritten"/);
+});
+
+test("diverged resolution presents explicit Merge and Rebase choices with safety guidance on the choice surface", () => {
+  const source = runtimeSource;
+  assert.match(source, /async function offerDivergedResolution\(/);
+  assert.match(source, /vscode\.window\.showQuickPick\(\s*\[/);
+  assert.match(source, /Merge로 합치기/);
+  assert.match(source, /Rebase로 정리하기/);
+  assert.match(source, /mergeWhy.*개 커밋 통합/);
+  assert.match(source, /로컬 커밋 이력을 다시 쓸 수 있어요/);
+  assert.match(source, /workflows\.mergeIntoCurrent/);
+  assert.match(source, /workflows\.rebaseCurrentOnto/);
+});
+
+test("risky confirm paths in handlers read from dialog.confirm locales", () => {
+  const source = runtimeSource;
+  assert.match(source, /dialog\.confirm\.deleteTagMessage/);
+  assert.match(source, /dialog\.confirm\.deleteBranchAction/);
+  assert.match(source, /dialog\.confirm\.deleteStashAction/);
+  assert.match(source, /dialog\.confirm\.undoCommitMessage/);
+  assert.match(source, /dialog\.confirm\.discardFileMessage/);
+  assert.match(source, /dialog\.confirm\.revertPushedMessage/);
+  assert.match(source, /dialog\.confirm\.discardAllTrackedMessage/);
 });

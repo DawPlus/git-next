@@ -7,11 +7,17 @@ export function getCommitMessageHints(message: unknown): string[] {
   const [subject = "", ...body] = String(message ?? "").trim().split(/\r?\n/);
   if (!subject) return [];
   const hints: string[] = [];
-  if (subject.length > 72) hints.push("제목이 길어요. 핵심을 짧게 줄여 보세요.");
-  if (subject.length < 8 || /^(update|change|changes|fix|wip|misc|수정|변경|작업)(?:\b|[ :.-]|$)/i.test(subject)) {
-    hints.push("무엇을 바꿨는지 드러나는 제목인지 확인해 보세요.");
+  const exampleShort = t("guidance.commitHints.exampleShort");
+  const exampleWhy = t("guidance.commitHints.exampleWhy");
+  if (subject.length > 72) {
+    hints.push(t("guidance.commitHints.tooLong", { example: exampleShort }));
   }
-  if (!body.join("\n").trim()) hints.push("본문이 비어 있어요. 배경이나 영향이 필요하면 한 줄 덧붙이세요.");
+  if (subject.length < 8 || /^(update|change|changes|fix|wip|misc|수정|변경|작업)(?:\b|[ :.-]|$)/i.test(subject)) {
+    hints.push(t("guidance.commitHints.vague", { example: exampleShort }));
+  }
+  if (!body.join("\n").trim()) {
+    hints.push(t("guidance.commitHints.noBody", { example: exampleWhy }));
+  }
   return hints;
 }
 
@@ -23,7 +29,7 @@ export function formatStashPreview(changes: WorkingTreeChange[], message: string
 
 export async function commitWithMessage(cwd: string, message: string) {
   const result = await runGit(cwd, ["commit", "-m", message]);
-  if (!result.ok) return { ...result, action: "commit", message: "커밋을 만들지 못했습니다." };
+  if (!result.ok) return { ...result, action: "commit", message: t("guidance.commitFeedback.failed") };
   const [committed, remaining] = await Promise.all([
     runGit(cwd, ["diff-tree", "--root", "--no-commit-id", "--name-only", "-z", "-r", "--first-parent", "-m", "HEAD"]),
     getWorkingTreeChanges(cwd).catch(() => null),
@@ -34,7 +40,7 @@ export async function commitWithMessage(cwd: string, message: string) {
   return {
     ...result,
     action: "commit",
-    message: `커밋을 만들었습니다: ${message}\n${feedback}`,
+    message: `${t("guidance.commitFeedback.created", { message })}\n${feedback}`,
   };
 }
 
@@ -121,22 +127,46 @@ export async function getChangeWorkspace(cwd: string) {
 
 export async function stageFile(cwd: string, path: string) {
   const result = await runGit(cwd, ["add", "--", path]);
-  return { ...result, action: "stage-file", message: result.ok ? `${path}을(를) Staging했습니다.` : "파일을 Staging하지 못했습니다." };
+  return {
+    ...result,
+    action: "stage-file",
+    message: result.ok
+      ? t("guidance.stageFeedback.fileOk", { path })
+      : t("guidance.stageFeedback.fileFail"),
+  };
 }
 
 export async function stageAll(cwd: string) {
   const result = await runGit(cwd, ["add", "-A"]);
-  return { ...result, action: "stage-all", message: result.ok ? "모든 변경사항을 Staging했습니다." : "전체 Staging에 실패했습니다." };
+  return {
+    ...result,
+    action: "stage-all",
+    message: result.ok
+      ? t("guidance.stageFeedback.allOk")
+      : t("guidance.stageFeedback.allFail"),
+  };
 }
 
 export async function unstageFile(cwd: string, path: string) {
   const result = await runGit(cwd, ["restore", "--staged", "--", path]);
-  return { ...result, action: "unstage-file", message: result.ok ? `${path}을(를) Staging에서 제외했습니다.` : "파일을 Unstage하지 못했습니다." };
+  return {
+    ...result,
+    action: "unstage-file",
+    message: result.ok
+      ? t("guidance.stageFeedback.unstageFileOk", { path })
+      : t("guidance.stageFeedback.unstageFileFail"),
+  };
 }
 
 export async function unstageAll(cwd: string) {
   const result = await runGit(cwd, ["reset", "--quiet"]);
-  return { ...result, action: "unstage-all", message: result.ok ? "모든 Staging을 해제했습니다." : "전체 Unstage에 실패했습니다." };
+  return {
+    ...result,
+    action: "unstage-all",
+    message: result.ok
+      ? t("guidance.stageFeedback.unstageAllOk")
+      : t("guidance.stageFeedback.unstageAllFail"),
+  };
 }
 
 export async function discardFile(cwd: string, path: string, { untracked = false }: { untracked?: boolean } = {}) {

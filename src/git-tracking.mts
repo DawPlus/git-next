@@ -2,6 +2,7 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 
 import { formatStateRiskNext } from "./git-guidance.mjs";
+import { t } from "./i18n.mjs";
 import type { TrackingStatus, WorkingTreeChange } from "./git-types.mjs";
 import { traceAsync } from "./perf-trace.js";
 
@@ -38,46 +39,46 @@ export function getPushGuidance(status: TrackingStatus): PushGuidance {
   if (status.kind === "no-upstream") {
     return result(
       false,
-      "현재 브랜치에 연결된 원격 브랜치가 없습니다.",
-      "어느 원격 브랜치로 Push할지 정할 수 없습니다.",
-      "첫 Push에서 현재 브랜치를 원격 브랜치와 연결해주세요.",
+      t("guidance.pushGuide.noUpstreamState"),
+      t("guidance.pushGuide.noUpstreamRisk"),
+      t("guidance.pushGuide.noUpstreamNext"),
     );
   }
 
   if (status.kind === "behind") {
     return result(
       false,
-      `원격이 ${status.behind}개 커밋 앞서 있습니다.`,
-      "바로 Push하면 거절될 수 있고 강제 Push는 다른 사람의 변경을 덮을 수 있습니다.",
-      "먼저 받기(Pull) 또는 Branch 비교로 원격 변경을 확인하세요.",
+      t("guidance.pushGuide.behindState", { behind: status.behind }),
+      t("guidance.pushGuide.behindRisk"),
+      t("guidance.pushGuide.behindNext"),
     );
   }
 
   if (status.kind === "diverged") {
     return result(
       false,
-      `로컬 ${status.ahead}개 · 원격 ${status.behind}개 커밋이 서로 갈라졌습니다.`,
-      "어느 한쪽을 바로 덮으면 다른 변경을 잃을 수 있습니다.",
-      "Branch 비교 후 Merge 또는 Rebase로 기록을 정리하세요.",
+      t("guidance.pushGuide.divergedState", { ahead: status.ahead, behind: status.behind }),
+      t("guidance.pushGuide.divergedRisk"),
+      t("guidance.pushGuide.divergedNext"),
     );
   }
 
   if (status.kind === "unknown") {
     return result(
       false,
-      "로컬과 원격의 관계를 확인할 수 없습니다.",
-      "상태를 모른 채 Push하면 예상하지 못한 기록 변경이 생길 수 있습니다.",
-      "새로고침하거나 Git 상세 정보를 확인한 뒤 다시 시도하세요.",
+      t("guidance.pushGuide.unknownState"),
+      t("guidance.pushGuide.unknownRisk"),
+      t("guidance.pushGuide.unknownNext"),
     );
   }
 
   return result(
     true,
     status.kind === "ahead"
-      ? `원격에 보낼 로컬 커밋이 ${status.ahead}개 있습니다.`
-      : "로컬과 원격이 같은 상태입니다.",
-    "확인된 Push 차단 위험이 없습니다.",
-    "보낼 커밋과 대상을 확인한 뒤 Push할 수 있습니다.",
+      ? t("guidance.pushGuide.aheadState", { ahead: status.ahead })
+      : t("guidance.pushGuide.upToDateState"),
+    t("guidance.pushGuide.safeRisk"),
+    t("guidance.pushGuide.safeNext"),
   );
 }
 

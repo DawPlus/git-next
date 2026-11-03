@@ -59,12 +59,13 @@ async function confirmImpactPreview(host, mode, options, cwd, action, beforeSnap
     detail,
   }, mode, options);
   await showSyncMovementPreview(action, preview);
+  const { t } = await import("./i18n.mjs");
   return confirmMutation({
     action: summary.label,
     target: summary.direction,
     effect: detail,
     risk: summary.risk,
-    confirmLabel: action === "pull" ? "Pull 실행" : "Push 실행",
+    confirmLabel: action === "pull" ? t("dialog.confirm.pullConfirmLabel") : t("dialog.confirm.pushConfirmLabel"),
   });
 }
 
@@ -104,13 +105,27 @@ async function offerForceWithLease(host, mode, options, cwd, reason) {
     await renderPanel(host, { action: "push", code: preview.code, ok: false, level: "blocked", message: preview.message, detail: preview.detail }, mode, options);
     return;
   }
+  const { t } = await import("./i18n.mjs");
   const protectedGuard = await getProtectedBranchWarning(cwd, "force-push");
+  const pullLabel = t("dialog.confirm.pullConfirmLabel");
+  const forceLabel = protectedGuard.protected
+    ? t("dialog.confirm.protectedForcePushConfirmLabel")
+    : t("dialog.confirm.forcePushConfirmLabel");
   const confirm = await vscode.window.showWarningMessage(
-    `${reason}\n\n안전한 강제 Push 대상: ${preview.remote}/${preview.branch}\n확인한 원격 최신 Commit: ${preview.expected.slice(0, 12)}\n실행 직전까지 이 Commit이 그대로일 때만 원격 기록을 로컬 기록으로 바꿉니다. 그 사이 누군가 원격을 변경하면 Git이 자동으로 Push를 취소합니다.${protectedGuard.protected ? `\n\n${protectedGuard.message}` : ""}`,
+    `${reason}\n\n${t("dialog.confirm.forcePushConfirm", {
+      remote: preview.remote,
+      branch: preview.branch,
+      expected: preview.expected.slice(0, 12),
+      protectedGuard: protectedGuard.protected ? `\n\n${protectedGuard.message}` : "",
+    })}`,
     { modal: true },
-    protectedGuard.protected ? "보호 브랜치 안전한 강제 Push" : "안전한 강제 Push",
+    pullLabel,
+    forceLabel,
   );
-  if (!confirm) return;
+  if (confirm === pullLabel) {
+    return runSyncAction(host, "pull", mode, options);
+  }
+  if (confirm !== forceLabel) return;
   const actions = await import("./git-actions.mjs");
   const result = await workflows.runWithGitStateDelta(cwd, () =>
     actions.pushWithForceWithLease(cwd, preview.remote, preview.remoteRef, preview.expected));
@@ -126,27 +141,56 @@ async function offerDivergedResolution(host, mode, options, cwd) {
     return;
   }
 
-  const guard = await guardWorkingState(cwd, "merge");
+  const { t } = await import("./i18n.mjs");
+  const mergeWhy = t("guidance.divergedHint.mergeWhy");
+  const selected = await vscode.window.showQuickPick([
+    {
+      label: "Merge로 합치기",
+      description: "더 안전한 기본 선택",
+      detail: `${mergeWhy} (${preview.incomingCommits.length}개 커밋 통합)`,
+      strategy: "merge",
+    },
+    {
+      label: "Rebase로 정리하기",
+      description: "로컬 기록 재작성",
+      detail: "원격 최신 커밋 위에 로컬 커밋을 다시 얹습니다. 로컬 커밋 이력을 다시 쓸 수 있어요.",
+      strategy: "rebase",
+    },
+  ], {
+    placeHolder: `${mergeWhy} · 갈라진 기록 정리 방식을 선택하세요.`,
+  });
+  if (!selected) return;
+
+  const guard = await guardWorkingState(cwd, selected.strategy);
   if (!guard.ok) {
     await renderPanel(host, { ok: false, level: "blocked", message: guard.message, detail: guard.detail }, mode, options);
     return;
   }
 
+  const protectedGuard = selected.strategy === "rebase"
+    ? await getProtectedBranchWarning(cwd, "rebase")
+    : { protected: false, message: "" };
+
   const baseRisk = preview.conflictRisk
-    ? "충돌 가능성이 있습니다. 충돌이 나면 충돌 정리 / 작업 마무리 흐름에서 안내합니다."
-    : "원격 변경을 현재 브랜치에 Merge합니다.";
+    ? t("guidance.divergedHint.conflictPossible")
+    : (selected.strategy === "merge" ? t("guidance.divergedHint.mergeEffect") : "Git 기록 구조가 변경됩니다.");
+
   const ok = await confirmMutation({
-    action: "Diverged Merge",
+    action: selected.strategy === "merge"
+      ? "Diverged Merge"
+      : (protectedGuard.protected ? "보호 브랜치 Diverged Rebase" : "Diverged Rebase"),
     target: preview.target,
-    effect: workflows.formatIntegrationPreview(preview, "merge"),
-    risk: baseRisk,
-    level: preview.conflictRisk ? "warning" : "safe",
-    confirmLabel: "Merge 실행",
+    effect: workflows.formatIntegrationPreview(preview, selected.strategy),
+    risk: protectedGuard.protected ? `${baseRisk} ${protectedGuard.message}\n${mergeWhy}` : `${baseRisk}\n${mergeWhy}`,
+    level: preview.conflictRisk || protectedGuard.protected ? "warning" : "safe",
+    confirmLabel: selected.strategy === "merge" ? "Merge 실행" : (protectedGuard.protected ? "보호 브랜치 Rebase 실행" : "Rebase 실행"),
   });
   if (!ok) return;
 
   const result = await workflows.runWithGitStateDelta(cwd, () =>
-    workflows.mergeIntoCurrent(cwd, preview.target));
+    selected.strategy === "merge"
+      ? workflows.mergeIntoCurrent(cwd, preview.target)
+      : workflows.rebaseCurrentOnto(cwd, preview.target));
   await refreshState(cwd).catch(() => noteSoftFailure());
   await showResult(host, mode, options, result, result.ok ? null : "blocked");
 }
@@ -278,8 +322,12 @@ async function runSyncAction(host, action, mode = "graph", options = {}) {
     }
     if (!guard.canProceed && !relaxedOverlap) {
       if (preflight.code === "dirty-incoming-overlap") {
+        const { t } = await import("./i18n.mjs");
+        const overlappingFiles = preflight.affected?.length
+          ? t("dialog.safeguard.overlappingFilesLabel", { files: preflight.affected.join(", ") })
+          : "";
         await vscode.window.showWarningMessage(
-          `Pull을 실행하지 않았습니다.\n\n로컬에서 수정한 파일과 원격에서 받아올 파일이 겹칩니다. 그대로 Pull하면 작업이 중단되거나 충돌할 수 있어요.\n\n먼저 Commit하거나 Stash로 현재 작업을 보관한 뒤 다시 Pull해주세요.${preflight.affected?.length ? `\n\n겹치는 파일: ${preflight.affected.join(", ")}` : ""}`,
+          t("dialog.safeguard.dirtyIncomingOverlapBlocked", { overlappingFiles }),
           { modal: true },
         );
       }
@@ -399,7 +447,10 @@ async function runSyncAction(host, action, mode = "graph", options = {}) {
       return;
     }
     if (preflight.code === "behind") {
-      await offerForceWithLease(host, mode, options, cwd, "일반 Push는 원격에 새 커밋이 있어 중단됐습니다. 원격 내용을 확인하고 덮어쓸지 결정하세요.");
+      {
+        const { t } = await import("./i18n.mjs");
+        await offerForceWithLease(host, mode, options, cwd, t("guidance.pushRejectHint.behind"));
+      }
     }
     return;
   }
@@ -416,7 +467,10 @@ async function runSyncAction(host, action, mode = "graph", options = {}) {
   await refreshState(cwd).catch(() => noteSoftFailure());
   await showResult(host, mode, options, result, result.ok ? null : "blocked");
   if (!result.ok && /non-fast-forward|rejected/i.test(`${result.detail ?? ""} ${result.message ?? ""}`)) {
-    await offerForceWithLease(host, mode, options, cwd, "일반 Push가 Remote에서 거절됐습니다.");
+    {
+      const { t } = await import("./i18n.mjs");
+      await offerForceWithLease(host, mode, options, cwd, t("guidance.pushRejectHint.rejected"));
+    }
   }
 }
 

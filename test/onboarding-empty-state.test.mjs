@@ -26,3 +26,26 @@ test("init repository requires confirmation before git init", () => {
   assert.match(handler, /\["init"\]/);
   assert.match(handler, /startFirstCommitGuide/);
 });
+
+test("createFirstFile shows save-to-stage hint and reopens Git Next", () => {
+  assert.match(handler, /createFileHint/);
+  assert.match(handler, /gitNext\.open/);
+});
+
+test("package contributes viewsWelcome and first-commit command", () => {
+  const pkg = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
+  assert.ok(Array.isArray(pkg.contributes.viewsWelcome));
+  assert.ok(pkg.contributes.viewsWelcome.some((item) => item.view === "gitNext.sidebar"));
+  assert.ok(pkg.contributes.commands.some((item) => item.command === "gitNext.startFirstCommitGuide"));
+});
+
+test("primary chrome jargon uses beginner labels", async () => {
+  const { setLocale, t } = await import("../src/i18n.mts");
+  setLocale("ko");
+  assert.equal(t("sidebar.detachedHead"), "브랜치 밖 커밋");
+  assert.equal(t("sidebar.staged"), "Commit 대기");
+  assert.doesNotMatch(t("sidebar.staged"), /^Staged$/);
+  setLocale("en");
+  assert.equal(t("sidebar.detachedHead"), "Commit outside a branch");
+  assert.doesNotMatch(t("sidebar.staged"), /^Staged$/);
+});

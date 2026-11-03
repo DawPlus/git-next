@@ -1,12 +1,12 @@
 export const actions = {
   explain: {
-    nonFastForward: "원격 브랜치에 아직 받지 않은 변경이 있습니다. 먼저 받기(Pull)한 뒤 결과를 확인하고 다시 보내세요.",
-    noTracking: "현재 브랜치가 원격 브랜치와 연결되어 있지 않습니다.",
-    notGitRepo: "현재 폴더에서 Git 저장소를 찾지 못했습니다.",
-    conflict: "충돌이 발생했습니다. 충돌 파일을 직접 정리한 뒤 다시 시도하세요.",
-    diverged: "로컬과 원격의 커밋 흐름이 갈라졌습니다. 양쪽 변경을 확인한 뒤 정리하세요.",
-    pullFailed: "변경 내용을 받아오지 못했습니다. Git 상세 정보를 열어 저장소 상태를 확인하세요.",
-    pushFailed: "변경 내용을 보내지 못했습니다. Git 상세 정보를 열어 저장소 상태를 확인하세요.",
+    nonFastForward: "원격에 아직 받지 않은 변경이 있어 Push가 거절되었습니다. 사이드바에서 Pull로 받은 뒤 결과를 확인하고 다시 Push하세요.",
+    noTracking: "현재 브랜치가 원격과 연결되어 있지 않습니다. 첫 Push에서 원격 브랜치를 연결하거나 Branch 도구에서 연결을 확인하세요.",
+    notGitRepo: "현재 폴더에서 Git 저장소를 찾지 못했습니다. 폴더를 열거나 Git 저장소 만들기를 진행하세요.",
+    conflict: "충돌이 발생했습니다. 사이드바의 ‘충돌 정리 / 작업 마무리’에서 파일을 고른 뒤 마무리하세요.",
+    diverged: "로컬과 원격 기록이 갈라졌습니다. Branch 비교로 양쪽을 확인한 뒤 Merge 또는 Rebase를 선택하세요.",
+    pullFailed: "변경을 받아오지 못했습니다. Git 상세 정보와 네트워크를 확인한 뒤 다시 Pull하세요.",
+    pushFailed: "변경을 보내지 못했습니다. Git 상세 정보에서 거절 이유를 확인한 뒤 Pull 또는 비교 후 다시 Push하세요.",
   },
   commitish: {
     unsafe: "Git 대상을 안전하게 확인할 수 없습니다.",

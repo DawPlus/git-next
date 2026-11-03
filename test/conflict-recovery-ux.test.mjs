@@ -39,3 +39,12 @@ test("conflict helper opens Merge Editor path and bulk accept with confirmation"
   assert.match(menus, /keepResolving/);
   assert.doesNotMatch(menus.slice(menus.indexOf("async function conflictHelper"), menus.indexOf("async function undoMenu")), /\bContinue \/ Abort\b/);
 });
+
+test("conflict surface names both sides and finish action next to conflicted files", () => {
+  assert.match(menus, /getConflictSides\(cwd, operation\?\.operation \?\? null\)/);
+  assert.match(menus, /sides\.mine\.label.*vs.*sides\.theirs\.label/);
+  assert.match(menus, /choices\.push\(\{\s*label:\s*finishLabel/);
+  assert.match(menus, /continueBlocked/);
+  assert.match(menus, /sides\.mine\.description/);
+  assert.match(menus, /sides\.theirs\.description/);
+});

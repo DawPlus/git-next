@@ -6,6 +6,24 @@ import { runGitInspection, getTrackingStatus, getHeadSafety, getWorkingTreeChang
 import { guidanceNotice } from "./git-guidance.mjs";
 import { t } from "./i18n.mjs";
 
+function operationFinishLabel(operation: string | null | undefined): string {
+  return ({
+    merge: t("guidance.conflict.finishMerge"),
+    rebase: t("guidance.conflict.finishRebase"),
+    "cherry-pick": t("guidance.conflict.finishCherryPick"),
+    revert: t("guidance.conflict.finishRevert"),
+  } as Record<string, string>)[operation ?? ""] ?? t("guidance.conflict.finishGeneric");
+}
+
+function operationCancelLabel(operation: string | null | undefined): string {
+  return ({
+    merge: t("guidance.conflict.cancelMerge"),
+    rebase: t("guidance.conflict.cancelRebase"),
+    "cherry-pick": t("guidance.conflict.cancelCherryPick"),
+    revert: t("guidance.conflict.cancelRevert"),
+  } as Record<string, string>)[operation ?? ""] ?? t("guidance.conflict.cancelGeneric");
+}
+
 type RewriteDetectResult = {
   rewritten: boolean;
   upstream: string | null;
@@ -167,12 +185,14 @@ export async function preflightPushSafety(cwd) {
     return guidanceNotice({ level: "blocked", code: "no-commits", state: t("guidance.firstPush.noCommits"), risk: t("guidance.firstPush.noCommitsRisk"), next: t("guidance.firstPush.initialNext"), detail: null, affected: [] });
   }
   if (operation) {
+    const finish = operationFinishLabel(operation.operation);
+    const cancel = operationCancelLabel(operation.operation);
     return guidanceNotice({
       level: "blocked",
       code: `${operation.operation}-in-progress`,
-      state: `${operation.operation} 작업 진행 중`,
-      risk: "미완료 상태에서 Push하면 복구 과정이 더 복잡해질 수 있습니다.",
-      next: "먼저 Continue 또는 Abort로 현재 작업을 끝낸 뒤 Push하세요.",
+      state: t("guidance.preflight.operationState", { operation: operation.operation }),
+      risk: t("guidance.preflight.pushDuringOperationRisk"),
+      next: t("guidance.preflight.finishOrCancelNext", { finish, cancel }),
       detail: operation.path,
       affected: [],
       actions: ["operation-recovery"],
@@ -184,9 +204,9 @@ export async function preflightPushSafety(cwd) {
     return guidanceNotice({
       level: "blocked",
       code: "fetch-failed",
-      state: "원격 최신 상태 확인 실패",
-      risk: "Remote 상태를 모른 채 Push하면 예상하지 못한 기록 변경이 생길 수 있습니다.",
-      next: "네트워크와 Remote 상태를 확인한 뒤 다시 시도하세요.",
+      state: t("guidance.preflight.fetchFailedState"),
+      risk: t("guidance.preflight.fetchFailedPushRisk"),
+      next: t("guidance.preflight.fetchFailedNext"),
       detail: rewrite.fetchError,
       affected: rewrite.upstream ? [rewrite.upstream] : [],
     });
@@ -195,9 +215,9 @@ export async function preflightPushSafety(cwd) {
     return guidanceNotice({
       level: "blocked",
       code: "remote-history-rewritten",
-      state: "원격 브랜치 기록이 다시 작성된 것으로 보임",
-      risk: "바로 Push하면 다른 기록을 덮을 수 있습니다.",
-      next: "Compare에서 원격 변경을 확인한 뒤 진행하세요.",
+      state: t("guidance.preflight.rewriteState"),
+      risk: t("guidance.preflight.rewritePushRisk"),
+      next: t("guidance.preflight.rewriteNext"),
       detail: [rewrite.upstream, rewrite.before, rewrite.after].filter(Boolean).join("\n"),
       affected: rewrite.upstream ? [rewrite.upstream] : [],
     });
@@ -245,12 +265,14 @@ export async function preflightPullSafety(cwd, runGit = runGitInspection) {
   }
 
   if (operation) {
+    const finish = operationFinishLabel(operation.operation);
+    const cancel = operationCancelLabel(operation.operation);
     return guidanceNotice({
       level: "blocked",
       code: `${operation.operation}-in-progress`,
-      state: `${operation.operation} 작업 진행 중`,
-      risk: "Pull을 겹치면 변경이 섞여 충돌 원인을 파악하기 어려워질 수 있습니다.",
-      next: "먼저 Continue 또는 Abort로 현재 작업을 정리한 뒤 Pull하세요.",
+      state: t("guidance.preflight.operationState", { operation: operation.operation }),
+      risk: t("guidance.preflight.pullDuringOperationRisk"),
+      next: t("guidance.preflight.finishOrCancelNext", { finish, cancel }),
       detail: operation.path,
       affected: [],
       actions: ["operation-recovery"],

@@ -2,10 +2,11 @@
 	"name": "git-next",
 	"displayName": "Git Next",
 	"description": "Git이 무서운 초보자를 위한 실수 방지 사이드킥. 그래프·Safe Guard·한국어 가이드·AI 진단으로 상태와 다음 행동을 먼저 보여 줍니다.",
-	"version": "0.2.4",
+	"version": "0.2.7",
 	"publisher": "DawChae",
 	"license": "MIT",
 	"private": true,
+	"packageManager": "npm@11.14.1",
 	"engines": {
 		"vscode": "^1.100.0"
 	},
@@ -28,6 +29,16 @@
 			{
 				"command": "gitNext.fileHistory",
 				"title": "Git Next: 파일 커밋 이력 그래프에서 보기"
+			},
+			{
+				"command": "gitNext.startFirstCommitGuide",
+				"title": "Git Next: 첫 Commit 안내"
+			}
+		],
+		"viewsWelcome": [
+			{
+				"view": "gitNext.sidebar",
+				"contents": "Git이 무서울 때 상태와 다음 행동을 먼저 보여 줍니다.\n[폴더 열기](command:vscode.openFolder)\n[Git Next 열기](command:gitNext.open)\n[첫 Commit 안내](command:gitNext.startFirstCommitGuide)"
 			}
 		],
 		"menus": {

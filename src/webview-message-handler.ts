@@ -221,7 +221,11 @@ function createWebviewMessageHandler({
     graphOptions: async (message) => updateGraphOptions(message, false),
     branchMenu: async () => openBranchWorkspace(context),
     tagMenu: async () => tagMenu(host, mode, getOptions()),
-    createFirstFile: async () => vscode.commands.executeCommand("workbench.action.files.newUntitledFile"),
+    createFirstFile: async () => {
+      await vscode.window.showInformationMessage(t("guidance.onboarding.createFileHint"));
+      await vscode.commands.executeCommand("workbench.action.files.newUntitledFile");
+      await vscode.commands.executeCommand("gitNext.open");
+    },
     openWorkspaceFolder: async () => {
       await vscode.commands.executeCommand("vscode.openFolder");
     },
@@ -256,7 +260,10 @@ function createWebviewMessageHandler({
         t("guidance.onboarding.firstCommitSteps"),
         t("guidance.firstPush.createFile"),
       );
-      if (choice) await vscode.commands.executeCommand("workbench.action.files.newUntitledFile");
+      if (!choice) return;
+      await vscode.window.showInformationMessage(t("guidance.onboarding.createFileHint"));
+      await vscode.commands.executeCommand("workbench.action.files.newUntitledFile");
+      await vscode.commands.executeCommand("gitNext.open");
     },
     stashMenu: async () => openStashWorkspace(context),
     stashBeforePull: async () => openStashWorkspace(context, { intent: "before-pull" }),
@@ -345,8 +352,9 @@ function createWebviewMessageHandler({
   }
 
   return async function handleWebviewMessage(message) {
-    const handler = handlers[message?.type];
-    if (!handler) return;
+    if (!message || typeof message !== "object" || typeof message.type !== "string") return;
+    if (!Object.hasOwn(handlers, message.type)) return;
+    const handler = handlers[message.type];
     try {
       await handler(message);
     } catch (error) {

@@ -273,16 +273,6 @@ export function renderSidebarHtml(state: any, notice: any = null, options: { loc
     <!--status-hints-end--></section>
 
     <section class="section action-panel">
-      <div class="commit-compose">
-        <div class="commit-input-wrap">
-          <input class="commit-input" id="sidebar-commit-message" type="text" placeholder="${escapeHtml(tFn("sidebar.commitPlaceholder"))}" />
-          <button class="icon-button commit-helper" type="button" data-action="toolsMenu" data-tool="commit" aria-label="${escapeHtml(tFn("sidebar.commitHelper"))}" title="${escapeHtml(tFn("sidebar.commitHelper"))}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v12H8l-4 3z"></path><path d="M8 9h8M8 13h5"></path></svg></button>
-        </div>
-        <button class="primary" type="button" data-action="sidebarCommit">${escapeHtml(tFn("sidebar.commitButton"))}</button>
-      </div>
-      <div class="commit-secondary-row">
-        <button class="commit-undo" type="button" data-action="sidebarUndoCommit" title="${escapeHtml(tFn("sidebar.undoCommitTooltip"))}">${escapeHtml(tFn("sidebar.undoCommit"))}</button>
-      </div>
       <div class="sync-row">
         <button class="sync-button ${primarySyncAction === "pull" ? "is-primary-sync" : ""}" type="button" data-action="pull" title="${escapeHtml(localizeRiskReason(pullRisk.reason, tFn))}">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11"></path><path d="m7.5 11 4.5 4.5 4.5-4.5"></path><path d="M5 20h14"></path></svg>
@@ -294,6 +284,16 @@ export function renderSidebarHtml(state: any, notice: any = null, options: { loc
           <span>Push${outgoingCount > 0 ? ` ${outgoingCount}` : ""}</span>
           ${actionRiskBadge("push", state, tFn)}
         </button>
+      </div>
+      <div class="commit-compose">
+        <div class="commit-input-wrap">
+          <input class="commit-input" id="sidebar-commit-message" type="text" placeholder="${escapeHtml(tFn("sidebar.commitPlaceholder"))}" />
+          <button class="icon-button commit-helper" type="button" data-action="toolsMenu" data-tool="commit" aria-label="${escapeHtml(tFn("sidebar.commitHelper"))}" title="${escapeHtml(tFn("sidebar.commitHelper"))}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v12H8l-4 3z"></path><path d="M8 9h8M8 13h5"></path></svg></button>
+        </div>
+        <button class="primary" type="button" data-action="sidebarCommit">${escapeHtml(tFn("sidebar.commitButton"))}</button>
+      </div>
+      <div class="commit-secondary-row">
+        <button class="commit-undo" type="button" data-action="sidebarUndoCommit" title="${escapeHtml(tFn("sidebar.undoCommitTooltip"))}">${escapeHtml(tFn("sidebar.undoCommit"))}</button>
       </div>
     </section>
 

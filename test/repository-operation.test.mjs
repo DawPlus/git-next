@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { execFileSync, spawn } from 'node:child_process';
 import { once } from 'node:events';
-import { withRepositoryOperation, repositoryFingerprint } from '../src/repository-operation.mts';
+import { withRepositoryOperation, repositoryFingerprint, inspectRepositoryLock } from '../src/repository-operation.mts';
 const git = (cwd,...args) => execFileSync('git',args,{cwd,encoding:'utf8',stdio:['ignore','pipe','pipe']}).trim();
 function fixture(t) {
  const cwd=mkdtempSync(join(tmpdir(),'git-next-operation-')); t.after(()=>rmSync(cwd,{recursive:true,force:true}));
@@ -21,6 +21,20 @@ test('common Git directory lock rejects other processes, permits nesting, releas
   assert.equal((await once(child,'exit'))[0],0); throw new Error('fixture failure');
  }),/fixture failure/);
  assert.equal(await withRepositoryOperation(cwd,async()=>7),7);
+});
+test('lock inspection reports owner without stealing or deleting the lock', async t => {
+ const cwd = fixture(t);
+ const lockPath = join(cwd,'.git','git-next-operation.lock');
+ writeFileSync(lockPath, JSON.stringify({ pid: process.pid, startedAt: '2026-11-03T00:00:00.000Z' }));
+ const info = await inspectRepositoryLock(lockPath);
+ assert.equal(info.pid, process.pid);
+ assert.equal(info.processStatus, 'running');
+ await assert.rejects(withRepositoryOperation(cwd, async () => {}), error => {
+  assert.equal(error.code, 'repository-busy');
+  assert.equal(error.lockInfo.processStatus, 'running');
+  return true;
+ });
+ assert.equal(await inspectRepositoryLock(lockPath).then(info => info.pid), process.pid);
 });
 test('fingerprint detects unborn index content, branch and stash changes',async t=>{
  const cwd=fixture(t); const empty=await repositoryFingerprint(cwd); assert.ok(empty);

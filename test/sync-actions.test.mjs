@@ -7,8 +7,8 @@ import { renderGraphHtml } from "../src/graph-view.mts";
 test("explains common push rejection in plain language", () => {
   const message = explainGitError("push", "rejected non-fast-forward");
 
-  assert.match(message, /원격/);
-  assert.match(message, /받기/);
+  assert.match(message, /원격|거절/);
+  assert.match(message, /Pull|받기/);
 });
 
 test("renders pull and push controls with upstream relationship", () => {

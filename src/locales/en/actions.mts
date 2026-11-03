@@ -1,12 +1,12 @@
 export const actions = {
   explain: {
-    nonFastForward: "Remote branch has changes not yet fetched. Pull first, check the results, and push again.",
-    noTracking: "Current branch is not linked to a remote branch.",
-    notGitRepo: "Git repository not found in the current folder.",
-    conflict: "Conflicts occurred. Resolve the conflicting files and try again.",
-    diverged: "Local and remote commit histories have diverged. Review both changes and resolve them.",
-    pullFailed: "Failed to fetch changes. Open Git details to check the repository state.",
-    pushFailed: "Failed to push changes. Open Git details to check the repository state.",
+    nonFastForward: "Push was rejected because the remote has changes you do not have yet. Pull from the sidebar, review the result, then Push again.",
+    noTracking: "This branch is not linked to a remote. Connect it on the first Push, or check Branch tools.",
+    notGitRepo: "No Git repository found in this folder. Open a folder or create a repository first.",
+    conflict: "A conflict occurred. Use “Resolve conflicts / finish work” in the sidebar, then finish the operation.",
+    diverged: "Local and remote histories have diverged. Compare both sides in Branch compare, then choose Merge or Rebase.",
+    pullFailed: "Pull failed. Check Git details and your network, then try Pull again.",
+    pushFailed: "Push failed. Check the rejection reason in Git details, Pull or compare, then Push again.",
   },
   commitish: {
     unsafe: "Could not safely verify Git target.",

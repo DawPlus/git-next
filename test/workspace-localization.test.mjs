@@ -42,33 +42,33 @@ test("changes workspace renders in Korean and English", () => {
   const koHtml = renderChangesWorkspace(data, null, { locale: "ko" });
   assert.match(koHtml, /<html lang="ko">/);
   assert.match(koHtml, /변경사항 · Commit/);
-  assert.match(koHtml, /Staged · Commit에 포함/);
-  assert.match(koHtml, /변경사항 · 아직 미포함/);
+  assert.match(koHtml, /Commit 대기 · 포함될 파일/);
+  assert.match(koHtml, /변경사항 · 아직 고르지 않음/);
   assert.match(koHtml, /신규/);
-  assert.match(koHtml, /Staging에서 빼기/);
-  assert.match(koHtml, /Staging에 넣기/);
+  assert.match(koHtml, /Commit 대기에서 빼기/);
+  assert.match(koHtml, /Commit 대기로 넣기/);
   assert.match(koHtml, /비교/);
   assert.match(koHtml, /되돌리기/);
   assert.match(koHtml, /새로고침/);
   assert.match(koHtml, /Commit 만들기/);
   assert.match(koHtml, /마지막 로컬 Commit 취소/);
-  assert.match(koHtml, /Commit은 현재 Staged 파일만 포함합니다/);
+  assert.match(koHtml, /Commit은 지금 Commit 대기에 넣은 파일만 포함합니다/);
 
   // English
   const enHtml = renderChangesWorkspace(data, null, { locale: "en" });
   assert.match(enHtml, /<html lang="en">/);
   assert.match(enHtml, /Changes · Commit/);
-  assert.match(enHtml, /Staged · Included in Commit/);
-  assert.match(enHtml, /Changes · Not staged yet/);
+  assert.match(enHtml, /Ready to commit · Included files/);
+  assert.match(enHtml, /Changes · Not selected yet/);
   assert.match(enHtml, /New/);
-  assert.match(enHtml, /Remove from staging/);
-  assert.match(enHtml, /Add to staging/);
+  assert.match(enHtml, /Remove from ready-to-commit/);
+  assert.match(enHtml, /Mark ready to commit/);
   assert.match(enHtml, /Diff/);
   assert.match(enHtml, /Discard/);
   assert.match(enHtml, /Refresh/);
   assert.match(enHtml, /Create Commit/);
   assert.match(enHtml, /Undo last local commit/);
-  assert.match(enHtml, /Commit includes only currently staged files/);
+  assert.match(enHtml, /Commit includes only files marked ready to commit/);
 });
 
 test("compare workspace renders in Korean and English", () => {
@@ -226,11 +226,11 @@ test("commit detail workspace renders in Korean and English", () => {
 test("empty and notice states render in both locales", () => {
   // Changes empty
   const koChangesEmpty = renderChangesWorkspace({ staged: [], unstaged: [], files: [] }, { message: "알림" }, { locale: "ko" });
-  assert.match(koChangesEmpty, /아직 Staging된 파일이 없습니다/);
+  assert.match(koChangesEmpty, /아직 Commit 대기에 넣은 파일이 없습니다/);
   assert.match(koChangesEmpty, /추가로 선택할 변경사항이 없습니다/);
 
   const enChangesEmpty = renderChangesWorkspace({ staged: [], unstaged: [], files: [] }, { message: "Notice" }, { locale: "en" });
-  assert.match(enChangesEmpty, /No staged files yet/);
+  assert.match(enChangesEmpty, /No files marked ready to commit yet/);
   assert.match(enChangesEmpty, /No more changes to select/);
 
   // Compare empty

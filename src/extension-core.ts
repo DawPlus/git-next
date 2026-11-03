@@ -81,6 +81,20 @@ window.addEventListener("message", (event) => {
     }
     window.gitNextVscode?.postMessage({ type: "gitNextPerf", samples: samples });
   };
+  if (data.type === "gitNextBusyNotice" && typeof data.message === "string") {
+    let banner = document.getElementById("git-next-busy-banner");
+    if (!banner) {
+      banner = document.createElement("div");
+      banner.id = "git-next-busy-banner";
+      banner.style.cssText = "position:sticky;top:0;z-index:9999;padding:8px 12px;margin:4px 0;border-radius:4px;background:var(--vscode-inputValidation-warningBackground,#5a4b10);color:var(--vscode-inputValidation-warningForeground,#fff);border:1px solid var(--vscode-inputValidation-warningBorder,#b89500);font-size:12px;line-height:1.4;";
+      const target = document.querySelector("main") || document.body;
+      target.prepend(banner);
+    }
+    banner.textContent = data.message;
+    clearTimeout(window.__gitNextBusyTimer);
+    window.__gitNextBusyTimer = setTimeout(() => { banner?.remove(); }, 3500);
+    return;
+  }
   if (data.type === "gitNextScmRefresh" && typeof data.scmGroupsHtml === "string") {
     const scmRoot = document.querySelector("[data-scm-patch-root]");
     const hints = document.querySelector("[data-status-hints-patch]");
@@ -598,6 +612,9 @@ function onRepositoryMessage(webview, handler) {
     }
     if (running) {
       noteSoftFailure("common.actionBusy");
+      if (typeof webview.postMessage === "function") {
+        void webview.postMessage({ type: "gitNextBusyNotice", message: t("common.actionBusy") });
+      }
       return;
     }
     running = true;

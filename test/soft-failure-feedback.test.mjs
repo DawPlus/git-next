@@ -9,6 +9,41 @@ const sync = readFileSync(new URL("../src/sync-handler.ts", import.meta.url), "u
 test("busy webview clicks surface a soft notice instead of silent return", () => {
   assert.match(core, /noteSoftFailure\("common\.actionBusy"\)/);
   assert.match(core, /function noteSoftFailure/);
+  assert.match(core, /webview\.postMessage\(\{\s*type:\s*"gitNextBusyNotice"/);
+  assert.match(core, /git-next-busy-banner/);
+});
+
+test("second concurrent action records in-view busy notice via postMessage", async () => {
+  let running = false;
+  const posted = [];
+  const fakeWebview = {
+    postMessage: async (msg) => { posted.push(msg); },
+    onDidReceiveMessage: (fn) => fn,
+  };
+  const fakeHandler = async () => {
+    await new Promise((resolve) => setTimeout(resolve, 30));
+  };
+
+  const listener = fakeWebview.onDidReceiveMessage(async (message) => {
+    if (message?.type === "gitNextPerf") return;
+    if (running) {
+      void fakeWebview.postMessage({ type: "gitNextBusyNotice", message: "busy" });
+      return;
+    }
+    running = true;
+    try {
+      await fakeHandler();
+    } finally {
+      running = false;
+    }
+  });
+
+  const p1 = listener({ type: "action1" });
+  const p2 = listener({ type: "action2" });
+  await Promise.all([p1, p2]);
+
+  assert.equal(posted.length, 1);
+  assert.equal(posted[0].type, "gitNextBusyNotice");
 });
 
 test("refresh failures notify instead of empty catch", () => {

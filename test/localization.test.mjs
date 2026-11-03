@@ -86,9 +86,9 @@ test("사용자 노출 UI가 한글을 기본으로 사용한다", () => {
 
 test("대표 Git 오류와 Push 차단 안내가 한글이다", () => {
   resetLocale();
-  assert.match(explainGitError("push", "rejected non-fast-forward"), /원격 브랜치/);
+  assert.match(explainGitError("push", "rejected non-fast-forward"), /거절|Pull/);
   assert.match(explainGitError("pull", "CONFLICT automatic merge failed"), /충돌/);
-  assert.match(getPushGuidance({ kind: "behind", ahead: 0, behind: 2 }).message, /먼저 받기/);
+  assert.match(getPushGuidance({ kind: "behind", ahead: 0, behind: 2 }).message, /Pull|받기|비교/);
 });
 
 test("VS Code 명령과 설정 설명도 한글이다", () => {
@@ -110,8 +110,8 @@ test("사이드바에서 변경 파일을 보고 diff, stage, unstage, commit �
     ],
   });
 
-  assert.match(html, /Staged/);
-  assert.match(html, /변경사항/);
+  assert.match(html, /Commit 대기/);
+  assert.match(html, /아직 고르지 않음|변경사항/);
   assert.match(html, /src\/staged\.js/);
   assert.match(html, /src\/unstaged\.js/);
   assert.match(html, /src\/new\.js/);
@@ -631,23 +631,23 @@ test("coverage: tooltips and aria-labels exist and localize in Korean and Englis
   assert.match(koSidebar, /title="그래프 보기"/);
   assert.match(koSidebar, /aria-label="동기화"/);
   assert.match(koSidebar, /title="Commit 메시지 도우미"/);
-  assert.match(koSidebar, /title="전체 Stage"/);
-  assert.match(koSidebar, /title="전체 Unstage"/);
+  assert.match(koSidebar, /title="모두 Commit 대기로"/);
+  assert.match(koSidebar, /title="Commit 대기에서 모두 빼기"/);
 
   const enSidebar = renderSidebarHtml(state, null, { locale: "en" });
   assert.match(enSidebar, /title="View Graph"/);
   assert.match(enSidebar, /aria-label="Sync"/);
   assert.match(enSidebar, /title="Commit message helper"/);
-  assert.match(enSidebar, /title="Stage All"/);
-  assert.match(enSidebar, /title="Unstage All"/);
+  assert.match(enSidebar, /title="Mark all ready to commit"/);
+  assert.match(enSidebar, /title="Remove all from ready-to-commit"/);
 
   // Changes workspace tooltips & titles
   const data = { files: [], staged: [{ status: "M ", path: "f.js" }], unstaged: [] };
   const koChanges = renderChangesWorkspace(data, null, { locale: "ko" });
-  assert.match(koChanges, /title="Staging에서 빼기"/);
+  assert.match(koChanges, /title="Commit 대기에서 빼기"/);
 
   const enChanges = renderChangesWorkspace(data, null, { locale: "en" });
-  assert.match(enChanges, /title="Remove from staging"/);
+  assert.match(enChanges, /title="Remove from ready-to-commit"/);
 });
 
 test("coverage: modal and confirmation dialog templates localize in Korean and English", () => {
@@ -671,14 +671,45 @@ test("coverage: modal and confirmation dialog templates localize in Korean and E
     tEn("dialog.confirmMutation.worktreeContext", { count: 3, details: "b1 · /p1 / b2 · /p2" }),
     "3 other worktree(s): b1 · /p1 / b2 · /p2",
   );
+
+  // Risky confirm copy (Push, Pull, delete branch/tag/stash, discard/undo)
+  const confirmKeys = [
+    "pullConfirmLabel",
+    "pushConfirmLabel",
+    "forcePushConfirmLabel",
+    "protectedForcePushConfirmLabel",
+    "deleteTagConfirmLabel",
+    "deleteBranchAction",
+    "deleteBranchEffect",
+    "deleteStashAction",
+    "deleteStashEffect",
+    "undoCommitMessage",
+    "undoCommitConfirmLabel",
+    "undoCommitPushedWarning",
+    "discardFileConfirmLabel",
+    "revertPushedMessage",
+    "revertPushedConfirmLabel",
+    "discardAllTrackedMessage",
+    "discardAllTrackedConfirmLabel",
+  ];
+  for (const key of confirmKeys) {
+    const koVal = tKo(`dialog.confirm.${key}`);
+    const enVal = tEn(`dialog.confirm.${key}`);
+    assert.ok(koVal && !koVal.startsWith("dialog.confirm."), `Missing ko translation for dialog.confirm.${key}`);
+    assert.ok(enVal && !enVal.startsWith("dialog.confirm."), `Missing en translation for dialog.confirm.${key}`);
+  }
+  assert.match(tKo("dialog.confirm.deleteTagMessage", { name: "v1.0" }), /v1\.0/);
+  assert.match(tEn("dialog.confirm.deleteTagMessage", { name: "v1.0" }), /v1\.0/);
+  assert.match(tKo("dialog.confirm.discardFileMessage", { path: "a.txt" }), /a\.txt/);
+  assert.match(tEn("dialog.confirm.discardFileMessage", { path: "a.txt" }), /a\.txt/);
 });
 
 test("coverage: error messages and validation localize in Korean and English", async () => {
   // Git error explanations
   setLocale("ko");
-  assert.match(explainGitError("push", "rejected non-fast-forward"), /원격 브랜치/);
+  assert.match(explainGitError("push", "rejected non-fast-forward"), /거절|Pull/);
   setLocale("en");
-  assert.match(explainGitError("push", "rejected non-fast-forward"), /Remote branch/i);
+  assert.match(explainGitError("push", "rejected non-fast-forward"), /rejected|Pull/i);
 
   // Validations
   setLocale("ko");
@@ -703,9 +734,9 @@ test("coverage: empty states render correctly in Korean and English across all s
 
   // 2. Changes workspace empty
   const koEmptyChanges = renderChangesWorkspace({ staged: [], unstaged: [], files: [] }, null, { locale: "ko" });
-  assert.match(koEmptyChanges, /아직 Staging된 파일이 없습니다/);
+  assert.match(koEmptyChanges, /아직 Commit 대기에 넣은 파일이 없습니다/);
   const enEmptyChanges = renderChangesWorkspace({ staged: [], unstaged: [], files: [] }, null, { locale: "en" });
-  assert.match(enEmptyChanges, /No staged files yet/);
+  assert.match(enEmptyChanges, /No files marked ready to commit yet/);
 
   // 3. Stash workspace empty
   const koEmptyStash = renderStashWorkspace([], null, null, { locale: "ko" });

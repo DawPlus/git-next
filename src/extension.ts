@@ -48,6 +48,21 @@ async function activate(context: vscode.ExtensionContext) {
     await webviewHost.openGraphPanel(context);
   });
 
+  const startFirstCommitGuide = vscode.commands.registerCommand("gitNext.startFirstCommitGuide", async () => {
+    const { t } = await import("./i18n.mjs");
+    const choice = await vscode.window.showInformationMessage(
+      t("guidance.onboarding.firstCommitSteps"),
+      t("guidance.firstPush.createFile"),
+    );
+    if (!choice) {
+      await webviewHost.openGraphPanel(context);
+      return;
+    }
+    await vscode.window.showInformationMessage(t("guidance.onboarding.createFileHint"));
+    await vscode.commands.executeCommand("workbench.action.files.newUntitledFile");
+    await webviewHost.openGraphPanel(context);
+  });
+
   const openFileHistory = vscode.commands.registerCommand("gitNext.fileHistory", async (resourceUri?: vscode.Uri) => {
     const cwd = core.getCwd(resourceUri);
     if (!cwd) return;
@@ -94,7 +109,7 @@ async function activate(context: vscode.ExtensionContext) {
     });
   });
 
-  context.subscriptions.push(sidebar, openGitNext, openFileHistory);
+  context.subscriptions.push(sidebar, openGitNext, startFirstCommitGuide, openFileHistory);
 }
 
 function deactivate() {}

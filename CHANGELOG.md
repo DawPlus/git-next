@@ -1,5 +1,31 @@
 # 변경 기록
 
+## 0.2.7
+
+- Push 거절 시 Pull을 1순위 권장 액션으로 제공하고 덮어쓰기 위험 문구 보강
+- 갈라진(diverged) 브랜치 해결 프리뷰에 Merge 안전성 및 Rebase 재작성 안내 노출
+- 충돌 해결 화면에 Current vs Incoming 명칭과 완료 컨트롤을 파일 목록 옆에 함께 배치
+- 백그라운드 작업 중 추가 클릭 무시 시 패널 내부에 Busy 안내 배너 표시
+- 사이드바 첫 화면 상단에 그래프·Sync·Safe Guard 우선 배치 (Changes는 안전 확인 후 노출)
+- Push, Pull, 삭제, Discard/Undo 확인 대화상자 문구를 다국어(i18n) `dialog.confirm`으로 분리
+
+## 0.2.6
+
+- Commit 메시지 힌트·Stage/Commit 성공 후 다음 단계·Push 거절/갈라짐 안내를 쉬운 다음 행동 중심으로 보강
+
+## 0.2.5
+
+- Push/Pull 사전 검사(preflight) 지연을 줄임 (호스트 기준 약 175–200ms → 약 75–87ms)
+- 진행 중 merge/rebase 등 표식을 파일시스템 경로로 빠르게 확인하고, 독립 검사를 병렬화
+- 원격 기록 재작성 감지는 동시 호출만 한 번 fetch로 합치고, 클릭마다 새 원격 커밋은 놓치지 않도록 유지
+- Stage 클릭 지연 측정용 `GIT_NEXT_PERF` 파일 로그·웹뷰 `stage:total` 브리지·픽스처 스크립트 추가
+- 빈 저장소 첫 성공 안내, 조용한 새로고침/바쁜 클릭 실패 노출, 빌드 시 TypeScript 검사 강화
+- README·Safe Guard 설명을 실수 방지(초보자 두려움 완화) 목표에 맞게 정리
+- Marketplace 아이콘을 128×128로 축소해 1024KB 제한을 통과
+- Push/Pull 실패·차단 안내를 ‘다음에 누를 곳’ 중심으로 강화하고 Continue/Abort 표현을 제거
+- 사이드바·변경사항 기본 라벨을 Commit 대기 / 브랜치 밖 커밋 등 쉬운 말로 정리
+- 빈 저장소 viewsWelcome·첫 Commit 안내 명령과 저장→Stage→Commit 힌트를 보강
+
 ## 0.1.7
 
 - Safe Guard 메시지를 현재 상태, 위험 이유, 발생 가능한 문제, 다음 행동까지 설명하도록 확장

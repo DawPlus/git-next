@@ -200,7 +200,7 @@ export function renderGraphHtml(state: any, notice: any = null, options: any = {
     "no-upstream": "원격 연결 없음",
     unknown: "상태 확인 불가",
   };
-  const branch = state.branch ?? "분리된 HEAD";
+  const branch = state.branch ?? t("sidebar.detachedHead");
   const otherWorktrees = (state.worktrees ?? []).filter((worktree) => !worktree.isCurrent);
   const relaxedRules = state.relaxedRules ?? [];
   const upstream = state.upstream ?? "원격 연결 없음";
@@ -250,7 +250,7 @@ export function renderGraphHtml(state: any, notice: any = null, options: any = {
       <div class="title-wrap">
         <h1>Git Next</h1>
         <div class="branch">${escapeHtml(branch)} · ${escapeHtml(upstream)} · ${escapeHtml(tracking)} · ${escapeHtml(autoPull)}</div>
-        ${otherWorktrees.length ? `<div class="branch">다른 작업 폴더 ${otherWorktrees.length}개 · ${otherWorktrees.map((item) => `${item.branch ?? "분리된 HEAD"} · ${item.path}`).map(escapeHtml).join(" / ")}</div>` : ""}
+        ${otherWorktrees.length ? `<div class="branch">다른 작업 폴더 ${otherWorktrees.length}개 · ${otherWorktrees.map((item) => `${item.branch ?? t("sidebar.detachedHead")} · ${item.path}`).map(escapeHtml).join(" / ")}</div>` : ""}
         ${relaxedRules.length ? `<div class="branch" role="status">세션 동안 완화된 보호: ${relaxedRules.map(escapeHtml).join(", ")}</div>` : ""}
       </div>
       <div class="actions">

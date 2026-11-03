@@ -5,7 +5,7 @@ import path from "node:path";
 
 import { buildDiagnosisPrompt, validateDiagnosis } from "./ai-diagnosis.mjs";
 
-function parseJson(text: unknown): any {
+function parseJson(text: unknown): unknown {
   const source = String(text ?? "").trim();
   try {
     return JSON.parse(source);
@@ -67,7 +67,7 @@ async function defaultRunCodex({ prompt, cwd }: { prompt: string; cwd: string })
   }
 }
 
-async function defaultFetchJson({ endpoint, model, prompt }: { endpoint: string; model: string; prompt: string }): Promise<any> {
+async function defaultFetchJson({ endpoint, model, prompt }: { endpoint: string; model: string; prompt: string }): Promise<unknown> {
   const response = await fetch(`${endpoint.replace(/\/$/, "")}/api/chat`, {
     method: "POST",
     headers: { "content-type": "application/json" },
@@ -102,7 +102,9 @@ export async function diagnoseWithProvider({
     } else if (provider === "ollama") {
       if (!model) return { ok: false, code: "model-not-configured", message: "Ollama 모델을 설정하세요." };
       const response = await fetchJson({ endpoint, model, prompt });
-      raw = parseJson(response?.message?.content ?? response?.response);
+      const payload = response && typeof response === "object" ? response as Record<string, unknown> : {};
+      const message = payload.message && typeof payload.message === "object" ? payload.message as Record<string, unknown> : {};
+      raw = parseJson(message.content ?? payload.response);
     } else {
       return { ok: false, code: "unsupported-provider", message: `지원하지 않는 AI Provider입니다: ${provider}` };
     }

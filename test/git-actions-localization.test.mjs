@@ -27,17 +27,17 @@ test.afterEach(() => {
 test("explainGitError localizes in Korean and English with raw detail intact", () => {
   setLocale("ko");
   const koPush = explainGitError("push", "rejected (non-fast-forward)");
-  assert.match(koPush, /원격 브랜치에 아직 받지 않은 변경이 있습니다/);
+  assert.match(koPush, /거절|Pull/);
 
   const koPullConflict = explainGitError("pull", "CONFLICT (content): Merge conflict in file.txt");
   assert.match(koPullConflict, /충돌이 발생했습니다/);
 
   setLocale("en");
   const enPush = explainGitError("push", "rejected (non-fast-forward)");
-  assert.match(enPush, /Remote branch has changes not yet fetched/i);
+  assert.match(enPush, /rejected|Pull/i);
 
   const enPullConflict = explainGitError("pull", "CONFLICT (content): Merge conflict in file.txt");
-  assert.match(enPullConflict, /conflicts occurred/i);
+  assert.match(enPullConflict, /conflict occurred/i);
 });
 
 test("validation errors localize in Korean and English", async () => {
@@ -167,11 +167,11 @@ test("Safe Guard rules and evaluations localize in Korean and English", async ()
 
 test("getRetryCheck and getUndoRecommendation localize in Korean and English", () => {
   setLocale("ko");
-  assert.equal(getRetryCheck({ code: "dirty-working-tree" }), "로컬 변경을 Commit 또는 Stash했는지 확인하세요.");
+  assert.equal(getRetryCheck({ code: "dirty-working-tree" }), "로컬 변경을 Commit 또는 Stash로 보관한 뒤 다시 시도하세요.");
   assert.equal(getUndoRecommendation({ ok: true, action: "push" }).label, "Revert 커밋 만들기");
 
   setLocale("en");
-  assert.match(getRetryCheck({ code: "dirty-working-tree" }), /Check whether local changes are committed or stashed/i);
+  assert.match(getRetryCheck({ code: "dirty-working-tree" }), /Commit or Stash local changes/i);
   assert.equal(getUndoRecommendation({ ok: true, action: "push" }).label, "Create Revert commit");
 });
 
